@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+/* =============================================================================
+   AI Media Studio — tokens de design
+   Fonte de verdade: docs/03-design-system.md
+   Extraído de: imagens/modelo1.jpeg e imagens/modelo2.jpeg
+   REGRA: nenhum componente escreve cor literal; tudo vem daqui.
+   ============================================================================= */
+
+:root {
+  /* --- superfícies ------------------------------------------------------- */
+  --ams-bg-deep: #050b1f;
+  --ams-bg-mid: #0a1b4a;
+  --ams-bg-top: #14307e;
+  --ams-blob-blue: #2563eb;
+  --ams-blob-violet: #7c3aed;
+  --ams-blob-cyan: #06b6d4;
+
+  /* --- vidro ------------------------------------------------------------- */
+  --ams-glass: rgba(255, 255, 255, 0.055);
+  --ams-glass-strong: rgba(255, 255, 255, 0.09);
+  --ams-glass-sunken: rgba(3, 10, 30, 0.55);
+  --ams-border: rgba(125, 180, 255, 0.2);
+  --ams-border-strong: rgba(56, 189, 248, 0.55);
+  --ams-blur: 18px;
+
+  /* --- ação e acento ----------------------------------------------------- */
+  --ams-cyan: #22d3ee;
+  --ams-blue: #3b82f6;
+  --ams-violet: #8b5cf6;
+  --ams-grad-action: linear-gradient(135deg, #22d3ee 0%, #3b82f6 55%, #8b5cf6 100%);
+
+  /* --- semântica de estado ----------------------------------------------- */
+  --ams-ok: #22c55e;
+  --ams-warn: #f59e0b;
+  --ams-danger: #ef4444;
+  --ams-info: #38bdf8;
+
+  --ams-ok-soft: rgba(34, 197, 94, 0.14);
+  --ams-warn-soft: rgba(245, 158, 11, 0.14);
+  --ams-danger-soft: rgba(239, 68, 68, 0.14);
+  --ams-info-soft: rgba(56, 189, 248, 0.14);
+  --ams-neutral-soft: rgba(255, 255, 255, 0.08);
+
+  /* --- texto ------------------------------------------------------------- */
+  --ams-text: #ffffff;
+  --ams-text-2: #c7d7f0;
+  --ams-text-3: #8fa6c9;
+
+  /* --- forma ------------------------------------------------------------- */
+  --ams-r-sm: 8px;
+  --ams-r-md: 12px;
+  --ams-r-lg: 18px;
+  --ams-r-xl: 24px;
+  --ams-r-pill: 999px;
+
+  --ams-shadow-card: 0 10px 30px rgba(2, 8, 28, 0.45);
+  --ams-glow-cyan: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 24px rgba(34, 211, 238, 0.18);
+
+  --ams-topbar-h: 64px;
+  --ams-sidebar-w: 232px;
+
+  /* --- gradientes de categoria (ícone-tile) ------------------------------ */
+  --ams-tile-cyan: linear-gradient(140deg, #22d3ee, #0ea5e9);
+  --ams-tile-blue: linear-gradient(140deg, #3b82f6, #1d4ed8);
+  --ams-tile-violet: linear-gradient(140deg, #8b5cf6, #6d28d9);
+  --ams-tile-green: linear-gradient(140deg, #34d399, #059669);
+  --ams-tile-amber: linear-gradient(140deg, #fbbf24, #d97706);
+  --ams-tile-rose: linear-gradient(140deg, #fb7185, #e11d48);
+  --ams-tile-pink: linear-gradient(140deg, #f472b6, #be185d);
+  --ams-tile-teal: linear-gradient(140deg, #2dd4bf, #0f766e);
+}
+
+/* Expõe os tokens como utilitários do Tailwind (bg-surface, text-ink-2, ...). */
+@theme inline {
+  --color-deep: var(--ams-bg-deep);
+  --color-mid: var(--ams-bg-mid);
+  --color-top: var(--ams-bg-top);
+  --color-surface: var(--ams-glass);
+  --color-surface-strong: var(--ams-glass-strong);
+  --color-sunken: var(--ams-glass-sunken);
+  --color-line: var(--ams-border);
+  --color-line-strong: var(--ams-border-strong);
+  --color-cyan: var(--ams-cyan);
+  --color-blue: var(--ams-blue);
+  --color-violet: var(--ams-violet);
+  --color-ok: var(--ams-ok);
+  --color-warn: var(--ams-warn);
+  --color-danger: var(--ams-danger);
+  --color-info: var(--ams-info);
+  --color-ink: var(--ams-text);
+  --color-ink-2: var(--ams-text-2);
+  --color-ink-3: var(--ams-text-3);
+
+  --radius-sm: var(--ams-r-sm);
+  --radius-md: var(--ams-r-md);
+  --radius-lg: var(--ams-r-lg);
+  --radius-xl: var(--ams-r-xl);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    color: var(--ams-text-2);
+    font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--ams-bg-deep);
+    background-image:
+      radial-gradient(900px 620px at 10% -12%, rgba(37, 99, 235, 0.38), transparent 62%),
+      radial-gradient(720px 520px at 96% 2%, rgba(6, 182, 212, 0.2), transparent 60%),
+      radial-gradient(820px 700px at 88% 104%, rgba(124, 58, 237, 0.26), transparent 62%),
+      linear-gradient(180deg, var(--ams-bg-top) 0%, var(--ams-bg-mid) 44%, var(--ams-bg-deep) 100%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--ams-text);
+    margin: 0;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* O vidro escuro engole o foco nativo do navegador — o foco é nosso. */
+  :focus-visible {
+    outline: 2px solid var(--ams-cyan);
+    outline-offset: 2px;
+    border-radius: var(--ams-r-sm);
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.35);
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(125, 180, 255, 0.22);
+    border-radius: var(--ams-r-pill);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(125, 180, 255, 0.38);
+    background-clip: content-box;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Números não podem "dançar" quando o valor atualiza. */
+.ams-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}

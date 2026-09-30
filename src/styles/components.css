@@ -1,0 +1,482 @@
+/* =============================================================================
+   AI Media Studio — primitivos visuais
+   Cada classe corresponde a um primitivo de docs/03-design-system.md §6.
+   Nenhum valor de cor literal aqui: tudo vem de tokens.css.
+   ============================================================================= */
+
+/* --- Card ---------------------------------------------------------------- */
+.ams-card {
+  position: relative;
+  background: var(--ams-glass);
+  border: 1px solid var(--ams-border);
+  border-radius: var(--ams-r-lg);
+  box-shadow: var(--ams-shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(var(--ams-blur));
+  -webkit-backdrop-filter: blur(var(--ams-blur));
+}
+
+.ams-card--strong {
+  background: var(--ams-glass-strong);
+  border-color: var(--ams-border-strong);
+  box-shadow: var(--ams-shadow-card), var(--ams-glow-cyan), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.ams-card--sunken {
+  background: var(--ams-glass-sunken);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.ams-card--flush {
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* --- Section title (círculo numerado + linha) ---------------------------- */
+.ams-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ams-section-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-grad-action);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: var(--ams-glow-cyan);
+}
+
+.ams-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ams-text);
+}
+
+.ams-section-hint {
+  font-size: 12px;
+  color: var(--ams-text-3);
+}
+
+.ams-section-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--ams-border), transparent);
+}
+
+/* --- Icon tile ----------------------------------------------------------- */
+.ams-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--ams-r-md);
+  color: #fff;
+  background: var(--ams-tile-blue);
+  box-shadow: 0 6px 16px rgba(2, 8, 28, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.ams-tile--sm {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--ams-r-sm);
+}
+.ams-tile--lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.ams-tile--cyan {
+  background: var(--ams-tile-cyan);
+}
+.ams-tile--blue {
+  background: var(--ams-tile-blue);
+}
+.ams-tile--violet {
+  background: var(--ams-tile-violet);
+}
+.ams-tile--green {
+  background: var(--ams-tile-green);
+}
+.ams-tile--amber {
+  background: var(--ams-tile-amber);
+}
+.ams-tile--rose {
+  background: var(--ams-tile-rose);
+}
+.ams-tile--pink {
+  background: var(--ams-tile-pink);
+}
+.ams-tile--teal {
+  background: var(--ams-tile-teal);
+}
+
+/* --- Stat ---------------------------------------------------------------- */
+.ams-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ams-stat__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ams-text-3);
+}
+
+.ams-stat__value {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ams-text);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ams-stat__value--sm {
+  font-size: 20px;
+}
+
+.ams-stat__foot {
+  font-size: 11px;
+  color: var(--ams-text-3);
+}
+
+/* --- Pill ---------------------------------------------------------------- */
+.ams-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--ams-r-pill);
+  border: 1px solid transparent;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  background: var(--ams-neutral-soft);
+  color: var(--ams-text-2);
+  border-color: var(--ams-border);
+}
+
+.ams-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--ams-r-pill);
+  background: currentColor;
+  flex: none;
+}
+
+.ams-pill--ok {
+  background: var(--ams-ok-soft);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+.ams-pill--warn {
+  background: var(--ams-warn-soft);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+}
+.ams-pill--danger {
+  background: var(--ams-danger-soft);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.ams-pill--info {
+  background: var(--ams-info-soft);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: #7dd3fc;
+}
+
+/* --- Module card --------------------------------------------------------- */
+.ams-module {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 11px;
+  background: var(--ams-glass);
+  border: 1px solid var(--ams-border);
+  border-radius: var(--ams-r-md);
+  text-align: left;
+  width: 100%;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.ams-module__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ams-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ams-module__desc {
+  font-size: 11px;
+  color: var(--ams-text-3);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+a.ams-module:hover,
+button.ams-module:hover {
+  background: var(--ams-glass-strong);
+  border-color: var(--ams-border-strong);
+  transform: translateY(-1px);
+}
+
+.ams-module--pending {
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+/* --- Progress ------------------------------------------------------------ */
+.ams-progress {
+  height: 6px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-glass-sunken);
+  overflow: hidden;
+  border: 1px solid var(--ams-border);
+}
+
+.ams-progress__fill {
+  height: 100%;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-grad-action);
+  transition: width 320ms ease;
+}
+
+/* --- Avatar -------------------------------------------------------------- */
+.ams-avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-grad-action);
+  color: #fff;
+  font-weight: 700;
+  flex: none;
+  box-shadow: 0 0 0 2px rgba(5, 11, 31, 0.9), 0 0 0 3px rgba(125, 180, 255, 0.35);
+}
+
+/* --- Botões -------------------------------------------------------------- */
+.ams-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: var(--ams-r-md);
+  border: 1px solid var(--ams-border);
+  background: var(--ams-glass);
+  color: var(--ams-text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.ams-btn:hover:not(:disabled) {
+  background: var(--ams-glass-strong);
+  border-color: var(--ams-border-strong);
+}
+
+.ams-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.ams-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ams-btn--primary {
+  background: var(--ams-grad-action);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(34, 211, 238, 0.22);
+}
+
+.ams-btn--primary:hover:not(:disabled) {
+  background: var(--ams-grad-action);
+  filter: brightness(1.08);
+}
+
+.ams-btn--danger {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.ams-btn--lg {
+  min-height: 46px;
+  padding: 0 20px;
+  font-size: 14px;
+}
+
+/* --- Navegação lateral --------------------------------------------------- */
+.ams-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--ams-r-md);
+  color: var(--ams-text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.ams-nav-item:hover {
+  background: var(--ams-glass);
+  color: var(--ams-text);
+}
+
+.ams-nav-item[aria-current='page'] {
+  background: var(--ams-glass-strong);
+  color: var(--ams-text);
+  font-weight: 600;
+  border: 1px solid var(--ams-border-strong);
+}
+
+.ams-nav-item[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-cyan);
+  box-shadow: 0 0 12px var(--ams-cyan);
+}
+
+/* --- Skeleton / vazio / erro -------------------------------------------- */
+.ams-skel {
+  border-radius: var(--ams-r-md);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.11) 37%,
+    rgba(255, 255, 255, 0.05) 63%
+  );
+  background-size: 400% 100%;
+  animation: ams-shimmer 1.4s ease infinite;
+}
+
+@keyframes ams-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* --- Slot de arte (placeholder até o Brand Kit entregar a arte) ---------- */
+.ams-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--ams-r-md);
+  border: 1px dashed var(--ams-border);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.12)),
+    var(--ams-glass-sunken);
+  color: var(--ams-text-3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 6px;
+}
+
+.ams-art--16x9 {
+  aspect-ratio: 16 / 9;
+}
+.ams-art--9x16 {
+  aspect-ratio: 9 / 16;
+}
+.ams-art--1x1 {
+  aspect-ratio: 1 / 1;
+}
+
+/* --- Tabela -------------------------------------------------------------- */
+.ams-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.ams-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ams-text-3);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ams-border);
+  white-space: nowrap;
+}
+
+.ams-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid rgba(125, 180, 255, 0.1);
+  color: var(--ams-text-2);
+  vertical-align: middle;
+}
+
+.ams-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ams-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* --- Barra (gráfico simples) -------------------------------------------- */
+.ams-bar-track {
+  height: 8px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-glass-sunken);
+  overflow: hidden;
+}
+
+.ams-bar-fill {
+  height: 100%;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-tile-cyan);
+}
+
+/* --- Faixa de aviso (dados de exemplo) ---------------------------------- */
+.ams-ribbon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-info-soft);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #7dd3fc;
+  font-size: 11px;
+  font-weight: 600;
+}

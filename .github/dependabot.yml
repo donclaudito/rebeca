@@ -1,0 +1,43 @@
+# Dependabot — mantém dependências e Actions em dia, e o alerta de segurança vivo.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - area:infra
+      - risco:dependencia
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # Uma PR por semana para o toolchain, em vez de 20 PRs de patch.
+      toolchain:
+        patterns:
+          - vite
+          - vitest
+          - typescript
+          - '@vitejs/*'
+          - tailwindcss
+          - '@tailwindcss/*'
+      react:
+        patterns:
+          - react
+          - react-dom
+          - react-router-dom
+          - '@types/react*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels:
+      - area:infra
+      - risco:dependencia
+    commit-message:
+      prefix: 'chore(ci)'

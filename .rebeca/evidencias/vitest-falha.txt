@@ -1,0 +1,373 @@
+﻿node.exe : $ vitest run
+No C:\Users\clauo\AppData\Roaming\npm\pnpm.ps1:24 caractere:5
++     & "node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.mjs" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ($ vitest run:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+ RUN  v5.0.2 E:/pojeto rebeca
+
+ ❯ src/data/__tests__/channel-scope.test.tsx (4 tests | 1 failed) 6310ms
+   ❯ isolamento entre canais (4)
+     ✓ a camada de dados recusa conteúdo que pertence a outro canal 371ms
+     ✓ a fila de revisão nunca devolve conteúdo de outro canal 455ms
+     × trocar de canal limpa o DOM, o cache e a URL do canal anterior 5055ms
+     ✓ rota sem canal não renderiza tela de canal nenhuma 412ms
+Not implemented: navigation to another Document
+ ❯ src/features/revisao/__tests__/revisao.test.tsx (4 tests | 1 failed) 10678ms
+   ❯ tela de revisão (4)
+     × não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 2808ms
+     ✓ aprova uma única vez mesmo com dois cliques seguidos 2922ms
+     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 4585ms
+     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 348ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/data/__tests__/channel-scope.test.tsx > isolamento entre canais > trocar de canal limpa o DOM, o cache e a 
+URL do canal anterior
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ src/data/__tests__/channel-scope.test.tsx:64:3
+     62|   });
+     63|
+     64|   it('trocar de canal limpa o DOM, o cache e a URL do canal anterior',…
+       |   ^
+     65|     const user = userEvent.setup();
+     66|     const { queryClient } = renderAt('/c/luna/inicio');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > não deixa aprovar sem thumbnail escolhida, 
+e nenhuma opção vem pré-marcada
+TestingLibraryElementError: Unable to find role="button" and name `/Aprovar e agendar/i`
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh flex flex-col"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"sticky top-0 z-40 h-[var(--ams-topbar-h)] border-b border-line bg-deep/70 
+backdrop-blur-[18px]"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1400px] h-full px-4 sm:px-6 lg:px-8 flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"AI Media Studio — início"[39m
+            [33mclass[39m=[32m"flex items-center gap-2.5 shrink-0"[39m
+            [33mdata-discover[39m=[32m"true"[39m
+            [33mhref[39m=[32m"/portfolio"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ams-tile ams-tile--blue"[39m
+              [33mstyle[39m=[32m"width: 34px; height: 34px; border-radius: 10px;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-sparkles lucide-stars"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 
+0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 
+0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M20 2v4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 4h-4"[39m
+                [36m/>[39m
+                [36m<circle[39m
+                  [33mcx[39m=[32m"4"[39m
+                  [33mcy[39m=[32m"20"[39m
+                  [33mr[39m=[32m"2"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"leading-tight"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-[14px] font-bold text-ink"[39m
+              [36m>[39m
+                [0mAI Media Studio[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"hidden sm:block text-[10px] text-ink-3"[39m
+              [36m>[39m
+                [0mo seu estúdio de mídia com IA[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1"[39m
+          [36m/>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"Nenhum conteúdo aguardando aprovação"[39m
+            [33mclass[39m=[32m"ams-btn !min-h-[34px] !px-3 relative"[39m
+            [33mdata-discover[39m=[32m"true"[39m
+            [33mhref[39m=[32m"/c/luna/conteudo?filtro=revisao"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-bell"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"15"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"15"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10.268 21a2 2 0 0 0 3.464 0"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 
+0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"hidden sm:inline text-[12px]"[39m
+            [36m>[39m
+              [0mAprovações[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33maria-haspopup[39m=[32m"listbox"[39m
+              [33maria-label[39m=[32m"Escolher canal"[39m
+              [33mclass[39m=[32m"ams-btn gap-2.5 pr-3 max-w-[300px]"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-[12px] font-semibold"[39m
+              [36m>[39m
+                [0mEscolher canal[0m
+              [36m</span>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-chevron-down text-ink-3 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 9 6 6 6-6"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 flex gap-6 pt-5 pb-24 lg:pb-10"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33maria-label[39m=[32m"Navegação principal"[39m
+          [33mclass[39m=[32m"hidden lg:flex flex-col gap-1 w-[var(--ams-sidebar-w)] shrink-0 p-3 self-start sticky 
+top-[calc(var(--ams-topbar-h)+16px)]"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ams-card ams-card--flush p-2 flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"ams-nav-item"[39m...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh flex flex-col"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"sticky top-0 z-40 h-[var(--ams-topbar-h)] border-b border-line bg-deep/70 
+backdrop-blur-[18px]"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1400px] h-full px-4 sm:px-6 lg:px-8 flex items-center gap-3"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"AI Media Studio — início"[39m
+            [33mclass[39m=[32m"flex items-center gap-2.5 shrink-0"[39m
+            [33mdata-discover[39m=[32m"true"[39m
+            [33mhref[39m=[32m"/portfolio"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"ams-tile ams-tile--blue"[39m
+              [33mstyle[39m=[32m"width: 34px; height: 34px; border-radius: 10px;"[39m
+            [36m>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-sparkles lucide-stars"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 
+0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 
+0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"[39m
+                [36m/>[39m
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 6 passed (8)
+   Start at  15:48:56
+   Duration  24.77s (tests 39%, environment 28%, import 12%, transform 12%, setup 8%)
+
+                [36m<path[39m
+                  [33md[39m=[32m"M20 2v4"[39m
+                [36m/>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"M22 4h-4"[39m
+                [36m/>[39m
+                [36m<circle[39m
+                  [33mcx[39m=[32m"4"[39m
+                  [33mcy[39m=[32m"20"[39m
+                  [33mr[39m=[32m"2"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"leading-tight"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"block text-[14px] font-bold text-ink"[39m
+              [36m>[39m
+                [0mAI Media Studio[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"hidden sm:block text-[10px] text-ink-3"[39m
+              [36m>[39m
+                [0mo seu estúdio de mídia com IA[0m
+              [36m</span>[39m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1"[39m
+          [36m/>[39m
+          [36m<a[39m
+            [33maria-label[39m=[32m"Nenhum conteúdo aguardando aprovação"[39m
+            [33mclass[39m=[32m"ams-btn !min-h-[34px] !px-3 relative"[39m
+            [33mdata-discover[39m=[32m"true"[39m
+            [33mhref[39m=[32m"/c/luna/conteudo?filtro=revisao"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-bell"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"15"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"15"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M10.268 21a2 2 0 0 0 3.464 0"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 
+0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"hidden sm:inline text-[12px]"[39m
+            [36m>[39m
+              [0mAprovações[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"relative"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33maria-expanded[39m=[32m"false"[39m
+              [33maria-haspopup[39m=[32m"listbox"[39m
+              [33maria-label[39m=[32m"Escolher canal"[39m
+              [33mclass[39m=[32m"ams-btn gap-2.5 pr-3 max-w-[300px]"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-[12px] font-semibold"[39m
+              [36m>[39m
+                [0mEscolher canal[0m
+              [36m</span>[39m
+              [36m<svg[39m
+                [33maria-hidden[39m=[32m"true"[39m
+                [33mclass[39m=[32m"lucide lucide-chevron-down text-ink-3 shrink-0"[39m
+                [33mfill[39m=[32m"none"[39m
+                [33mheight[39m=[32m"15"[39m
+                [33mstroke[39m=[32m"currentColor"[39m
+                [33mstroke-linecap[39m=[32m"round"[39m
+                [33mstroke-linejoin[39m=[32m"round"[39m
+                [33mstroke-width[39m=[32m"2"[39m
+                [33mviewBox[39m=[32m"0 0 24 24"[39m
+                [33mwidth[39m=[32m"15"[39m
+                [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+              [36m>[39m
+                [36m<path[39m
+                  [33md[39m=[32m"m6 9 6 6 6-6"[39m
+                [36m/>[39m
+              [36m</svg>[39m
+            [36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8 flex gap-6 pt-5 pb-24 lg:pb-10"[39m
+      [36m>[39m
+        [36m<aside[39m
+          [33maria-label[39m=[32m"Navegação principal"[39m
+          [33mclass[39m=[32m"hidden lg:flex flex-col gap-1 w-[var(--ams-sidebar-w)] shrink-0 p-3 self-start sticky 
+top-[calc(var(--ams-topbar-h)+16px)]"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"ams-card ams-card--flush p-2 flex flex-col gap-1"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"ams-nav-item"[39m...
+ ❯ waitForWrapper 
+node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.2/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ src/features/revisao/__tests__/revisao.test.tsx:44:34
+     42|     renderReview();
+     43|
+     44|     const aprovar = await screen.findByRole('button', { name: /Aprovar…
+       |                                  ^
+     45|     expect(aprovar).toBeDisabled();
+     46|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+[ELIFECYCLE] Test failed. See above for more details.

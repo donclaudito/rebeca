@@ -1,0 +1,14 @@
+# Normalização de fim de linha: o desenvolvimento é no Windows e o build de produção roda em Linux
+# (Vercel). Sem isto, cada arquivo gera aviso "LF will be replaced by CRLF" e o diff fica instável
+# dependendo de quem escreveu por último.
+* text=auto
+
+# Binários: nunca normalizar nem tentar tratar como texto.
+*.jpeg binary
+*.jpg binary
+*.png binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary

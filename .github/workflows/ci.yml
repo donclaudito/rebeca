@@ -1,0 +1,60 @@
+name: ci
+
+# Contrato mínimo do repositório: nenhum commit em `main` sem tipos, testes e build verdes.
+# Este workflow NÃO publica e NÃO publica no YouTube nem gasta API paga — por invariante do projeto,
+# publicação é ato humano aprovado, nunca efeito colateral de CI.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: tipos · testes · build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # `pnpm/setup` é o sucessor do `pnpm/action-setup` para pnpm v11+ (nosso caso: 11.25.0) e instala
+      # o Node no mesmo passo. Node 22.x é o piso real do toolchain: `vitest@5` exige ^22.12.0 e
+      # `vite@8` exige ^20.19.0 || >=22.12.0.
+      - name: pnpm + Node
+        uses: pnpm/setup@v3
+        with:
+          version: 11
+          runtime: node@22
+          cache: true
+
+      - name: Nenhum segredo em texto claro
+        run: |
+          if git grep -nEI '(ghp_[0-9A-Za-z]{36}|gho_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{22,}|AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9]{20,})' -- .; then
+            echo "::error::possível segredo em texto claro versionado — rotacione antes de seguir"
+            exit 1
+          fi
+          echo "nenhum segredo em texto claro encontrado"
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Testes
+        run: pnpm test
+
+      - name: Build de produção
+        run: pnpm build
+
+      - name: Guardar o artefato do build
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist
+          retention-days: 7

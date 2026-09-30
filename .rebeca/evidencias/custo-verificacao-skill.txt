@@ -1,0 +1,57 @@
+EVIDENCIA — defeito no comando de verificacao de custo da skill rebeca-ia-video
+Data: 2026-09-30 (Get-Date no host)  |  Agente: rebeca-ia-video  |  Host: Windows / pwsh
+
+DEFEITO
+O checklist da skill mandava:
+  (Import-Csv .rebeca/custos.csv | Where-Object { $_.episodio -eq '<ep>' } | Measure-Object usd -Sum).Sum / <duracao_min>
+
+O cabecalho real de .rebeca/custos.csv e:
+  data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por
+
+Ou seja: as colunas `episodio` e `usd` NAO EXISTEM (sao `conteudo` e `custo_usd`).
+
+COMANDO EXECUTADO (com CSV de teste, uma linha de 1.20 USD, video de 8 min)
+
+  $csv = @'
+  data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por
+  2026-01-15,Luna e o Jardim das Cores,Luna e as Borboletas,imagem,prov,mod,imagem,24,1.20,12,humano
+  '@
+  $tmp = Join-Path $env:TEMP 'custos-teste.csv'
+  Set-Content -Path $tmp -Value $csv -Encoding utf8
+  $a = (Import-Csv $tmp | Where-Object { $_.episodio -eq 'Luna e as Borboletas' } | Measure-Object usd -Sum).Sum
+  $b = (Import-Csv $tmp | Where-Object { $_.conteudo -eq 'Luna e as Borboletas' } | Measure-Object custo_usd -Sum).Sum
+
+RESULTADO OBSERVADO
+
+  --- colunas reais do CSV ---
+  aprovado_por, canal, conteudo, custo_usd, data, etapa, modelo, provedor, quantidade, tempo_min, unidade
+  --- comando COMO A SKILL MANDA ($_.episodio / Measure-Object usd) ---
+  linhas que casam: 0
+  resultado do Sum: []
+  --- comando com as COLUNAS REAIS ($_.conteudo / Measure-Object custo_usd) ---
+  resultado do Sum: [1.2]
+  --- consequencia: usd_por_minuto calculado pelo comando da skill, com 8 min de video ---
+  skill:      0
+  correto:    0.15
+
+IMPACTO (por que isso e grave, nao cosmetico)
+`$null / 8` avalia para 0 em PowerShell. O comando da skill nao falhava: ele devolvia
+`usd_por_minuto = 0`, que passa em qualquer teto de custo. O checklist dava FALSO VERDE
+justamente no invariante 4 do AGENTS.md ("custo e requisito") — um episodio caro entraria
+como "dentro do teto".
+
+CORRECAO APLICADA
+.dsh/skills/rebeca-ia-video/SKILL.md, linha ~110 do checklist: comando substituido por consulta
+com as colunas reais, duracao medida com ffprobe (nao `tempo_min`) e `throw` quando custo ou
+duracao estiverem ausentes, para falhar alto em vez de reportar 0.
+Tambem corrigido o principio 8 (lista o cabecalho real e a fonte da duracao).
+
+VERIFICACAO DA CORRECAO
+  python "E:\pojeto rebeca\.tools\validar_skills.py"
+  -> "Skills encontradas: 18", "Resultado: todas as skills validas.", exit 0
+  (o comando corrigido foi executado acima e devolveu o valor correto 0.15)
+
+LACUNA ABERTA (NAO VERIFICADO)
+A semantica da coluna `tempo_min` nao esta definida em nenhum documento do repositorio
+(aparenta ser tempo de geracao do ativo, nao duracao do conteudo). Enquanto isso nao for
+decidido pelo dono do schema, a duracao deve ser medida do arquivo renderizado com ffprobe.

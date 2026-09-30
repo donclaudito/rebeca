@@ -1,0 +1,97 @@
+EVIDENCIA — consultas de custo quebradas em 3 skills + conflito de schema de .rebeca/custos.csv
+Data: 2026-09-30 (Get-Date no host)  |  Agente: rebeca-ia-video / rebeca-analytics  |  Host: Windows / pwsh
+
+CONTEXTO
+Este achado começou no rebeca-ia-video (ver custo-verificacao-skill.txt) e se mostrou SISTEMICO:
+o mesmo arquivo .rebeca/custos.csv tem TRES definições de colunas conflitantes entre as skills.
+
+  A) Arquivo real em disco (fonte da verdade hoje):
+     data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por
+
+  B) rebeca-backend SKILL.md §8 (documenta O MESMO arquivo com outro cabecalho):
+     recorded_at,channel_id,content_id,job_id,asset_kind,provider,model,quantity,unit,unit_cost_usd,cost_usd,source
+     -> tem job_id e source, que o arquivo fisico NAO tem. Sem `source` nao se distingue
+        custo real (provider_api) de estimativa.
+
+  C) rebeca-analytics e rebeca-prompt-eng consultavam B contra o arquivo A:
+     channel_id / episode_id / cost_usd / usd  -> nenhum existe em A.
+
+COMANDO EXECUTADO
+
+  $csv = @'
+  data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por
+  2026-09-01,Luna,e01,imagem,p,m,imagem,24,1.20,10,humano
+  2026-09-02,Luna,e02,imagem,p,m,imagem,24,2.00,10,humano
+  2026-09-03,Luna,e03,imagem,p,m,imagem,24,1.50,10,humano
+  2026-09-04,Luna,e04,imagem,p,m,imagem,24,1.10,10,humano
+  2026-09-05,Luna,e05,imagem,p,m,imagem,24,1.30,10,humano
+  '@
+  $tmp = Join-Path $env:TEMP 'custos-analytics.csv'
+  Set-Content -Path $tmp -Value $csv -Encoding utf8
+
+  # 1) checklist do rebeca-analytics (custo do episodio e01)
+  $c = Import-Csv $tmp | Where-Object { $_.channel_id -eq 'Luna' -and $_.episode_id -eq 'e01' }
+  $c.Count
+  ($c | Measure-Object -Property cost_usd -Sum).Sum
+
+  # 2) gate de amostra minima do rebeca-analytics
+  Import-Csv $tmp | Group-Object theme | Select-Object Name, Count
+
+RESULTADO OBSERVADO
+
+  === 1) CHECKLIST rebeca-analytics: custo do episodio e01 ===
+  linhas que casam (skill): 0
+  soma cost_usd (skill):     []
+  -> a skill conclui: 'Vazio = analise bloqueada, nao estimada'
+
+  === com as COLUNAS REAIS ===
+  linhas que casam:
+  soma custo_usd:   [1.2]
+
+  === 2) GATE DE AMOSTRA MINIMA: Group-Object theme (>=5 para virar conclusao) ===
+  a coluna 'theme' nao existe. O que o comando faz:
+    Name=[]  Count=5
+  -> 5 linhas de 5 CONTEUDOS DIFERENTES viram 1 grupo com Count=5
+  -> o gate 'Count -ge 5' PASSA, autorizando tratar tudo como o mesmo tema
+
+  === 3) o mesmo com a comparacao correta (por conteudo) ===
+    Name=[e01]  Count=1
+    Name=[e02]  Count=1
+    Name=[e03]  Count=1
+    Name=[e04]  Count=1
+    Name=[e05]  Count=1
+
+IMPACTO (dois sentidos, os dois graves)
+
+1. FALSO NEGATIVO no custo. `$_.channel_id`/`$_.episode_id` casam 0 linhas. A skill declara
+   "analise bloqueada" mesmo com o custo registrado — o analista e levado a achar que falta dado.
+
+2. FALSO POSITIVO no gate de amostra minima — o pior dos dois. `Group-Object theme` sobre um CSV
+   sem coluna `theme` agrupa TODAS as linhas em um unico grupo com Name vazio e Count = total.
+   O gate `Count -ge 5` (a protecao do projeto contra concluir a partir de ruido) e satisfeito
+   por 5 linhas de 5 conteudos distintos. A protecao fica desarmada e o relatorio passa a
+   autorizar "conclusao" onde a propria skill exigiria "indicio, nao conclusao".
+
+3. rebeca-prompt-eng: `Measure-Object usd` -> coluna inexistente -> soma nula -> custo de prompt
+   relatado como 0 (mesma familia do defeito corrigido no rebeca-ia-video).
+
+CORRECOES APLICADAS
+- rebeca-analytics SKILL.md §5: consulta passou a usar canal/conteudo/custo_usd, com `throw`
+  quando o custo estiver ausente.
+- rebeca-analytics SKILL.md checklist: custo com as colunas reais; gate de amostra minima
+  substituido, com aviso explicito de que `theme` nao existe em custos.csv e que o comando antigo
+  aprovava o gate falsamente.
+- rebeca-prompt-eng SKILL.md checklist: `Measure-Object usd` -> `custo_usd`.
+- rebeca-backend SKILL.md §8: bloco marcado como PROPOSTA deste agente, nao como o cabecalho do
+  arquivo em disco, com aviso para nao fazer append com ele enquanto o ADR nao fechar.
+- rebeca-ia-video SKILL.md: corrigido antes (ver custo-verificacao-skill.txt).
+
+VERIFICACAO
+  python "E:\pojeto rebeca\.tools\validar_skills.py"
+  -> 18/18 validas, exit 0 (avisos heuristicos pre-existentes inalterados)
+
+PENDENCIA (decisao de arquitetura, nao deste agente)
+ADR de schema canonico de custo, dono rebeca-arquiteto. O conflito A x B precisa ser resolvido
+ANTES de existir codigo que grave custo: hoje o arquivo fisico nao tem `job_id` (correlacao com a
+falha que gerou o gasto) nem `source` (custo real x estimado), e os dois sao exigidos pela
+pergunta do negocio ("esse conteudo valeu a pena?") definida em docs/00-visao-produto.md.
