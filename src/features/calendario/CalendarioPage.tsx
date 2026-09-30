@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AiAction } from '@/components/ai/AiAction';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
   ArtSlot,
@@ -16,17 +17,53 @@ import {
 import { StatusPill } from '@/components/content/ContentCard';
 import { useChannelId } from '@/app/useChannel';
 import { api, qk } from '@/data/client';
-import { useWeek } from '@/data/hooks';
+import { useChannel, useContents, useWeek } from '@/data/hooks';
 import { formatDayMonth, isToday } from '@/lib/date';
 import { WEEKDAY_SHORT, formatDuration } from '@/lib/format';
+import type { ContentItem } from '@/data/types';
 
 /** Calendário — a semana editorial do canal, com reagendamento explícito. */
 export function CalendarioPage() {
   const channelId = useChannelId();
   const week = useWeek(channelId);
+  const channel = useChannel(channelId);
+  const contents = useContents(channelId);
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
   const [editing, setEditing] = useState<string | null>(null);
+
+  /**
+   * Sugestão de horário: só para conteúdo que **já passou pela aprovação humana** desta semana.
+   * A IA sugere; quem muda a data é o botão "Reagendar" deste mesmo cartão.
+   */
+  const [sugestaoId, setSugestaoId] = useState<string | null>(null);
+
+  const candidatos = useMemo(
+    () =>
+      (week.data ?? [])
+        .map((slot) => slot.content)
+        .filter(
+          (item): item is ContentItem =>
+            item !== null && (item.status === 'aprovado' || item.status === 'agendado'),
+        ),
+    [week.data],
+  );
+
+  const alvo = candidatos.find((item) => item.id === sugestaoId) ?? candidatos[0];
+
+  /**
+   * Histórico real de horários deste canal: só o que foi medido, com a data em que foi ao ar.
+   * Histórico vazio é resposta válida — a função foi escrita para lidar com isso.
+   */
+  const historicoHorarios = (contents.data ?? [])
+    .flatMap((item) => {
+      const horario = item.publishedAt ?? item.scheduledAt;
+      if (!item.metrics || !horario) return [];
+      return [{ horario: horario.slice(0, 40), retencaoPct: item.metrics.retentionPct }];
+    })
+    .slice(0, 60);
+
+  const fusoHorario = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const moved = params.get('reagendado');
 
@@ -147,7 +184,7 @@ export function CalendarioPage() {
                               if (!value) return;
                               reschedule.mutate({ contentId: content.id, iso: new Date(value).toISOString() });
                             }}
-                            className="w-full min-h-[32px] px-2 rounded-[10px] bg-[color:var(--ams-glass-sunken)] border border-line text-[11px] text-ink outline-none focus:border-[color:var(--ams-cyan)]"
+                            className="w-full min-h-[32px] px-2 rounded-md bg-sunken border border-line text-[12px] text-ink outline-none focus:border-accent"
                           />
                           <Button
                             className="!min-h-[30px] !text-[11px]"
@@ -185,6 +222,61 @@ export function CalendarioPage() {
               O melhor horário sai dos dados reais deste canal — não de uma regra genérica. Enquanto não
               houver dado suficiente, a sugestão vem marcada como sugestão e não altera nada sozinha.
             </p>
+
+            {/*
+              `agendar-horario` só sugere. Ele não toca em `scheduledAt` e não chama a ação de
+              reagendar — quem muda a data continua sendo o clique humano no botão "Reagendar" do
+              cartão do dia. O histórico vem dos conteúdos já medidos deste canal (pode vir vazio).
+            */}
+            {alvo ? (
+              <div className="mt-3">
+                <label
+                  className="block text-[11px] font-semibold text-ink-3 mb-1.5"
+                  htmlFor="sugestao-conteudo"
+                >
+                  Conteúdo a agendar
+                </label>
+                <select
+                  id="sugestao-conteudo"
+                  value={alvo.id}
+                  onChange={(event) => setSugestaoId(event.target.value)}
+                  className="w-full min-h-[40px] px-3 rounded-md bg-sunken border border-line text-[14px] text-ink outline-none focus:border-accent"
+                >
+                  {candidatos.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title} — {item.status === 'agendado' ? 'agendado' : 'aprovado'}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-ink-3 mt-1.5">
+                  {historicoHorarios.length > 0
+                    ? `Histórico usado: ${historicoHorarios.length} ${
+                        historicoHorarios.length === 1 ? 'publicação medida' : 'publicações medidas'
+                      } deste canal.`
+                    : 'Este canal ainda não tem publicação medida: a sugestão vai sair sem histórico.'}
+                </p>
+
+                <AiAction
+                  className="mt-3"
+                  functionId="agendar-horario"
+                  channelId={channelId}
+                  contentId={alvo.id}
+                  input={() => ({
+                    ...(channel.data?.kind ? { publico: channel.data.kind.slice(0, 200) } : {}),
+                    fusoHorario,
+                    formato: alvo.format,
+                    historicoHorarios,
+                  })}
+                  label="Sugerir melhor horário"
+                  hint="Compara o histórico de horários deste canal e recomenda quando publicar. Não muda a data nem agenda nada."
+                />
+              </div>
+            ) : (
+              <p className="text-[11px] text-ink-3 mt-3 border-t border-line pt-3">
+                Nenhum conteúdo aprovado ou agendado nesta semana para receber sugestão de horário. A
+                sugestão parte de um conteúdo que já passou pela sua aprovação.
+              </p>
+            )}
           </Card>
         </>
       )}

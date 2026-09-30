@@ -21,6 +21,7 @@ Saída: exit 0 = limpo; exit 1 = achou (imprime arquivo, linha e padrão).
 
 from __future__ import annotations
 
+import hashlib
 import re
 import subprocess
 import sys
@@ -42,7 +43,14 @@ PATTERNS: list[tuple[str, str]] = [
     ("aws-access-key", r"\bAKIA[0-9A-Z]{16}\b"),
     ("slack-token", r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
     # `(?<![A-Za-z0-9])` impede casar prosa do tipo "disk-..." com 32+ alfanuméricos.
+    # Cobre OpenAI e DeepSeek — o formato `sk-` + 32+ alfanuméricos é o mesmo nos dois.
     ("openai-key", r"(?<![A-Za-z0-9])sk-[A-Za-z0-9]{32,}\b"),
+    # Claude/Anthropic: `sk-ant-api...`, enviado como bearer no cabeçalho Authorization
+    # (fonte: platform.claude.com/docs/en/manage-claude/authentication, lido em 2026-09-30).
+    # NÃO casa com o padrão acima: `sk-ant-api03-…` tem hífens logo depois de `sk-`, e
+    # `[A-Za-z0-9]{32,}` para no terceiro caractere. Era um furo real: a varredura dizia "limpo"
+    # com uma chave da Anthropic commitada. O teste `.tools/test_scan_secrets.py` fixa o caso.
+    ("anthropic-key", r"\bsk-ant-[A-Za-z0-9_\-]{20,}\b"),
     ("jwt", r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b"),
     ("private-key-block", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
 ]
@@ -70,6 +78,17 @@ def candidate_encodings(raw: bytes) -> list[str]:
 
 def mask(value: str) -> str:
     return f"{value[:4]}…({len(value)} chars)"
+
+
+def value_hash(value: str) -> str:
+    """Impressão do valor, para virar entrada de baseline PRECISO.
+
+    Baseline por caminho+padrão cega o padrão inteiro naquele arquivo: colar uma chave real em
+    `src/ai/__tests__/vazamento-provedor.test.ts` passaria despercebido para sempre. Com o hash,
+    o perdão vale para **aquele valor exato** e nada mais. O hash vai na saída do scanner, então
+    quem precisa perdoar um fixture copia da própria mensagem de erro.
+    """
+    return hashlib.sha256(value.encode("utf-8", "surrogatepass")).hexdigest()[:12]
 
 
 def scan(label: str, raw: bytes) -> list[tuple[str, int, str, str]]:
@@ -164,17 +183,34 @@ def history_blobs() -> list[tuple[str, bytes]]:
     return blobs
 
 
-def load_baseline() -> set[tuple[str, str]]:
-    """Pares (caminho, nome-do-padrão) revisados como falso positivo. Ver o arquivo."""
+def load_baseline() -> list[tuple[str, str, str | None]]:
+    """Entradas (caminho, nome-do-padrão, hash-do-valor-ou-None). Ver o arquivo do baseline.
+
+    Com o hash, o perdão é daquele valor exato. Sem ele, vale para todo achado daquele padrão
+    naquele caminho — mais grosso, usado só onde o literal já foi ofuscado na árvore atual.
+    """
     if not BASELINE_PATH.exists():
-        return set()
-    entries: set[tuple[str, str]] = set()
+        return []
+    entries: list[tuple[str, str, str | None]] = []
     for raw_line in BASELINE_PATH.read_text(encoding="utf-8").splitlines():
         line = raw_line.split("#", 1)[0].strip()
         parts = line.split()
-        if len(parts) >= 2:
-            entries.add((parts[0], parts[1]))
+        if len(parts) >= 3:
+            entries.append((parts[0], parts[1], parts[2]))
+        elif len(parts) == 2:
+            entries.append((parts[0], parts[1], None))
     return entries
+
+
+def baseline_ignora(
+    baseline: list[tuple[str, str, str | None]], caminho: str, name: str, value: str
+) -> bool:
+    return any(
+        b_path == caminho
+        and b_name == name
+        and (b_hash is None or b_hash == value_hash(value))
+        for b_path, b_name, b_hash in baseline
+    )
 
 
 def main() -> int:
@@ -195,10 +231,10 @@ def main() -> int:
     ignorados = 0
     for label, lineno, name, value in raw_findings:
         caminho = label.split("historico:", 1)[-1]
-        if (caminho, name) in baseline:
+        if baseline_ignora(baseline, caminho, name, value):
             ignorados += 1
             continue
-        findings.append(f"{label}:{lineno}: [{name}] {mask(value)}")
+        findings.append(f"{label}:{lineno}: [{name}] {mask(value)} sha256:{value_hash(value)}")
 
     if ignorados:
         # Visível de propósito: baseline silencioso esconde regressão.
@@ -213,6 +249,20 @@ def main() -> int:
             "Rotacione a credencial (rebeca-seguranca) antes de reescrever historico."
         )
         return 1
+
+    # Arquivo grande demais é pulado. Silêncio aqui é pior que o pulo: um `.env` de 3 MB, ou um
+    # dump de log com token, passaria com a varredura dizendo "limpo". O aviso não derruba o CI
+    # (o repositório tem mídia legítima: `imagens/*.jpeg`, `O APP.pdf`), mas fica registrado.
+    grandes = sorted({name for name, raw in (*tracked,) if len(raw) > MAX_BYTES})
+    if grandes:
+        print(
+            f"AVISO: {len(grandes)} arquivo(s) acima de {MAX_BYTES // (1024 * 1024)} MB ficaram fora "
+            f"da varredura (nao sao texto de credencial? confira):"
+        )
+        for name in grandes[:10]:
+            print("  " + name)
+        if len(grandes) > 10:
+            print(f"  ... e mais {len(grandes) - 10}")
 
     escopo = "arvore + historico" if "--history" in sys.argv else "arvore"
     print(f"limpo: nenhum segredo em texto claro em {scanned} blobs ({escopo})")

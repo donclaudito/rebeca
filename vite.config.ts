@@ -3,6 +3,7 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { aiDevServer } from './server/ai/vite-plugin';
 
 /**
  * O watcher do Vite **derruba o processo** quando `fs.watch` falha com `EBUSY`/`EPERM`: o erro é
@@ -31,7 +32,7 @@ function watchErrorGuard(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), watchErrorGuard()],
+  plugins: [react(), tailwindcss(), aiDevServer(), watchErrorGuard()],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

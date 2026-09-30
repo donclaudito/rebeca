@@ -11,6 +11,7 @@ import {
   Sparkles,
   Upload,
 } from 'lucide-react';
+import { AiAction } from '@/components/ai/AiAction';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ModuleCard } from '@/components/ui/ModuleCard';
 import { StatCard } from '@/components/ui/StatCard';
@@ -38,8 +39,9 @@ import {
   useWeek,
 } from '@/data/hooks';
 import { formatBrl, formatCompact, formatPct, formatUsd } from '@/lib/format';
-import { formatDayMonth } from '@/lib/date';
+import { formatDayMonth, startOfWeek, toIsoDate } from '@/lib/date';
 import { WEEKDAY_SHORT } from '@/lib/format';
+import type { ContentItem } from '@/data/types';
 
 /**
  * Início — "veja o que a IA preparou" (docs/00-visao-produto.md §6).
@@ -56,9 +58,57 @@ export function InicioPage() {
   const week = useWeek(channelId);
   const contents = useContents(channelId);
   const recommendations = useRecommendations(channelId);
+  const channel = useChannel(channelId);
 
   const generating = (contents.data ?? []).filter((item) => item.status === 'gerando');
   const failed = (contents.data ?? []).filter((item) => item.status === 'falhou');
+
+  /* ------------------------------------------------------------------ IA --
+     Contexto real do canal para as funções de IA. Nada aqui é inventado: os temas saem do que já
+     existe no canal, as rejeições são motivos que o humano registrou e o "público" é o tipo de canal
+     declarado. A saturação de tema NÃO é enviada — ela é saída de uma pesquisa anterior e não fica
+     guardada em lugar nenhum; estimá-la aqui seria inventar número.
+  */
+  const channelData = channel.data;
+  const channelContents = contents.data ?? [];
+
+  const recentThemes = [...new Set(channelContents.map((item) => item.theme))]
+    .slice(0, 30)
+    .map((theme) => theme.slice(0, 120));
+
+  const rejectionReasons = channelContents
+    .map((item) => item.rejectedReason)
+    .filter((reason): reason is string => typeof reason === 'string' && reason.trim().length > 0);
+
+  const rejectedThemes = rejectionReasons.slice(0, 30).map((reason) => reason.slice(0, 120));
+  const rejeicoes = rejectionReasons.slice(0, 20).map((reason) => reason.slice(0, 400));
+
+  const historico = channelContents.map((item) => item.title.slice(0, 200)).slice(0, 40);
+
+  /** Temas fortes = temas de conteúdos medidos que ficaram na média do canal ou acima dela. */
+  const temasFortes = [
+    ...new Set(
+      channelContents
+        .filter((item) => item.metrics !== null && item.metrics.vsChannelAvgPct >= 0)
+        .map((item) => item.theme),
+    ),
+  ]
+    .slice(0, 20)
+    .map((theme) => theme.slice(0, 120));
+
+  const pautaAtual = (week.data ?? [])
+    .map((slot) => slot.content)
+    .filter((item): item is ContentItem => item !== null)
+    .slice(0, 20)
+    .map((item) => item.title.slice(0, 200));
+
+  const padroes = (recommendations.data ?? [])
+    .slice(0, 20)
+    .map((rec) => `${rec.title} — ${rec.rationale}`.slice(0, 400));
+
+  /** Frequência observada na semana corrente; sem dia ocupado não há número a enviar. */
+  const videosPorSemana = (week.data ?? []).filter((slot) => slot.content !== null).length;
+  const weekStart = week.data?.[0]?.date ?? toIsoDate(startOfWeek());
 
   return (
     <>
@@ -67,8 +117,8 @@ export function InicioPage() {
         subtitle="O que a IA preparou para o seu canal, o plano da semana e o que ela aprendeu com os resultados."
       />
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-8 flex flex-col gap-4">
+      <div className="ams-split grid grid-cols-1 xl:grid-cols-12 gap-4" data-split="xl">
+        <div className="ams-split__main xl:col-span-8 flex flex-col gap-4">
           {/* 1. Fila de aprovação — o coração do produto */}
           <Card variant="strong" className="p-4">
             {queue.isLoading && <Skeleton className="h-[132px]" />}
@@ -244,9 +294,65 @@ export function InicioPage() {
             )}
           </section>
 
-          {/* 4. Módulos do ciclo */}
+          {/* 4. O que a IA pode fazer agora -------------------------------------
+              Três funções de leitura/planejamento, com o contexto real deste canal. Nenhuma delas
+              grava, aprova ou publica: a saída aparece para ser lida e a decisão continua humana.
+              O bloco só existe depois que o canal carregou — sem `niche`/`kind` não há entrada. */}
+          {channelData && (
+            <section aria-label="O que a IA pode fazer agora">
+              <SectionHead
+                step={4}
+                title="O que a IA pode fazer agora"
+                hint="três leituras deste canal — nenhuma delas grava, aprova ou publica"
+              />
+              <div className="grid gap-3">
+                <AiAction
+                  functionId="pesquisar-tendencia"
+                  channelId={channelId}
+                  input={() => ({
+                    niche: channelData.niche.slice(0, 200),
+                    audience: channelData.kind.slice(0, 200),
+                    recentThemes,
+                    rejectedThemes,
+                  })}
+                  label="Pesquisar tendências do nicho"
+                  hint="Lê o nicho, o que o canal já fez e o que você recusou, e devolve temas com potencial e saturação estimada."
+                />
+
+                <AiAction
+                  functionId="planejar-pauta"
+                  channelId={channelId}
+                  input={() => ({
+                    niche: channelData.niche.slice(0, 200),
+                    audience: channelData.kind.slice(0, 200),
+                    weekStart: weekStart.slice(0, 40),
+                    historico,
+                    temasFortes,
+                    ...(videosPorSemana > 0 ? { videosPorSemana: Math.min(videosPorSemana, 14) } : {}),
+                  })}
+                  label="Planejar a semana"
+                  hint="Monta a pauta da semana cruzando o que funcionou, o que você recusou e a sua frequência. É proposta, não agenda."
+                />
+
+                <AiAction
+                  functionId="melhorar-plano"
+                  channelId={channelId}
+                  input={() => ({
+                    canalNome: channelData.name.slice(0, 120),
+                    padroes,
+                    pautaAtual,
+                    rejeicoes,
+                  })}
+                  label="Melhorar a próxima semana"
+                  hint="Transforma o aprendizado do canal em mudanças concretas de pauta para a semana seguinte."
+                />
+              </div>
+            </section>
+          )}
+
+          {/* 5. Módulos do ciclo */}
           <section aria-label="Módulos do ciclo">
-            <SectionHead step={4} title="O ciclo do canal" hint="cada módulo mostra onde o canal está agora" />
+            <SectionHead step={5} title="O ciclo do canal" hint="cada módulo mostra onde o canal está agora" />
             {modules.isLoading && (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {Array.from({ length: 6 }, (_, index) => (
@@ -268,10 +374,10 @@ export function InicioPage() {
             )}
           </section>
 
-          {/* 5. Falhas que precisam de você */}
+          {/* 6. Falhas que precisam de você */}
           {failed.length > 0 && (
             <Card className="p-4">
-              <SectionHead step={5} title="Precisa da sua atenção" hint="conteúdos que falharam" />
+              <SectionHead step={6} title="Precisa da sua atenção" hint="conteúdos que falharam" />
               <ul className="flex flex-col gap-2">
                 {failed.map((item) => (
                   <li key={item.id} className="flex items-center justify-between gap-3 flex-wrap">
@@ -293,7 +399,7 @@ export function InicioPage() {
         </div>
 
         {/* Coluna lateral ---------------------------------------------------- */}
-        <div className="xl:col-span-4 flex flex-col gap-4">
+        <div id="barra-lateral-direita" className="ams-split__aside xl:col-span-4 flex flex-col gap-4">
           <Card className="p-4">
             <SectionHead
               title="Plano da semana"
@@ -329,7 +435,7 @@ export function InicioPage() {
                               ? `/c/${channelId}/revisao/${slot.content.id}`
                               : `/c/${channelId}/conteudo?aberto=${slot.content.id}`
                           }
-                          className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-[10px] hover:bg-surface"
+                          className="flex-1 min-w-0 flex items-center gap-2 p-1.5 rounded-md hover:bg-surface-hover"
                           aria-label={`${slot.content.title}, ${WEEKDAY_SHORT[slot.weekday]}`}
                         >
                           <span className="w-[46px] shrink-0">
@@ -410,11 +516,7 @@ export function InicioPage() {
                 { icon: <Lightbulb size={15} />, text: 'A IA aprende e traz os resultados.' },
               ].map((step, index) => (
                 <li key={step.text} className="flex items-center gap-2.5">
-                  <span
-                    className="w-[22px] h-[22px] rounded-[999px] flex items-center justify-center text-[11px] font-bold text-white shrink-0 ams-num"
-                    style={{ background: 'var(--ams-grad-action)' }}
-                    aria-hidden="true"
-                  >
+                  <span className="ams-section-num shrink-0" aria-hidden="true">
                     {index + 1}
                   </span>
                   <span className="text-[12px] text-ink-2 flex items-center gap-2">

@@ -1,0 +1,68 @@
+﻿node.exe : (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to 
+become the default in a future major version of Vite:
+No C:\Users\clauo\AppData\Roaming\npm\pnpm.ps1:24 caractere:5
++     & "node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.mjs" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((!) Your Vite c...ersion of Vite::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  - import "./server/ai/vite-plugin" without a file extension (vite.config.ts:6:29). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.2 E:/pojeto rebeca
+
+ ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 3067ms
+   ✓ AiAction (7)
+     ✓ não chama a IA sozinho: só depois do clique 1458ms
+     ✓ não aplica nada na tela sem clique no botão de aplicar 351ms
+ ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7079ms
+   ✓ gate de aprovação humana (15)
+     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 373ms
+     ✓ não deixa aprovar o que não está em revisão (já publicado) 332ms
+     ✓ não deixa aprovar conteúdo de outro canal 338ms
+     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 578ms
+     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 553ms
+     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 578ms
+     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 503ms
+     ✓ o portão de publicação recusa o que não tem aprovação vigente 550ms
+     ✓ o portão de publicação não atravessa canal 336ms
+     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 622ms
+     ✓ recusa título fora do limite antes de gravar 409ms
+     ✓ recusa motivo de rejeição fora do limite do schema de IA 581ms
+     ✓ recusa data de agendamento que não é data 834ms
+ ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 6578ms
+   ✓ isolamento entre canais (4)
+     ✓ a camada de dados recusa conteúdo que pertence a outro canal 371ms
+     ✓ a fila de revisão nunca devolve conteúdo de outro canal 431ms
+     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 5706ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 6728ms
+   ✓ barras laterais abrem e fecham (4)
+     ✓ as duas nascem abertas, com os dois controles no masthead 1910ms
+     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 2165ms
+     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 1371ms
+     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 1265ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 24924ms
+   ✓ tela de revisão (4)
+     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 3140ms
+     ✓ aprova uma única vez mesmo com dois cliques seguidos 2551ms
+     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 18770ms
+     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 408ms
+ ✓ src/ai/__tests__/handler.test.ts (35 tests) 2387ms
+ ✓ src/ai/__tests__/registry.test.ts (16 tests) 268ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 185ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 10227ms
+   ✓ tela "Como funciona" (3)
+     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 7319ms
+     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1774ms
+     ✓ continua dizendo que o passo da aprovação é humano 1059ms
+ ✓ src/data/__tests__/cycle.test.ts (8 tests) 79ms
+ ✓ src/__tests__/headers.test.ts (8 tests) 51ms
+
+ Test Files  11 passed (11)
+      Tests  106 passed (106)
+   Start at  18:43:19
+   Duration  60.47s (environment 49%, tests 24%, setup 15%, import 6%, transform 5%, worker 1%)
+
+    Isolate  11 workers spawned · ~13.16s startup each (spawn + environment, per file)
+             at least ~15.80s faster with isolate: false — reuses workers across files instead of one per file
+

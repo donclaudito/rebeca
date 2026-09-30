@@ -1,79 +1,91 @@
 /* =============================================================================
    AI Media Studio — primitivos visuais
    Cada classe corresponde a um primitivo de docs/03-design-system.md §6.
+   Linguagem visual: **YouTube** — superfície plana, forma pill na ação, card de 8px,
+   elevação só no hover ([YT-1], ver docs/03 §11).
+
    Nenhum valor de cor literal aqui: tudo vem de tokens.css.
    ============================================================================= */
 
 /* --- Card ---------------------------------------------------------------- */
+/* [YT-1] "flat-first": card é superfície com contorno de 1px, sem sombra em repouso. */
 .ams-card {
   position: relative;
-  background: var(--ams-glass);
+  background: var(--ams-surface);
   border: 1px solid var(--ams-border);
-  border-radius: var(--ams-r-lg);
-  box-shadow: var(--ams-shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(var(--ams-blur));
-  -webkit-backdrop-filter: blur(var(--ams-blur));
+  border-radius: var(--ams-r-md);
 }
 
+/* Destaque: elevação de menu/diálogo e contorno mais forte. Reservado ao que
+   espera decisão humana (fila de aprovação) e ao cartão do canal ativo. */
 .ams-card--strong {
-  background: var(--ams-glass-strong);
   border-color: var(--ams-border-strong);
-  box-shadow: var(--ams-shadow-card), var(--ams-glow-cyan), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: var(--ams-shadow-pop);
 }
 
+/* Poço: player, gráfico, área afundada. Sem contorno — o fundo já separa. */
 .ams-card--sunken {
-  background: var(--ams-glass-sunken);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: var(--ams-surface-sunken);
+  border-color: transparent;
 }
 
+/* Sem contorno nem fundo: usado dentro do guide, que já é superfície. */
 .ams-card--flush {
+  background: transparent;
+  border-color: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
-/* --- Section title (círculo numerado + linha) ---------------------------- */
+/* --- Section title ------------------------------------------------------ */
+/* [YT-1] cabeçalho de seção é texto, não decoração: título 20/600 + apoio 14/400.
+   O número da etapa continua existindo (ordem de leitura), mas discreto. */
 .ams-section-head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 
 .ams-section-num {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  min-width: 20px;
+  height: 20px;
   flex: none;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-grad-action);
-  color: #fff;
+  background: var(--ams-neutral-soft);
+  color: var(--ams-text-2);
   font-size: 12px;
-  font-weight: 700;
-  box-shadow: var(--ams-glow-cyan);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .ams-section-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--ams-font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
   color: var(--ams-text);
 }
 
 .ams-section-hint {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--ams-text-3);
 }
 
 .ams-section-rule {
   flex: 1;
   height: 1px;
-  background: linear-gradient(90deg, var(--ams-border), transparent);
+  background: var(--ams-divider);
 }
 
 /* --- Icon tile ----------------------------------------------------------- */
+/* Tom misturado na superfície: sem gradiente, sem brilho ([YT-1] §Shapes). */
 .ams-tile {
+  --tile: var(--ams-tile-blue);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,45 +93,45 @@
   height: 40px;
   flex: none;
   border-radius: var(--ams-r-md);
-  color: #fff;
-  background: var(--ams-tile-blue);
-  box-shadow: 0 6px 16px rgba(2, 8, 28, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--tile) 14%, var(--ams-surface));
+  color: var(--tile);
 }
 
 .ams-tile--sm {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--ams-r-sm);
 }
+
 .ams-tile--lg {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: var(--ams-r-lg);
 }
 
 .ams-tile--cyan {
-  background: var(--ams-tile-cyan);
+  --tile: var(--ams-tile-cyan);
 }
 .ams-tile--blue {
-  background: var(--ams-tile-blue);
+  --tile: var(--ams-tile-blue);
 }
 .ams-tile--violet {
-  background: var(--ams-tile-violet);
+  --tile: var(--ams-tile-violet);
 }
 .ams-tile--green {
-  background: var(--ams-tile-green);
+  --tile: var(--ams-tile-green);
 }
 .ams-tile--amber {
-  background: var(--ams-tile-amber);
+  --tile: var(--ams-tile-amber);
 }
 .ams-tile--rose {
-  background: var(--ams-tile-rose);
+  --tile: var(--ams-tile-rose);
 }
 .ams-tile--pink {
-  background: var(--ams-tile-pink);
+  --tile: var(--ams-tile-pink);
 }
 .ams-tile--teal {
-  background: var(--ams-tile-teal);
+  --tile: var(--ams-tile-teal);
 }
 
 /* --- Stat ---------------------------------------------------------------- */
@@ -129,46 +141,46 @@
   gap: 6px;
 }
 
+/* [YT-1] label-sm: 12/500, sem caixa alta — o YouTube não usa versalete. */
 .ams-stat__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--ams-text-3);
 }
 
 .ams-stat__value {
-  font-size: 30px;
-  font-weight: 700;
+  font-family: var(--ams-font-display);
+  font-size: 32px;
+  font-weight: 600;
   color: var(--ams-text);
-  line-height: 1.1;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
 .ams-stat__value--sm {
-  font-size: 20px;
+  font-size: 22px;
 }
 
 .ams-stat__foot {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ams-text-3);
 }
 
-/* --- Pill ---------------------------------------------------------------- */
+/* --- Pill de estado ------------------------------------------------------ */
+/* Cor nunca aparece sem rótulo: o texto vem sempre de `status.ts` (docs/03 §2.4). */
 .ams-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 9px;
+  gap: 6px;
+  padding: 3px 10px;
   border-radius: var(--ams-r-pill);
-  border: 1px solid transparent;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.6;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
   white-space: nowrap;
   background: var(--ams-neutral-soft);
   color: var(--ams-text-2);
-  border-color: var(--ams-border);
 }
 
 .ams-pill__dot {
@@ -181,42 +193,85 @@
 
 .ams-pill--ok {
   background: var(--ams-ok-soft);
-  border-color: rgba(34, 197, 94, 0.35);
-  color: #86efac;
+  color: var(--ams-ok);
 }
 .ams-pill--warn {
   background: var(--ams-warn-soft);
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #fcd34d;
+  color: var(--ams-warn);
 }
 .ams-pill--danger {
   background: var(--ams-danger-soft);
-  border-color: rgba(239, 68, 68, 0.35);
-  color: #fca5a5;
+  color: var(--ams-danger);
 }
 .ams-pill--info {
   background: var(--ams-info-soft);
-  border-color: rgba(56, 189, 248, 0.35);
-  color: #7dd3fc;
+  color: var(--ams-info);
+}
+
+/* --- Chip de filtro ([YT-1] chip) ---------------------------------------- */
+/* 32px de altura, pill, fundo neutro; selecionado inverte para on-surface. */
+.ams-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--ams-r-pill);
+  border: 0;
+  background: var(--ams-chip);
+  color: var(--ams-text);
+  font-family: var(--ams-font);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.ams-chip:hover {
+  background: var(--ams-surface-strong);
+}
+
+.ams-chip[aria-selected='true'],
+.ams-chip[data-active='true'] {
+  background: var(--ams-chip-active);
+  color: var(--ams-on-chip-active);
+}
+
+.ams-chip[aria-selected='true']:hover,
+.ams-chip[data-active='true']:hover {
+  background: var(--ams-chip-active);
+}
+
+.ams-chip__count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ams-text-3);
+}
+
+.ams-chip[aria-selected='true'] .ams-chip__count,
+.ams-chip[data-active='true'] .ams-chip__count {
+  color: inherit;
+  opacity: 0.75;
 }
 
 /* --- Module card --------------------------------------------------------- */
 .ams-module {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: flex-start;
-  padding: 11px;
-  background: var(--ams-glass);
+  padding: 12px;
+  background: var(--ams-surface);
   border: 1px solid var(--ams-border);
   border-radius: var(--ams-r-md);
   text-align: left;
   width: 100%;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
 .ams-module__title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--ams-text);
   display: flex;
   align-items: center;
@@ -224,36 +279,38 @@
 }
 
 .ams-module__desc {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ams-text-3);
-  line-height: 1.45;
+  line-height: 1.5;
   margin-top: 2px;
 }
 
+/* [YT-1] hover eleva o card e escurece levemente a superfície. */
 a.ams-module:hover,
 button.ams-module:hover {
-  background: var(--ams-glass-strong);
+  background: var(--ams-surface-hover);
   border-color: var(--ams-border-strong);
-  transform: translateY(-1px);
+  box-shadow: var(--ams-shadow-card);
 }
 
 .ams-module--pending {
-  border-color: rgba(245, 158, 11, 0.55);
+  border-color: var(--ams-warn);
 }
 
 /* --- Progress ------------------------------------------------------------ */
+/* Vermelho de marca é a barra do YouTube; o rótulo em pt-BR sempre acompanha,
+   então a cor nunca é a única informação. */
 .ams-progress {
-  height: 6px;
+  height: 4px;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-glass-sunken);
+  background: var(--ams-surface-strong);
   overflow: hidden;
-  border: 1px solid var(--ams-border);
 }
 
 .ams-progress__fill {
   height: 100%;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-grad-action);
+  background: var(--ams-red);
   transition: width 320ms ease;
 }
 
@@ -264,38 +321,37 @@ button.ams-module:hover {
   align-items: center;
   justify-content: center;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-grad-action);
-  color: #fff;
-  font-weight: 700;
+  background: var(--ams-accent-soft);
+  color: var(--ams-accent);
+  font-weight: 500;
   flex: none;
-  box-shadow: 0 0 0 2px rgba(5, 11, 31, 0.9), 0 0 0 3px rgba(125, 180, 255, 0.35);
 }
 
 /* --- Botões -------------------------------------------------------------- */
+/* [YT-1]: altura 40px, pill, label-md (14/500). */
 .ams-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 16px;
-  border-radius: var(--ams-r-md);
+  border-radius: var(--ams-r-pill);
   border: 1px solid var(--ams-border);
-  background: var(--ams-glass);
+  background: transparent;
   color: var(--ams-text);
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--ams-font);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+  text-decoration: none;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
 }
 
 .ams-btn:hover:not(:disabled) {
-  background: var(--ams-glass-strong);
+  background: var(--ams-surface-hover);
   border-color: var(--ams-border-strong);
-}
-
-.ams-btn:active:not(:disabled) {
-  transform: translateY(1px);
 }
 
 .ams-btn:disabled {
@@ -304,66 +360,77 @@ button.ams-module:hover {
 }
 
 .ams-btn--primary {
-  background: var(--ams-grad-action);
+  background: var(--ams-primary);
   border-color: transparent;
-  color: #fff;
-  box-shadow: 0 8px 20px rgba(34, 211, 238, 0.22);
+  color: var(--ams-on-primary);
+  box-shadow: none;
 }
 
 .ams-btn--primary:hover:not(:disabled) {
-  background: var(--ams-grad-action);
-  filter: brightness(1.08);
+  background: var(--ams-primary-hover);
+  border-color: transparent;
 }
 
 .ams-btn--danger {
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #fca5a5;
+  border-color: var(--ams-danger);
+  color: var(--ams-danger);
+}
+
+.ams-btn--danger:hover:not(:disabled) {
+  background: var(--ams-danger-soft);
+  border-color: var(--ams-danger);
 }
 
 .ams-btn--lg {
-  min-height: 46px;
-  padding: 0 20px;
-  font-size: 14px;
+  min-height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
 }
 
-/* --- Navegação lateral --------------------------------------------------- */
+/* Botão de ícone do masthead: 40px, circular, sem contorno ([YT-1]). */
+.ams-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border: 0;
+  border-radius: var(--ams-r-pill);
+  background: transparent;
+  color: var(--ams-text);
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.ams-icon-btn:hover {
+  background: var(--ams-surface-hover);
+}
+
+/* --- Navegação lateral (guide do YouTube) -------------------------------- */
+/* [YT-1] item do guide: 40px, raio 10px, sem barra lateral — o ativo é
+   preenchido e ganha peso 500. */
 .ams-nav-item {
-  position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: var(--ams-r-md);
-  color: var(--ams-text-2);
-  font-size: 13px;
-  font-weight: 500;
+  gap: 16px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: var(--ams-text);
+  font-size: 14px;
+  font-weight: 400;
   text-decoration: none;
-  transition: background 150ms ease, color 150ms ease;
+  transition: background 150ms ease;
 }
 
 .ams-nav-item:hover {
-  background: var(--ams-glass);
-  color: var(--ams-text);
+  background: var(--ams-surface-hover);
 }
 
 .ams-nav-item[aria-current='page'] {
-  background: var(--ams-glass-strong);
-  color: var(--ams-text);
-  font-weight: 600;
-  border: 1px solid var(--ams-border-strong);
-}
-
-.ams-nav-item[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  left: -9px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 20px;
-  border-radius: var(--ams-r-pill);
-  background: var(--ams-cyan);
-  box-shadow: 0 0 12px var(--ams-cyan);
+  background: var(--ams-surface-hover);
+  font-weight: 500;
 }
 
 /* --- Skeleton / vazio / erro -------------------------------------------- */
@@ -371,9 +438,9 @@ button.ams-module:hover {
   border-radius: var(--ams-r-md);
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(255, 255, 255, 0.11) 37%,
-    rgba(255, 255, 255, 0.05) 63%
+    var(--ams-surface-strong) 25%,
+    var(--ams-surface-hover) 37%,
+    var(--ams-surface-strong) 63%
   );
   background-size: 400% 100%;
   animation: ams-shimmer 1.4s ease infinite;
@@ -388,6 +455,46 @@ button.ams-module:hover {
   }
 }
 
+/* --- Thumbnail (cartão de vídeo do YouTube) ------------------------------ */
+.ams-thumb {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: var(--ams-r-thumb);
+  background: var(--ams-surface-sunken);
+}
+
+/* Badge de duração no canto inferior direito ([YT-1] overlay 0,8 de preto). */
+.ams-thumb__badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--ams-overlay);
+  color: var(--ams-on-overlay);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.ams-thumb__flag {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-overlay);
+  color: var(--ams-on-overlay);
+  font-size: 12px;
+  font-weight: 500;
+  text-shadow: var(--ams-shadow-text);
+}
+
 /* --- Slot de arte (placeholder até o Brand Kit entregar a arte) ---------- */
 .ams-art {
   position: relative;
@@ -395,16 +502,12 @@ button.ams-module:hover {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: var(--ams-r-md);
-  border: 1px dashed var(--ams-border);
-  background:
-    linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.12)),
-    var(--ams-glass-sunken);
+  border-radius: var(--ams-r-thumb);
+  border: 1px dashed var(--ams-border-strong);
+  background: var(--ams-surface-sunken);
   color: var(--ams-text-3);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   text-align: center;
   padding: 6px;
 }
@@ -423,24 +526,22 @@ button.ams-module:hover {
 .ams-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .ams-table th {
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--ams-text-3);
-  padding: 8px 12px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--ams-border);
   white-space: nowrap;
 }
 
 .ams-table td {
-  padding: 11px 12px;
-  border-bottom: 1px solid rgba(125, 180, 255, 0.1);
+  padding: 12px;
+  border-bottom: 1px solid var(--ams-divider);
   color: var(--ams-text-2);
   vertical-align: middle;
 }
@@ -450,21 +551,48 @@ button.ams-module:hover {
 }
 
 .ams-table tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--ams-surface-hover);
 }
 
 /* --- Barra (gráfico simples) -------------------------------------------- */
 .ams-bar-track {
   height: 8px;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-glass-sunken);
+  background: var(--ams-surface-strong);
   overflow: hidden;
 }
 
 .ams-bar-fill {
   height: 100%;
   border-radius: var(--ams-r-pill);
-  background: var(--ams-tile-cyan);
+  background: var(--ams-accent);
+}
+
+/* --- Coluna lateral direita (abrir/fechar) ------------------------------- */
+/* A coluna lateral é escrita por cada tela, não pela casca — por isso o fechamento
+   é por CSS, lendo `data-rail-right` do <html> (ver src/app/shell.tsx).
+   A tela marca o seu grid com `.ams-split` + `data-split`, a coluna principal com
+   `.ams-split__main` e a lateral com `.ams-split__aside`.
+
+   O fechamento só vale a partir do ponto em que a coluna É uma barra lateral. Abaixo
+   disso o conteúdo empilha normalmente e continua visível: esconder no celular a coluna
+   que contém o botão de aprovar seria uma armadilha, não uma preferência. */
+@media (min-width: 1024px) {
+  [data-rail-right='closed'] .ams-split[data-split='lg'] > .ams-split__aside {
+    display: none;
+  }
+  [data-rail-right='closed'] .ams-split[data-split='lg'] > .ams-split__main {
+    grid-column: span 12 / span 12;
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-rail-right='closed'] .ams-split[data-split='xl'] > .ams-split__aside {
+    display: none;
+  }
+  [data-rail-right='closed'] .ams-split[data-split='xl'] > .ams-split__main {
+    grid-column: span 12 / span 12;
+  }
 }
 
 /* --- Faixa de aviso (dados de exemplo) ---------------------------------- */
@@ -472,11 +600,126 @@ button.ams-module:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: var(--ams-r-pill);
   background: var(--ams-info-soft);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  color: #7dd3fc;
-  font-size: 11px;
-  font-weight: 600;
+  color: var(--ams-info);
+  font-size: 12px;
+  font-weight: 500;
 }
+
+/* --- Busca do masthead ([YT-1] campo pill de 40px + botão colado) -------- */
+.ams-search {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.ams-search__field {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--ams-border);
+  border-right: 0;
+  border-radius: var(--ams-r-pill) 0 0 var(--ams-r-pill);
+  background: var(--ams-bg);
+  color: var(--ams-text);
+  font-family: var(--ams-font);
+  font-size: 15px;
+}
+
+.ams-search__field::placeholder {
+  color: var(--ams-text-3);
+}
+
+.ams-search__field:focus {
+  outline: none;
+  border-color: var(--ams-accent);
+  box-shadow: inset 0 0 0 1px var(--ams-accent);
+}
+
+.ams-search__submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 40px;
+  flex: none;
+  border: 1px solid var(--ams-border);
+  border-radius: 0 var(--ams-r-pill) var(--ams-r-pill) 0;
+  background: var(--ams-surface-hover);
+  color: var(--ams-text);
+  cursor: pointer;
+}
+
+.ams-search__submit:hover {
+  background: var(--ams-surface-strong);
+}
+
+/* --- Marca do produto no masthead --------------------------------------- */
+/* O ícone do app (arte do dono, ver docs/03 §8) dentro do bloco de marca. Não
+   reproduzimos o play-button do YouTube como logo do produto: seria se passar por
+   outro produto. O fundo só aparece enquanto a imagem carrega ou se ela falhar. */
+.ams-logo-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--ams-r-sm);
+  overflow: hidden;
+  background: var(--ams-surface-strong);
+}
+
+.ams-logo-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Glifo nominativo da plataforma (Configurações). Cor por classe: `fill` com
+   `var()` não funciona em atributo de apresentação de SVG. */
+.ams-yt-glyph__body {
+  fill: var(--ams-red);
+}
+
+.ams-yt-glyph__play {
+  fill: var(--ams-on-primary);
+}
+
+/* --- Cabeçalho da tela (título + apoio + ações) -------------------------- */
+.ams-page-title {
+  font-family: var(--ams-font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--ams-text);
+}
+
+.ams-font-display {
+  font-family: var(--ams-font-display);
+}
+
+/* --- Contador de pendências (sino do masthead) -------------------------- */
+.ams-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--ams-r-pill);
+  background: var(--ams-danger);
+  color: var(--ams-on-primary);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+

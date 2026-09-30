@@ -3,91 +3,189 @@
 /* =============================================================================
    AI Media Studio — tokens de design
    Fonte de verdade: docs/03-design-system.md
-   Extraído de: imagens/modelo1.jpeg e imagens/modelo2.jpeg
+   Linguagem visual: **YouTube** (masthead, guide, chips, cartão de vídeo).
+
+   Procedência dos valores (nada aqui é inventado — ver docs/03 §11):
+   - [YT-1] sokosumi.com/tools/design-md/analysis/youtube — extração dos tokens do
+     youtube.com em 25/09/2026: superfícies claras, #e1002d como `primary`,
+     #2ba640 (secondary), #3ea6ff (tertiary), raio pill em botão/chip, 8px em card,
+     sombras 0 4px 12px / 0 16px 40px, grid de 1440px, guide de 72–240px.
+   - [YT-2] youtube-skins.com/youtube-dark-mode (guia de 09/2026) — valores do tema
+     escuro: #0f0f0f página, #212121 card, #272727 hover, #3f3f3f chip,
+     #f1f1f1 texto, #aaaaaa texto secundário, #3ea6ff link, #ff0000 marca.
+   - Valores marcados `derivado` não vêm das fontes: foram calculados para manter
+     contraste AA (>= 4.5:1 em texto normal) onde a fonte não publica o par.
+
    REGRA: nenhum componente escreve cor literal; tudo vem daqui.
    ============================================================================= */
 
 :root {
+  color-scheme: light;
+
+  /* --- marca e ação ------------------------------------------------------ */
+  /* [YT-2] #ff0000 é a marca (logo, barra de progresso). Uso decorativo. */
+  --ams-red: #ff0000;
+  /* [YT-1] `primary`. Branco sobre ele = 4,95:1 (AA para 14px/500). */
+  --ams-primary: #e1002d;
+  --ams-primary-hover: #c41e3a; /* [YT-1] hover do primário */
+  --ams-on-primary: #ffffff;
+
+  /* --- acento interativo (link, item ativo, foco) ------------------------ */
+  --ams-accent: #065fd4;
+  --ams-accent-soft: #e8f0fe; /* derivado */
+
   /* --- superfícies ------------------------------------------------------- */
-  --ams-bg-deep: #050b1f;
-  --ams-bg-mid: #0a1b4a;
-  --ams-bg-top: #14307e;
-  --ams-blob-blue: #2563eb;
-  --ams-blob-violet: #7c3aed;
-  --ams-blob-cyan: #06b6d4;
+  --ams-bg: #ffffff; /* [YT-1] surface/background */
+  --ams-bg-soft: #f9f9f9; /* [YT-1] surface-container-low */
+  --ams-surface: #ffffff; /* [YT-1] card */
+  --ams-surface-hover: #f2f2f2; /* [YT-1] hover padrão */
+  --ams-surface-strong: #e8e8e8; /* [YT-1] surface-container-highest (pressionado/selecionado) */
+  --ams-surface-sunken: #f2f2f2; /* poço: player, gráfico, campo */
+  --ams-chip: #f2f2f2; /* [YT-1] chip não selecionado */
+  --ams-chip-active: #0f0f0f; /* [YT-1] chip selecionado = on-surface */
+  --ams-on-chip-active: #ffffff; /* derivado */
+  --ams-border: #dbdbdb; /* [YT-1] outline */
+  --ams-border-strong: #9b9b9b; /* [YT-1] outline-variant */
+  --ams-divider: #e5e5e5; /* derivado do outline */
 
-  /* --- vidro ------------------------------------------------------------- */
-  --ams-glass: rgba(255, 255, 255, 0.055);
-  --ams-glass-strong: rgba(255, 255, 255, 0.09);
-  --ams-glass-sunken: rgba(3, 10, 30, 0.55);
-  --ams-border: rgba(125, 180, 255, 0.2);
-  --ams-border-strong: rgba(56, 189, 248, 0.55);
-  --ams-blur: 18px;
+  /* --- sobreposição (badge sobre thumbnail, texto sobre vídeo) ------------ */
+  --ams-overlay: rgba(0, 0, 0, 0.8); /* [YT-1] badge de duração */
+  --ams-on-overlay: #ffffff;
+  --ams-shadow-text: 0 2px 4px rgba(0, 0, 0, 0.3); /* [YT-1] rótulo sobre imagem */
 
-  /* --- ação e acento ----------------------------------------------------- */
-  --ams-cyan: #22d3ee;
-  --ams-blue: #3b82f6;
-  --ams-violet: #8b5cf6;
-  --ams-grad-action: linear-gradient(135deg, #22d3ee 0%, #3b82f6 55%, #8b5cf6 100%);
+  /* --- semântica de estado (par foreground AA + fundo suave) ------------- */
+  /* Foreground = cor de texto/ícone sobre superfície clara.
+     Soft = fundo do pill. Os pares vêm dos containers do [YT-1]. */
+  --ams-ok: #1b5e20; /* [YT-1] on-secondary-container */
+  --ams-ok-soft: #c8e6c9; /* [YT-1] secondary-container */
+  --ams-warn: #6b3d00; /* derivado */
+  --ams-warn-soft: #ffe0b2; /* derivado */
+  --ams-danger: #8b0000; /* [YT-1] on-error-container */
+  --ams-danger-soft: #ffcccc; /* [YT-1] error-container */
+  --ams-info: #01579b; /* [YT-1] on-tertiary-container */
+  --ams-info-soft: #b3e5fc; /* [YT-1] tertiary-container */
+  --ams-neutral-soft: #f2f2f2; /* [YT-1] */
 
-  /* --- semântica de estado ----------------------------------------------- */
-  --ams-ok: #22c55e;
-  --ams-warn: #f59e0b;
-  --ams-danger: #ef4444;
-  --ams-info: #38bdf8;
-
-  --ams-ok-soft: rgba(34, 197, 94, 0.14);
-  --ams-warn-soft: rgba(245, 158, 11, 0.14);
-  --ams-danger-soft: rgba(239, 68, 68, 0.14);
-  --ams-info-soft: rgba(56, 189, 248, 0.14);
-  --ams-neutral-soft: rgba(255, 255, 255, 0.08);
+  /* --- tons de categoria (ícone-tile) ------------------------------------ */
+  /* Valor = cor de ícone. O fundo do tile é esse tom misturado na superfície. */
+  --ams-tile-cyan: #00838f;
+  --ams-tile-blue: #065fd4;
+  --ams-tile-violet: #6a1b9a;
+  --ams-tile-green: #1b5e20;
+  --ams-tile-amber: #6b3d00;
+  --ams-tile-rose: #8b0000;
+  --ams-tile-pink: #880e4f;
+  --ams-tile-teal: #00695c;
 
   /* --- texto ------------------------------------------------------------- */
-  --ams-text: #ffffff;
-  --ams-text-2: #c7d7f0;
-  --ams-text-3: #8fa6c9;
+  --ams-text: #0f0f0f; /* [YT-1] on-surface — 18,9:1 sobre branco */
+  --ams-text-2: #3f3f3f; /* derivado — 10,4:1 */
+  --ams-text-3: #606060; /* [YT-1] on-surface-variant — 6,3:1 */
 
   /* --- forma ------------------------------------------------------------- */
+  /* [YT-1]: botão, chip e campo são pill; card é 8px. */
   --ams-r-sm: 8px;
-  --ams-r-md: 12px;
-  --ams-r-lg: 18px;
-  --ams-r-xl: 24px;
+  --ams-r-md: 8px;
+  --ams-r-lg: 12px; /* card */
+  --ams-r-xl: 16px; /* painel */
   --ams-r-pill: 999px;
+  --ams-r-thumb: 12px; /* thumbnail — escolha nossa, não medida na fonte */
 
-  --ams-shadow-card: 0 10px 30px rgba(2, 8, 28, 0.45);
-  --ams-glow-cyan: 0 0 0 1px rgba(34, 211, 238, 0.35), 0 0 24px rgba(34, 211, 238, 0.18);
+  /* --- elevação ---------------------------------------------------------- */
+  --ams-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.08); /* [YT-1] card em hover */
+  --ams-shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.12); /* [YT-1] menu/diálogo */
+  --ams-ring: 0 0 0 3px rgba(6, 95, 212, 0.25); /* anel de foco */
+  --ams-ring-danger: 0 0 0 3px rgba(139, 0, 0, 0.25); /* derivado */
 
-  --ams-topbar-h: 64px;
-  --ams-sidebar-w: 232px;
+  /* --- layout ------------------------------------------------------------ */
+  --ams-topbar-h: 56px;
+  --ams-guide-w: 240px; /* [YT-1] guide expandido */
+  --ams-content-max: 1440px; /* [YT-1] grid máximo */
+  --ams-blur: 8px;
 
-  /* --- gradientes de categoria (ícone-tile) ------------------------------ */
-  --ams-tile-cyan: linear-gradient(140deg, #22d3ee, #0ea5e9);
-  --ams-tile-blue: linear-gradient(140deg, #3b82f6, #1d4ed8);
-  --ams-tile-violet: linear-gradient(140deg, #8b5cf6, #6d28d9);
-  --ams-tile-green: linear-gradient(140deg, #34d399, #059669);
-  --ams-tile-amber: linear-gradient(140deg, #fbbf24, #d97706);
-  --ams-tile-rose: linear-gradient(140deg, #fb7185, #e11d48);
-  --ams-tile-pink: linear-gradient(140deg, #f472b6, #be185d);
-  --ams-tile-teal: linear-gradient(140deg, #2dd4bf, #0f766e);
+  /* --- tipografia -------------------------------------------------------- */
+  /* [YT-1] YouTube Sans não é redistribuível (proprietária); Roboto é Apache-2.0
+     e é auto-hospedada em public/fonts (ver docs/03 §3). */
+  --ams-font-display: Roboto, 'Segoe UI', Arial, system-ui, sans-serif;
+  --ams-font: Roboto, 'Segoe UI', Arial, system-ui, sans-serif;
+}
+
+/* =============================================================================
+   Tema escuro — valores do YouTube escuro [YT-2].
+   Aplicado por `data-theme="dark"` no <html> (ver src/app/theme.tsx).
+   ============================================================================= */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ams-primary: #e1002d;
+  --ams-primary-hover: #ff2b4d;
+  --ams-accent: #3ea6ff;
+  --ams-accent-soft: #1c2b3a;
+
+  --ams-bg: #0f0f0f;
+  --ams-bg-soft: #161616;
+  --ams-surface: #212121;
+  --ams-surface-hover: #272727;
+  --ams-surface-strong: #3f3f3f;
+  --ams-surface-sunken: #181818;
+  --ams-chip: #272727;
+  --ams-chip-active: #f1f1f1;
+  --ams-on-chip-active: #0f0f0f;
+  --ams-border: #303030;
+  --ams-border-strong: #555555;
+  --ams-divider: #272727;
+
+  --ams-ok: #a5d6a7;
+  --ams-ok-soft: #12401c;
+  --ams-warn: #ffd79a;
+  --ams-warn-soft: #4a3000;
+  --ams-danger: #ffb4a1;
+  --ams-danger-soft: #4a1100;
+  --ams-info: #81d4fa;
+  --ams-info-soft: #0b2d40;
+  --ams-neutral-soft: #272727;
+
+  --ams-tile-cyan: #4dd0e1;
+  --ams-tile-blue: #3ea6ff;
+  --ams-tile-violet: #ce93d8;
+  --ams-tile-green: #a5d6a7;
+  --ams-tile-amber: #ffd79a;
+  --ams-tile-rose: #ffb4a1;
+  --ams-tile-pink: #f8bbd0;
+  --ams-tile-teal: #80cbc4;
+
+  --ams-text: #f1f1f1;
+  --ams-text-2: #d0d0d0;
+  --ams-text-3: #aaaaaa;
+
+  --ams-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.45);
+  --ams-shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.6);
+  --ams-ring: 0 0 0 3px rgba(62, 166, 255, 0.35);
+  --ams-ring-danger: 0 0 0 3px rgba(255, 180, 161, 0.3);
 }
 
 /* Expõe os tokens como utilitários do Tailwind (bg-surface, text-ink-2, ...). */
 @theme inline {
-  --color-deep: var(--ams-bg-deep);
-  --color-mid: var(--ams-bg-mid);
-  --color-top: var(--ams-bg-top);
-  --color-surface: var(--ams-glass);
-  --color-surface-strong: var(--ams-glass-strong);
-  --color-sunken: var(--ams-glass-sunken);
+  --color-bg: var(--ams-bg);
+  --color-bg-soft: var(--ams-bg-soft);
+  --color-surface: var(--ams-surface);
+  --color-surface-hover: var(--ams-surface-hover);
+  --color-surface-strong: var(--ams-surface-strong);
+  --color-sunken: var(--ams-surface-sunken);
+  --color-chip: var(--ams-chip);
   --color-line: var(--ams-border);
   --color-line-strong: var(--ams-border-strong);
-  --color-cyan: var(--ams-cyan);
-  --color-blue: var(--ams-blue);
-  --color-violet: var(--ams-violet);
+  --color-divider: var(--ams-divider);
+
+  --color-red: var(--ams-red);
+  --color-primary: var(--ams-primary);
+  --color-accent: var(--ams-accent);
+
   --color-ok: var(--ams-ok);
   --color-warn: var(--ams-warn);
   --color-danger: var(--ams-danger);
   --color-info: var(--ams-info);
+
   --color-ink: var(--ams-text);
   --color-ink-2: var(--ams-text-2);
   --color-ink-3: var(--ams-text-3);
@@ -96,28 +194,23 @@
   --radius-md: var(--ams-r-md);
   --radius-lg: var(--ams-r-lg);
   --radius-xl: var(--ams-r-xl);
+
+  --font-sans: var(--ams-font);
 }
 
 @layer base {
-  html {
-    color-scheme: dark;
-  }
-
   body {
     margin: 0;
     min-height: 100dvh;
-    color: var(--ams-text-2);
-    font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
-    font-size: 13px;
+    /* [YT-1] body-md 16/24. O app usa 14px como corpo de UI (label-md) e reserva
+       16px para leitura longa — número abaixo disso era o antigo 13px. */
+    font-family: var(--ams-font);
+    font-size: 14px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
-    background-color: var(--ams-bg-deep);
-    background-image:
-      radial-gradient(900px 620px at 10% -12%, rgba(37, 99, 235, 0.38), transparent 62%),
-      radial-gradient(720px 520px at 96% 2%, rgba(6, 182, 212, 0.2), transparent 60%),
-      radial-gradient(820px 700px at 88% 104%, rgba(124, 58, 237, 0.26), transparent 62%),
-      linear-gradient(180deg, var(--ams-bg-top) 0%, var(--ams-bg-mid) 44%, var(--ams-bg-deep) 100%);
-    background-attachment: fixed;
+    color: var(--ams-text-2);
+    background-color: var(--ams-bg);
+    /* [YT-1] "flat-first": a página é uma superfície plana, sem gradiente nem blob. */
   }
 
   h1,
@@ -126,40 +219,48 @@
   h4 {
     color: var(--ams-text);
     margin: 0;
-    font-weight: 700;
+    font-family: var(--ams-font-display);
+    font-weight: 600;
     letter-spacing: -0.01em;
   }
 
-  /* O vidro escuro engole o foco nativo do navegador — o foco é nosso. */
+  /* O foco é nosso: o anel padrão do navegador não conversa com a superfície. */
   :focus-visible {
-    outline: 2px solid var(--ams-cyan);
+    outline: 2px solid var(--ams-accent);
     outline-offset: 2px;
     border-radius: var(--ams-r-sm);
   }
 
   ::selection {
-    background: rgba(34, 211, 238, 0.35);
-    color: #fff;
+    background: var(--ams-accent-soft);
+    color: var(--ams-text);
   }
 
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(125, 180, 255, 0.22);
+    background: var(--ams-border-strong);
     border-radius: var(--ams-r-pill);
-    border: 2px solid transparent;
+    border: 3px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(125, 180, 255, 0.38);
+    background: var(--ams-text-3);
     background-clip: content-box;
   }
 }
+
+/* NOTA DE FONTE (docs/03 §3): a pilha pede Roboto e cai para Segoe UI/Arial — que é
+   exatamente o fallback declarado na fonte [YT-1]. NÃO há `@font-face` aqui de
+   propósito: os arquivos .woff2 não estão no repositório (o host de build desta
+   sessão não tem saída de rede) e uma regra apontando para arquivo inexistente
+   só produz 404. Auto-hospedar Roboto (Apache-2.0) é passo pendente do
+   `rebeca-branding`; YouTube Sans é proprietária e não pode ser redistribuída. */
 
 @media (prefers-reduced-motion: reduce) {
   *,

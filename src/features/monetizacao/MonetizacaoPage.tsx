@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Coins, PiggyBank, TrendingUp, Wallet } from 'lucide-react';
+import { AiAction } from '@/components/ai/AiAction';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Card, ErrorState, IconTile, SectionHead, Skeleton } from '@/components/ui/primitives';
@@ -7,7 +8,7 @@ import { useChannelId } from '@/app/useChannel';
 import { useContents, useKpis } from '@/data/hooks';
 import { CAMBIO_EXEMPLO_BRL_POR_USD } from '@/data/mock/db';
 import { formatBrl, formatRatio, formatUsd } from '@/lib/format';
-import type { ContentItem } from '@/data/types';
+import type { ContentItem, ContentMetrics } from '@/data/types';
 
 /** Monetização — quanto o canal ganha, quanto custa e onde está a margem. */
 export function MonetizacaoPage() {
@@ -19,6 +20,37 @@ export function MonetizacaoPage() {
     () => (contents.data ?? []).reduce((sum, item) => sum + item.costUsd, 0),
     [contents.data],
   );
+
+  /**
+   * Conteúdos com receita e views medidas e com custo lançado — as três coisas que o veredito de
+   * custo contra receita precisa. Sem elas, não há o que julgar (e o bloco de IA não aparece).
+   */
+  const julgaveis = useMemo(
+    () =>
+      (contents.data ?? []).filter(
+        (item): item is ContentItem & { metrics: ContentMetrics } => item.metrics !== null,
+      ),
+    [contents.data],
+  );
+
+  /** Conteúdo escolhido na tela; sem escolha, o de maior custo — o que mais precisa se justificar. */
+  const [julgadoId, setJulgadoId] = useState<string | null>(null);
+  const julgado = useMemo(
+    () =>
+      julgaveis.find((item) => item.id === julgadoId) ??
+      [...julgaveis].sort((a, b) => b.costUsd - a.costUsd)[0],
+    [julgaveis, julgadoId],
+  );
+
+  /**
+   * Média de custo do canal: só conteúdos com custo lançado. Custo zero é ausência de dado, não custo
+   * baixo — incluí-lo derrubaria a média e faria a comparação mentir.
+   */
+  const mediaCustoUsdCanal = useMemo(() => {
+    const comCusto = (contents.data ?? []).filter((item) => item.costUsd > 0);
+    if (comCusto.length === 0) return null;
+    return comCusto.reduce((sum, item) => sum + item.costUsd, 0) / comCusto.length;
+  }, [contents.data]);
 
   const byTheme = useMemo(() => {
     const map = new Map<string, { cost: number; revenue: number; count: number }>();
@@ -82,8 +114,8 @@ export function MonetizacaoPage() {
         </div>
       )}
 
-      <div className="grid lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7">
+      <div className="ams-split grid lg:grid-cols-12 gap-4" data-split="lg">
+        <div className="ams-split__main lg:col-span-7 flex flex-col gap-4">
           <Card className="p-4">
             <SectionHead title="Receita por tema" hint="onde o dinheiro entra" />
             {contents.isLoading && <Skeleton className="h-[240px]" />}
@@ -116,9 +148,66 @@ export function MonetizacaoPage() {
               </ul>
             )}
           </Card>
+
+          {/*
+            Veredito de monetização — custo real contra receita medida, com a média de custo do canal
+            como régua. Se não houver conteúdo com métrica medida, o bloco não aparece: sem receita e
+            views não existe veredito, e preencher com zero seria inventar número.
+            A função é somente-leitura: ela não altera custo, receita nem publicação.
+          */}
+          {julgado && (
+            <Card className="p-4">
+              <SectionHead
+                title="Esse conteúdo se pagou?"
+                hint="custo real contra receita, com a média do canal ao lado"
+              />
+
+              <label
+                className="block text-[11px] font-semibold text-ink-3 mb-1.5"
+                htmlFor="veredito-conteudo"
+              >
+                Conteúdo a julgar
+              </label>
+              <select
+                id="veredito-conteudo"
+                value={julgado.id}
+                onChange={(event) => setJulgadoId(event.target.value)}
+                className="w-full min-h-[40px] px-3 rounded-md bg-sunken border border-line text-[14px] text-ink outline-none focus:border-accent"
+              >
+                {[...julgaveis]
+                  .sort((a, b) => b.costUsd - a.costUsd)
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+              </select>
+              <p className="text-[10px] text-ink-3 mt-1.5">
+                Câmbio de exemplo {CAMBIO_EXEMPLO_BRL_POR_USD.toFixed(2)} — o mesmo usado nos cartões
+                acima. Não é cotação real.
+              </p>
+
+              <AiAction
+                className="mt-3"
+                functionId="monetizacao-veredito"
+                channelId={channelId}
+                contentId={julgado.id}
+                input={() => ({
+                  titulo: julgado.title.slice(0, 200),
+                  custoProducaoUsd: julgado.costUsd,
+                  receitaBrl: julgado.metrics.revenueBrl,
+                  views: Math.round(julgado.metrics.views),
+                  cambioBrlPorUsd: CAMBIO_EXEMPLO_BRL_POR_USD,
+                  ...(mediaCustoUsdCanal !== null ? { mediaCustoUsdCanal } : {}),
+                })}
+                label="Julgar custo contra receita"
+                hint="Diz se o conteúdo se pagou, com margem, custo por mil visualizações e riscos. Só leitura: nada é gravado."
+              />
+            </Card>
+          )}
         </div>
 
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div id="barra-lateral-direita" className="ams-split__aside lg:col-span-5 flex flex-col gap-4">
           <Card className="p-4">
             <SectionHead title="Custo por conteúdo" hint="nada é gerado sem custo lançado" />
             {contents.data && (

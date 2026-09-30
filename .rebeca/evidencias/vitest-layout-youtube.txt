@@ -1,0 +1,135 @@
+# Evidência — layout YouTube + ícone do app + barras laterais abrir/fechar
+# decisão: .rebeca/decisoes/ADR-009-linguagem-visual-youtube.md
+# gerado: 2026-09-30 18:47:17
+# comando: pnpm exec vitest run --reporter=verbose
+# exit: 0
+# janela: pasta quieta por >=120s antes da rodada (duas sessões na mesma pasta, D9)
+
+node.exe : (!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to 
+become the default in a future major version of Vite:
+No C:\Users\clauo\AppData\Roaming\npm\pnpm.ps1:24 caractere:5
++     & "node$exe"  "$basedir/node_modules/pnpm/bin/pnpm.mjs" $args
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ((!) Your Vite c...ersion of Vite::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  - import "./server/ai/vite-plugin" without a file extension (vite.config.ts:6:29). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.2 E:/pojeto rebeca
+
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 350ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > não deixa aprovar o que não está em revisão (já publicado) 338ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > não deixa aprovar conteúdo de outro canal 329ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 559ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > trocar a thumbnail DEPOIS de aprovado invalida a aprovação 554ms
+ ✓ src/data/__tests__/channel-scope.test.tsx > isolamento entre canais > a camada de dados recusa conteúdo que pertence a outro canal 400ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 711ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > não deixa reagendar conteúdo já publicado 255ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 627ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > o portão de publicação recusa o que não tem aprovação vigente 820ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > o portão de publicação não atravessa canal 339ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > existe registro da aprovação, com data e canal — e ele some quando invalidado 619ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > recusa título fora do limite antes de gravar 422ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > recusa título de uma linha só, sem controle embutido 215ms
+ ✓ src/data/__tests__/channel-scope.test.tsx > isolamento entre canais > a fila de revisão nunca devolve conteúdo de outro canal 599ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > recusa motivo de rejeição fora do limite do schema de IA 615ms
+ ✓ src/data/__tests__/aprovacao.test.ts > gate de aprovação humana > recusa data de agendamento que não é data 893ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx > barras laterais abrem e fecham > as duas nascem abertas, com os dois controles no masthead 4413ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx > tela "Como funciona" > mostra as 10 etapas do ciclo, numeradas na ordem canônica 6287ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx > tela "Como funciona" > não funde Agendar com Publicar e não fala mais em "Ajustar" 1362ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx > tela "Como funciona" > continua dizendo que o passo da aprovação é humano 774ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 8410ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx > barras laterais abrem e fecham > o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 4382ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx > barras laterais abrem e fecham > o botão da direita fecha e reabre, e publica o contrato que o CSS lê 2001ms
+ ✓ src/data/__tests__/channel-scope.test.tsx > isolamento entre canais > trocar de canal limpa o DOM, o cache e a URL do canal anterior 11305ms
+ ✓ src/data/__tests__/channel-scope.test.tsx > isolamento entre canais > rota sem canal não renderiza tela de canal nenhuma 117ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > aprova uma única vez mesmo com dois cliques seguidos 3389ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx > barras laterais abrem e fecham > a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 2203ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > rejeitar exige motivo, e o motivo vira o registro de aprendizado 7789ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 336ms
+ ✓ src/ai/__tests__/handler.test.ts > o canal é conferido no servidor, nunca aceito do cliente > recusa pedido sem canal 29ms
+ ✓ src/ai/__tests__/handler.test.ts > o canal é conferido no servidor, nunca aceito do cliente > recusa canal que não existe 9ms
+ ✓ src/ai/__tests__/handler.test.ts > o canal é conferido no servidor, nunca aceito do cliente > recusa canal vazio, nulo ou que não seja texto 11ms
+ ✓ src/ai/__tests__/handler.test.ts > o canal é conferido no servidor, nunca aceito do cliente > devolve o canal conferido no resultado, não o texto cru do cliente 15ms
+ ✓ src/ai/__tests__/handler.test.ts > validação de entrada > recusa função desconhecida 12ms
+ ✓ src/ai/__tests__/handler.test.ts > validação de entrada > recusa entrada que não passa no schema, dizendo o que faltou 12ms
+ ✓ src/ai/__tests__/handler.test.ts > validação de entrada > recusa entrada que não é objeto 4ms
+ ✓ src/ai/__tests__/handler.test.ts > validação de entrada > recusa recado acima do limite (freio de abuso) 4ms
+ ✓ src/ai/__tests__/handler.test.ts > validação de entrada > recusa a checagem infantil em canal que não é infantil 5ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > sem chave nenhuma, o canal infantil responde por simulação 7ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > canal infantil NÃO usa Google, cujo termo veda serviço dirigido a menores 10ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > canal infantil NÃO usa DeepSeek, cuja cláusula sobre menores está pendente de leitura jurídica 5ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > canal infantil USA Anthropic, cujo termo permite produto que serve menores com salvaguardas 18ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > canal adulto PODE usar o mesmo fornecedor que o infantil não pode 7ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > o override de ambiente não fura o gate do canal infantil 4ms
+ ✓ src/ai/__tests__/handler.test.ts > allow-list de fornecedor por canal (conteúdo infantil) > a decisão explícita do dono libera o fornecedor de política não verificada 11ms
+ ✓ src/ai/__tests__/handler.test.ts > travas de custo > recusa a chamada que passaria do teto por chamada, sem falar com o provedor 6ms
+ ✓ src/ai/__tests__/handler.test.ts > travas de custo > recusa quando o teto diário já foi atingido 19ms
+ ✓ src/ai/__tests__/handler.test.ts > travas de custo > deixa passar quando ainda há folga no teto diário 23ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > grava a linha da chamada paga com tokens e modelo 28ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > calcula o custo real a partir dos tokens e do preço com fonte 15ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > NÃO registra custo de chamada simulada (não houve gasto) 5ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > RECUSA modelo fora da tabela de preços, porque sem preço não há teto 7ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > com a decisão explícita do dono, o modelo sem preço roda — e o custo sai como não verificado 23ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > lê o livro corretamente quando um campo tem vírgula entre aspas 25ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > recusa identificador de conteúdo que poderia corromper o livro 8ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > recusa geração paga onde o livro de custos não é durável (teto diário não teria efeito) 7ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > recusa resposta de revisão infantil que se contradiz 22ms
+ ✓ src/ai/__tests__/handler.test.ts > livro de custos (.rebeca/custos.csv) > preserva o cabeçalho antigo e acrescenta as colunas novas (migração aditiva) 33ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > neutraliza tentativa de fechar o bloco de dados dentro do recado humano 17ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > neutraliza tentativa de fechar o bloco de dados vinda da ENTRADA, não só do recado 8ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > envia o schema de saída ao provedor quando ele existe 19ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > tenta corrigir uma saída fora do schema e falha alto se não conseguir 11ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > registra o custo mesmo quando a geração falha depois de o provedor cobrar 37ms
+ ✓ src/ai/__tests__/handler.test.ts > injeção de prompt e validação de saída > não vaza chave nem corpo cru do provedor na mensagem de erro 11ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > toda função declarada tem entrada, saída, prompt e fixture 14ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > não existe fixture órfã (fixture sem função declarada) 2ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > o nível do prompt e o nível da função são o mesmo 3ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > o teto de tokens da função não passa do teto declarado no prompt 4ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > a etapa declarada é uma etapa real do ciclo 3ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > nenhuma função publica ou aprova por conta própria 5ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > com o modelo padrão de cada nível, nenhuma função estoura o teto por chamada 10ms
+ ✓ src/ai/__tests__/registry.test.ts > registro de funções de IA > só a checagem infantil é restrita a canal infantil 2ms
+ ✓ src/ai/__tests__/registry.test.ts > prompts versionados em disco > o hash de cada prompt em disco bate com o gravado no módulo gerado 35ms
+ ✓ src/ai/__tests__/registry.test.ts > prompts versionados em disco > o gerador detecta prompt mutado (prova de que a checagem de hash não é decorativa) 10ms
+ ✓ src/ai/__tests__/registry.test.ts > prompts versionados em disco > nenhum prompt de escopo global cita nome de canal 18ms
+ ✓ src/ai/__tests__/registry.test.ts > prompts versionados em disco > todo prompt tem guardrail contra injeção e contra escrita de JSON solto 2ms
+ ✓ src/ai/__tests__/registry.test.ts > provedor simulado > a saída de TODA função passa no schema de saída daquela função 27ms
+ ✓ src/ai/__tests__/registry.test.ts > provedor simulado > a simulação nunca devolve lista vazia onde o schema exige mínimo 1ms
+ ✓ src/ai/__tests__/registry.test.ts > provedor simulado > a simulação respeita temas recusados pelo humano 6ms
+ ✓ src/ai/__tests__/registry.test.ts > provedor simulado > marcar "não há dado" em vez de inventar número de desempenho 2ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts > vazamento de credencial do provedor > caminho REAL (adaptador OpenAI): resposta 401 que ecoa o Authorization não chega ao navegador 36ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts > vazamento de credencial do provedor > caminho do AiError (o tipo que `providerError` produz): mesma garantia 8ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > não chama a IA sozinho: só depois do clique 1417ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > mostra o resultado e a procedência quando a geração é real 226ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > NÃO mostra nome de fornecedor nem de modelo na interface comum 137ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > AVISA quando a resposta é simulação — não deixa passar por geração real 191ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > não exibe valor de custo quando o preço não foi verificado 188ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > mostra o erro em pt-BR vindo do servidor, sem jargão de provedor 115ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx > AiAction > não aplica nada na tela sem clique no botão de aplicar 237ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > tem 10 etapas, na ordem declarada pelo dono do produto 6ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > não repete etapa nem deixa nenhuma sem rótulo em pt-BR 5ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > separa Agendar de Publicar, e agendar vem antes 2ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > não usa mais "Ajustar" como nome da etapa que fecha o ciclo 4ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > mantém a aprovação como a etapa humana — e ela continua sendo a 5ª 2ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > conta a mesma história que docs/00-visao-produto.md §3 3ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > não deixa conteúdo nem módulo de exemplo numa etapa fora do ciclo 12ms
+ ✓ src/data/__tests__/cycle.test.ts > ciclo canônico > não deixa nenhum módulo de agendamento apontando para a etapa de publicar 1ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > tem uma regra de cabeçalhos para todas as rotas 9ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > declara Content-Security-Policy de verdade (não vazia) 5ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > autoriza por hash cada script inline que o documento carrega 6ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > não afrouxa o script-src com unsafe-inline nem unsafe-eval 2ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > fecha as diretivas que sobram quando só default-src é declarado 2ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > declara os cabeçalhos de transporte e de enquadramento 1ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > não permite câmera, microfone, localização nem pagamento 1ms
+ ✓ src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > engessa o cache só dos assets com hash no nome 1ms
+
+ Test Files  11 passed (11)
+      Tests  106 passed (106)
+   Start at  18:46:30
+   Duration  46.13s (environment 47%, tests 32%, setup 11%, transform 5%, import 4%, worker 1%)
+
+    Isolate  11 workers spawned · ~9.66s startup each (spawn + environment, per file)
+             at least ~11.59s faster with isolate: false — reuses workers across files instead of one per file
+

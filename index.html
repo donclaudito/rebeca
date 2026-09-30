@@ -3,12 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#050B1F" />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- Ícone do app. Master intocado em imagens/icone-app-original.png; ver docs/03 §8. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icone-32.png" />
+    <link rel="icon" type="image/png" sizes="96x96" href="/icone-96.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icone-180.png" />
+    <meta name="apple-mobile-web-app-title" content="AI Media Studio" />
     <meta
       name="description"
       content="AI Media Studio — plataforma inteligente que cria, gerencia, publica e otimiza canais de YouTube com IA, tudo em um só lugar."
     />
     <title>AI Media Studio</title>
+    <script>
+      // Aplica o tema antes da primeira pintura: sem isto a tela pisca clara antes de
+      // virar escura. Só a preferência de tema mora aqui — o canal ativo vive na URL
+      // (invariante nº 2 do AGENTS.md). Ver src/app/theme.tsx.
+      (function () {
+        try {
+          var t = window.localStorage.getItem('ams-tema');
+          document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

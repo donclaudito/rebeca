@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Library, Plus } from 'lucide-react';
+import { Library, Plus, SearchX } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ContentCard } from '@/components/content/ContentCard';
 import {
@@ -10,7 +10,6 @@ import {
   ErrorState,
   SectionHead,
   Skeleton,
-  cn,
 } from '@/components/ui/primitives';
 import { useChannelId } from '@/app/useChannel';
 import { useContents } from '@/data/hooks';
@@ -33,7 +32,15 @@ function isFiltro(value: string | null): value is Filtro {
   return value !== null && FILTROS.some((filtro) => filtro.id === value);
 }
 
-/** Conteúdo — a biblioteca do canal, filtrada por estado do ciclo. */
+/** Busca sem acento e sem caixa: "luna" acha "Luna", "borboletas" acha "Borboletas". */
+function normalizar(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+/** Conteúdo — a biblioteca do canal, filtrada por estado do ciclo e pela busca. */
 export function ConteudoPage() {
   const channelId = useChannelId();
   const [params, setParams] = useSearchParams();
@@ -41,11 +48,19 @@ export function ConteudoPage() {
 
   const raw = params.get('filtro');
   const filtro: Filtro = isFiltro(raw) ? raw : 'todos';
+  const busca = params.get('busca') ?? '';
 
-  const items = useMemo(
-    () => (contents.data ?? []).filter((item) => (filtro === 'todos' ? true : item.status === filtro)),
-    [contents.data, filtro],
-  );
+  const items = useMemo(() => {
+    const termo = normalizar(busca.trim());
+    return (contents.data ?? []).filter((item) => {
+      if (filtro !== 'todos' && item.status !== filtro) return false;
+      if (!termo) return true;
+      const alvo = normalizar(
+        [item.title, item.hook, item.theme, item.seo.description, ...item.seo.tags].join(' '),
+      );
+      return alvo.includes(termo);
+    });
+  }, [contents.data, filtro, busca]);
 
   const counts = useMemo(() => {
     const map = new Map<Filtro, number>();
@@ -56,6 +71,14 @@ export function ConteudoPage() {
     return map;
   }, [contents.data]);
 
+  /** Escreve um parâmetro preservando o outro (filtro e busca convivem na URL). */
+  function setParam(key: 'filtro' | 'busca', value: string | null) {
+    const next = new URLSearchParams(params);
+    if (value === null || value === '') next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  }
+
   return (
     <>
       <PageHeader
@@ -63,7 +86,7 @@ export function ConteudoPage() {
         subtitle="Tudo que a IA produziu para este canal, com o estado real de cada conteúdo no ciclo."
         actions={
           <Link to={`/c/${channelId}/calendario`} className="ams-btn">
-            <Plus size={15} aria-hidden="true" />
+            <Plus size={16} aria-hidden="true" />
             Planejar a semana
           </Link>
         }
@@ -79,28 +102,33 @@ export function ConteudoPage() {
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                if (entry.id === 'todos') next.delete('filtro');
-                else next.set('filtro', entry.id);
-                setParams(next, { replace: true });
-              }}
-              className={cn(
-                'ams-btn !min-h-[34px] !px-3 !text-[12px]',
-                active && 'ams-card--strong !border-[color:var(--ams-border-strong)]',
-              )}
+              onClick={() => setParam('filtro', entry.id === 'todos' ? null : entry.id)}
+              className="ams-chip"
             >
               {entry.label}
-              <span className="ams-num text-ink-3">{count}</span>
+              <span className="ams-chip__count">{count}</span>
             </button>
           );
         })}
       </div>
 
+      {busca && (
+        <p className="text-[14px] text-ink-3 mb-3" role="status">
+          Buscando por “{busca}”.{' '}
+          <button
+            type="button"
+            className="text-accent underline bg-transparent border-0 cursor-pointer p-0 text-[14px]"
+            onClick={() => setParam('busca', null)}
+          >
+            Limpar busca
+          </button>
+        </p>
+      )}
+
       {contents.isLoading && (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
           {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton key={index} className="h-[280px]" />
+            <Skeleton key={index} className="h-[300px]" />
           ))}
         </div>
       )}
@@ -113,27 +141,39 @@ export function ConteudoPage() {
 
       {contents.data && items.length === 0 && (
         <Card className="p-4">
-          <EmptyState
-            icon={<Library size={22} />}
-            title={filtro === 'todos' ? 'Este canal ainda não tem conteúdo' : 'Nada neste estado'}
-            description={
-              filtro === 'todos'
-                ? 'Quando a IA produzir o primeiro conteúdo, ele aparece aqui com thumbnail, SEO e custo.'
-                : 'Nenhum conteúdo deste canal está nesse estado agora. Troque o filtro para ver os outros.'
-            }
-            action={
-              <Button onClick={() => setParams(new URLSearchParams(), { replace: true })}>
-                Ver todos os conteúdos
-              </Button>
-            }
-          />
+          {busca ? (
+            <EmptyState
+              icon={<SearchX size={22} />}
+              title="Nada encontrado nesta busca"
+              description={`Nenhum conteúdo deste canal casa com “${busca}”. A busca olha título, gancho, tema, descrição e tags.`}
+              action={<Button onClick={() => setParam('busca', null)}>Limpar busca</Button>}
+            />
+          ) : (
+            <EmptyState
+              icon={<Library size={22} />}
+              title={filtro === 'todos' ? 'Este canal ainda não tem conteúdo' : 'Nada neste estado'}
+              description={
+                filtro === 'todos'
+                  ? 'Quando a IA produzir o primeiro conteúdo, ele aparece aqui com thumbnail, SEO e custo.'
+                  : 'Nenhum conteúdo deste canal está nesse estado agora. Troque o filtro para ver os outros.'
+              }
+              action={
+                <Button onClick={() => setParams(new URLSearchParams(), { replace: true })}>
+                  Ver todos os conteúdos
+                </Button>
+              }
+            />
+          )}
         </Card>
       )}
 
       {contents.data && items.length > 0 && (
         <section aria-label="Conteúdos do canal">
-          <SectionHead title={`${items.length} ${items.length === 1 ? 'conteúdo' : 'conteúdos'}`} hint="dados de exemplo" />
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
+          <SectionHead
+            title={`${items.length} ${items.length === 1 ? 'conteúdo' : 'conteúdos'}`}
+            hint="dados de exemplo"
+          />
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {items.map((item) => (
               <ContentCard key={item.id} item={item} channelId={channelId} />
             ))}

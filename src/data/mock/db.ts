@@ -18,7 +18,7 @@ import type {
   Channel,
   ChannelKpis,
   Character,
-  ContentItem,
+  ContentSeed,
   ModuleState,
   Recommendation,
 } from '../types';
@@ -49,6 +49,8 @@ export const channels: Channel[] = [
     initials: 'LJ',
     tone: 'pink',
     connected: true,
+    // Canal infantil: aciona o gate de fornecedor de IA e a checagem pedagógica na Revisão.
+    childDirected: true,
   },
   {
     id: 'arquivo',
@@ -61,6 +63,7 @@ export const channels: Channel[] = [
     initials: 'AC',
     tone: 'amber',
     connected: true,
+    childDirected: false,
   },
   {
     id: 'aims',
@@ -73,6 +76,7 @@ export const channels: Channel[] = [
     initials: 'AI',
     tone: 'cyan',
     connected: true,
+    childDirected: false,
   },
 ];
 
@@ -132,7 +136,11 @@ export const kpis: ChannelKpis[] = [
    Conteúdos
    ============================================================================= */
 
-export const contents: ContentItem[] = [
+/**
+ * Sementes — `ContentSeed`, não `ContentItem`: nenhum dado de exemplo nasce com aprovação humana.
+ * Quem monta o `ContentItem` completo (com `approval: null`) é o `client`.
+ */
+export const contents: ContentSeed[] = [
   /* ---------------------------------------------------------------- Luna -- */
   {
     id: 'luna-borboletas',
@@ -874,11 +882,11 @@ export function kpisFor(channelId: string): ChannelKpis | undefined {
   return kpis.find((row) => row.channelId === channelId);
 }
 
-export function contentsFor(channelId: string): ContentItem[] {
+export function contentsFor(channelId: string): ContentSeed[] {
   return contents.filter((item) => item.channelId === channelId);
 }
 
-export function contentById(channelId: string, contentId: string): ContentItem | undefined {
+export function contentById(channelId: string, contentId: string): ContentSeed | undefined {
   return contents.find((item) => item.channelId === channelId && item.id === contentId);
 }
 

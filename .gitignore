@@ -52,3 +52,8 @@ desktop.ini
 # Alguns utilitários gravam criando `<arquivo>.<pid>.<guid>.tmpdir/` ao lado do original.
 # Não são artefatos do projeto e, com o dev server no ar, observar essas pastas derrubava o Vite.
 *.tmpdir/
+
+# --- Cache do Python ---
+# `.tools/*.py` geram `__pycache__/*.pyc` a cada execução, inclusive de dentro do CI.
+__pycache__/
+*.pyc

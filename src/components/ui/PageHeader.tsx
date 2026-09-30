@@ -13,8 +13,8 @@ export function PageHeader({ title, subtitle, actions, sample = true }: PageHead
   return (
     <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-[30px] sm:text-[34px] leading-tight">{title}</h1>
-        <p className="text-[13px] text-ink-3 mt-1 max-w-[720px]">{subtitle}</p>
+        <h1 className="ams-page-title">{title}</h1>
+        <p className="text-[14px] text-ink-3 mt-1 max-w-[720px]">{subtitle}</p>
       </div>
       <div className="flex items-center gap-2 flex-wrap">
         {sample && <SampleDataRibbon />}

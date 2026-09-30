@@ -40,12 +40,28 @@ jobs:
           runtime: node@22
           cache: true
 
+      # O scanner é provado ANTES de ser usado: um scanner sem teste é uma afirmação sem prova.
+      # Ele já disse "limpo" com credencial real commitada duas vezes (arquivo UTF-16LE que o
+      # `git grep -I` pulava; chave da Anthropic que `sk-[A-Za-z0-9]{32,}` não casa porque o hífen
+      # interrompe). Este passo falha se qualquer padrão deixar de detectar o formato que promete,
+      # ou se passar a casar a prosa do próprio repositório.
+      - name: Prova do scanner de segredo (positivos e falsos positivos)
+        run: python3 .tools/test_scan_secrets.py
+
       # O scanner lê cada arquivo rastreado em bytes e tenta UTF-8 e UTF-16: o `git grep -I` que
       # estava aqui pulava os `.rebeca/evidencias/*.txt`, que são UTF-16LE no Windows — provado
       # pelo `rebeca-qa` (mesmo segredo: pego em UTF-8, invisível em UTF-16LE). Ele mascara o
       # valor encontrado, para o log do CI não virar o vazamento.
       - name: Nenhum segredo em texto claro (árvore + histórico)
         run: python3 .tools/scan_secrets.py --history
+
+      # O prompt em `.rebeca/prompts/<id>@vN.md` é a fonte; `server/ai/prompts.generated.ts` é o
+      # derivado que o servidor carrega. Editar o prompt e esquecer de rodar o gerador faria o texto
+      # que **executa** divergir do texto que foi revisado — este passo falha nesse caso. Sem ele, a
+      # revisão de prompt viraria ficção. (`pnpm build` também roda esta checagem; o passo explícito
+      # existe para o log dizer exatamente o que quebrou.)
+      - name: Prompts em sincronia com o arquivo versionado
+        run: pnpm prompts:check
 
       - name: Tipos
         run: pnpm typecheck

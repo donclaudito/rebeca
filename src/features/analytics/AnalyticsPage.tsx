@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChartColumn, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { AiAction } from '@/components/ai/AiAction';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import {
@@ -18,7 +19,7 @@ import { useContents, useKpis } from '@/data/hooks';
 import { CAMBIO_EXEMPLO_BRL_POR_USD } from '@/data/mock/db';
 import { formatBrl, formatCompact, formatPct, formatRatio, formatUsd } from '@/lib/format';
 import { formatDayMonth } from '@/lib/date';
-import type { ContentItem } from '@/data/types';
+import type { ContentItem, ContentMetrics } from '@/data/types';
 
 /**
  * Analytics — a tela responde **uma** pergunta: *esse conteúdo valeu a pena?*
@@ -31,10 +32,47 @@ export function AnalyticsPage() {
   const kpis = useKpis(channelId);
   const contents = useContents(channelId);
 
+  /**
+   * Só conteúdo medido entra na conta — e o tipo carrega a métrica junto, para a leitura da IA nunca
+   * receber `null` no lugar de um número.
+   */
   const measured = useMemo(
-    () => (contents.data ?? []).filter((item) => item.metrics !== null),
+    () =>
+      (contents.data ?? []).filter(
+        (item): item is ContentItem & { metrics: ContentMetrics } => item.metrics !== null,
+      ),
     [contents.data],
   );
+
+  /** Conteúdo escolhido na tela; sem escolha, o primeiro medido — que é o mais recente da lista. */
+  const [analisadoId, setAnalisadoId] = useState<string | null>(null);
+  const analisado = useMemo(
+    () => measured.find((item) => item.id === analisadoId) ?? measured[0],
+    [measured, analisadoId],
+  );
+
+  /**
+   * Média do canal: média simples dos conteúdos **deste** canal com métrica medida. É a base da
+   * comparação — sem ela a análise da IA não teria com o que comparar, e por isso o bloco não aparece.
+   */
+  const mediaCanal = useMemo(() => {
+    let views = 0;
+    let ctrPct = 0;
+    let retencaoPct = 0;
+    let quantidade = 0;
+    for (const item of measured) {
+      views += item.metrics.views;
+      ctrPct += item.metrics.ctrPct;
+      retencaoPct += item.metrics.retentionPct;
+      quantidade += 1;
+    }
+    if (quantidade === 0) return null;
+    return {
+      views: views / quantidade,
+      ctrPct: ctrPct / quantidade,
+      retencaoPct: retencaoPct / quantidade,
+    };
+  }, [measured]);
 
   const totals = useMemo(() => {
     const revenue = measured.reduce((sum, item) => sum + (item.metrics?.revenueBrl ?? 0), 0);
@@ -123,7 +161,7 @@ export function AnalyticsPage() {
           <EmptyState
             icon={<ChartColumn size={22} />}
             title="Ainda não há o que medir"
-            description="Nenhum conteúdo deste canal foi publicado com dados suficientes. Assim que houver, a comparação com a média do canal aparece aqui."
+            description="Nenhum conteúdo deste canal foi publicado com dados suficientes. Sem medida não existe média do canal — e sem média a leitura da IA não teria com o que comparar. Assim que houver, ela aparece aqui."
             action={
               <Link to={`/c/${channelId}/conteudo`} className="ams-btn">
                 Ver conteúdos do canal
@@ -172,9 +210,69 @@ export function AnalyticsPage() {
             </p>
           </Card>
 
+          {/*
+            Leitura da IA sobre **um** conteúdo medido, comparado com a média dos conteúdos medidos
+            deste canal. O câmbio é o mesmo `CAMBIO_EXEMPLO_BRL_POR_USD` usado na tabela — um número
+            só, para a tela não explicar a conta de dois jeitos. A função é somente-leitura: ela não
+            altera métrica, não aprova e não publica nada.
+          */}
+          {analisado && mediaCanal && (
+            <Card className="p-4 mb-4">
+              <SectionHead
+                step={2}
+                title="A IA lê este resultado"
+                hint="compara com a média do canal e responde se valeu a pena"
+              />
+
+              <label
+                className="block text-[11px] font-semibold text-ink-3 mb-1.5"
+                htmlFor="analise-conteudo"
+              >
+                Conteúdo a analisar
+              </label>
+              <select
+                id="analise-conteudo"
+                value={analisado.id}
+                onChange={(event) => setAnalisadoId(event.target.value)}
+                className="w-full min-h-[40px] px-3 rounded-md bg-sunken border border-line text-[14px] text-ink outline-none focus:border-accent"
+              >
+                {measured.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-ink-3 mt-1.5">
+                Comparação contra a média de {measured.length}{' '}
+                {measured.length === 1 ? 'conteúdo medido' : 'conteúdos medidos'} deste canal.
+              </p>
+
+              <AiAction
+                className="mt-3"
+                functionId="medir-analise"
+                channelId={channelId}
+                contentId={analisado.id}
+                input={() => ({
+                  titulo: analisado.title.slice(0, 200),
+                  formato: analisado.format,
+                  views: Math.round(analisado.metrics.views),
+                  ctrPct: analisado.metrics.ctrPct,
+                  retencaoPct: analisado.metrics.retentionPct,
+                  watchHours: analisado.metrics.watchHours,
+                  receitaBrl: analisado.metrics.revenueBrl,
+                  custoUsd: analisado.costUsd,
+                  cambioBrlPorUsd: CAMBIO_EXEMPLO_BRL_POR_USD,
+                  mediaCanal,
+                })}
+                label="Ler o desempenho deste conteúdo"
+                hint="Cruza views, CTR, retenção, receita e custo real com a média do canal. Só leitura: nada é gravado."
+              />
+            </Card>
+          )}
+
           {best && (
             <Card variant="strong" className="p-4">
-              <SectionHead step={2} title="O que isso muda na próxima semana" hint="aprendizado, não relatório" />
+              <SectionHead step={3} title="O que isso muda na próxima semana" hint="aprendizado, não relatório" />
               <p className="text-[13px] text-ink-2">
                 <strong className="text-ink">{best.title}</strong> foi o conteúdo com melhor retorno do
                 canal: {formatCompact(best.metrics?.views ?? 0)} views, CTR de{' '}

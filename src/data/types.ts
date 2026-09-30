@@ -69,6 +69,17 @@ export interface Channel {
   tone: TileTone;
   /** Conexão com o YouTube (OAuth) — nunca expõe token na interface. */
   connected: boolean;
+  /**
+   * `true` quando o conteúdo do canal é dirigido a crianças.
+   *
+   * Não é rótulo decorativo: é o que aciona o gate de canal infantil. Define quais fornecedores de IA
+   * podem atender o canal (allow-list por canal do `ADR-005`), se a tela de Revisão oferece a checagem
+   * pedagógica e se a publicação exige a declaração "made for kids".
+   *
+   * Quem decide de verdade é o **servidor** (`server/ai/channels.ts`) — este campo existe para a
+   * interface mostrar a regra certa. Cliente que "opina" sobre isso não muda a decisão do servidor.
+   */
+  childDirected: boolean;
 }
 
 /** KPIs do canal, sempre com período explícito. Nunca exibir número sem período. */
@@ -116,6 +127,33 @@ export interface ContentMetrics {
   measuredAt: string;
 }
 
+/**
+ * Registro da aprovação humana — a prova de que **um humano** liberou **esta versão** do conteúdo.
+ *
+ * Existe porque "aprovado" sozinho não é prova de nada: sem a impressão do que foi aprovado, dá para
+ * aprovar um vídeo e trocar o título, a descrição e a thumbnail antes de ele ir ao ar, e a aprovação
+ * continua parecendo válida. O campo `snapshot` fecha essa porta — o portão de publicação compara o
+ * conteúdo atual com a versão aprovada e recusa se forem diferentes.
+ *
+ * `channelId` está aqui de propósito: uma aprovação nunca vale fora do canal em que foi dada
+ * (AGENTS.md, invariante nº 2). O tipo carrega o canal porque a aprovação é dado de canal.
+ *
+ * NÃO VERIFICADO / pendente de F1: `approvedBy` (identidade de quem aprovou) depende do modelo de
+ * acesso (D3) e da persistência real. Enquanto não existir autenticação, registrar um nome de
+ * usuário seria inventar um dado — o que o app grava é o **fato** da aprovação, com data, canal e
+ * versão, e a interface diz isso com todas as letras.
+ */
+export interface ApprovalRecord {
+  /** ISO 8601 do instante da aprovação. */
+  approvedAt: string;
+  channelId: ChannelId;
+  contentId: string;
+  /** Impressão exata da versão aprovada (`contentSnapshot` em `src/data/client.ts`). */
+  snapshot: string;
+  /** Data e hora aprovadas. `null` = aprovado sem agendar. */
+  scheduledAt: string | null;
+}
+
 export interface ContentItem {
   id: string;
   channelId: ChannelId;
@@ -138,7 +176,21 @@ export interface ContentItem {
   metrics: ContentMetrics | null;
   /** Motivo da última rejeição humana — alimenta o "aprender com rejeições". */
   rejectedReason: string | null;
+  /**
+   * Aprovação humana vigente. `null` = nada aprovado, ou a aprovação foi invalidada porque o
+   * conteúdo mudou depois dela. Sem aprovação vigente, `assertPublishable` recusa publicar.
+   */
+  approval: ApprovalRecord | null;
 }
+
+/**
+ * Semente de conteúdo: o que existe **antes** de qualquer aprovação.
+ *
+ * `mock/db.ts` declara `ContentSeed[]` (não `ContentItem[]`) para o compilador cobrar que ninguém
+ * invente uma aprovação em dado de exemplo. Quem promove semente a `ContentItem` é o `client`, que
+ * grava `approval: null` — nenhum conteúdo nasce aprovado.
+ */
+export type ContentSeed = Omit<ContentItem, 'approval'>;
 
 export interface Character {
   id: string;

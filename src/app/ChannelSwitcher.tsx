@@ -55,7 +55,7 @@ export function ChannelSwitcher({ currentChannelId }: ChannelSwitcherProps) {
     <div className="relative" ref={containerRef}>
       <button
         type="button"
-        className="ams-btn gap-2.5 pr-3 max-w-[300px]"
+        className="flex items-center gap-2 h-10 pl-1 pr-1 sm:pr-3 max-w-[280px] rounded-[999px] border border-line bg-transparent hover:bg-surface-hover transition-colors cursor-pointer"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={current ? `Canal ativo: ${current.name}. Trocar de canal` : 'Escolher canal'}
@@ -65,20 +65,20 @@ export function ChannelSwitcher({ currentChannelId }: ChannelSwitcherProps) {
           <>
             <ChannelAvatar
               initials={current.initials}
-              size={28}
+              size={32}
               label={`Avatar do canal ${current.name}`}
             />
-            <span className="min-w-0 text-left leading-tight">
-              <span className="block text-[12px] font-semibold text-ink truncate">{current.name}</span>
-              <span className="block text-[10px] text-ink-3 truncate">
+            <span className="hidden sm:block min-w-0 text-left leading-tight">
+              <span className="block text-[14px] font-medium text-ink truncate">{current.name}</span>
+              <span className="block text-[12px] text-ink-3 truncate">
                 {current.kind} · {formatCompact(current.subscribers)} inscritos
               </span>
             </span>
           </>
         ) : (
-          <span className="text-[12px] font-semibold">Escolher canal</span>
+          <span className="text-[14px] font-medium px-2">Escolher canal</span>
         )}
-        <ChevronDown size={15} className="text-ink-3 shrink-0" aria-hidden="true" />
+        <ChevronDown size={16} className="hidden sm:block text-ink-3 shrink-0" aria-hidden="true" />
       </button>
 
       {open && (
@@ -121,8 +121,8 @@ export function ChannelSwitcher({ currentChannelId }: ChannelSwitcherProps) {
                       replace
                       onClick={prepareSwitch}
                       className={cn(
-                        'w-full flex items-center gap-2.5 p-2 rounded-[12px] text-left no-underline transition-colors',
-                        selected ? 'bg-surface-strong' : 'hover:bg-surface',
+                        'w-full flex items-center gap-2.5 p-2 rounded-[8px] text-left no-underline transition-colors',
+                        selected ? 'bg-surface-strong' : 'hover:bg-surface-hover',
                       )}
                     >
                       <ChannelAvatar
@@ -131,21 +131,21 @@ export function ChannelSwitcher({ currentChannelId }: ChannelSwitcherProps) {
                         label={`Avatar do canal ${channel.name}`}
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[12px] font-semibold text-ink truncate">
+                        <span className="block text-[14px] font-medium text-ink truncate">
                           {channel.name}
                         </span>
-                        <span className="block text-[10px] text-ink-3 truncate">
+                        <span className="block text-[12px] text-ink-3 truncate">
                           {channel.kind} · {formatCompact(channel.subscribers)} inscritos
                         </span>
                       </span>
-                      {selected && <Check size={15} className="text-cyan shrink-0" aria-hidden="true" />}
+                      {selected && <Check size={16} className="text-accent shrink-0" aria-hidden="true" />}
                     </Link>
                   </li>
                 );
               })}
             </ul>
 
-            <p className="px-2 pt-2 pb-1 text-[10px] text-ink-3 border-t border-line mt-1">
+            <p className="px-2 pt-2 pb-1 text-[12px] text-ink-3 border-t border-line mt-1">
               Você trabalha em um canal por vez, como no YouTube Studio.
             </p>
           </div>

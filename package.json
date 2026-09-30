@@ -10,11 +10,13 @@
   "packageManager": "pnpm@11.25.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "node .tools/build_prompts.mjs --check && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prompts:build": "node .tools/build_prompts.mjs",
+    "prompts:check": "node .tools/build_prompts.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.0",

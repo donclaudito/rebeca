@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Lock, Palette as PaletteIcon, Sparkles, Users } from 'lucide-react';
+import { AiAction } from '@/components/ai/AiAction';
 import { PageHeader } from '@/components/ui/PageHeader';
 import {
   ArtSlot,
@@ -8,6 +10,7 @@ import {
   Pill,
   SectionHead,
   Skeleton,
+  cn,
 } from '@/components/ui/primitives';
 import { useChannelId } from '@/app/useChannel';
 import { useBrandKit, useChannel, useCharacters } from '@/data/hooks';
@@ -27,6 +30,22 @@ export function IdentidadePage() {
   const brand = useBrandKit(channelId);
   const characters = useCharacters(channelId);
 
+  /**
+   * Pedido do personagem em português — é a entrada da função `identidade-personagem`.
+   *
+   * O `AiAction` não aceita `disabled`, então o botão é liberado pelo `fieldset` que o envolve: o
+   * mínimo de 5 caracteres é o mesmo mínimo do schema de entrada, e abaixo disso a chamada nem sai.
+   * A saída é só leitura: nenhum personagem é gravado, nada vira oficial sem decisão humana.
+   */
+  const [pedido, setPedido] = useState('');
+  const pedidoLimpo = pedido.trim();
+  const pedidoValido = pedidoLimpo.length >= 5;
+
+  const channelData = channel.data;
+  const paleta = (brand.data?.palette ?? []).map((color) => color.hex).slice(0, 8);
+  const personagensExistentes = (characters.data ?? []).map((character) => character.name).slice(0, 20);
+  const estiloVisual = brand.data?.tone ?? '';
+
   return (
     <>
       <PageHeader
@@ -34,8 +53,8 @@ export function IdentidadePage() {
         subtitle="A marca e os personagens deste canal. É daqui que sai a consistência entre episódios."
       />
 
-      <div className="grid lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-7 flex flex-col gap-4">
+      <div className="ams-split grid lg:grid-cols-12 gap-4" data-split="lg">
+        <div className="ams-split__main lg:col-span-7 flex flex-col gap-4">
           <Card className="p-4">
             <SectionHead step={1} title="Brand Kit" hint="cores, tipografia, voz e tom" />
 
@@ -130,9 +149,69 @@ export function IdentidadePage() {
               rascunho, ele não é usado em episódio nenhum.
             </p>
           </Card>
+
+          {/*
+            Criar personagem — a descrição em português vira ficha (nome, papel, traços, prompt de
+            imagem e notas de consistência). O resultado é **só leitura**: nada é gravado, nenhum
+            personagem nasce oficial, e a paleta enviada é a do Brand Kit deste canal.
+          */}
+          <Card className="p-4">
+            <SectionHead
+              step={3}
+              title="Criar personagem com a IA"
+              hint="descreva em português; a ficha volta para você revisar"
+            />
+
+            <label className="block text-[11px] font-semibold text-ink-3 mb-1.5" htmlFor="pedido-personagem">
+              Como é o personagem?
+            </label>
+            <textarea
+              id="pedido-personagem"
+              value={pedido}
+              onChange={(event) => setPedido(event.target.value)}
+              rows={3}
+              placeholder="Ex.: um cachorro pequeno, curioso, orelhas grandes, sem coleira."
+              className="w-full px-3 py-2 rounded-md bg-bg border border-line text-[14px] text-ink outline-none focus:border-accent resize-y"
+            />
+            <p className="text-[10px] text-ink-3 mt-1.5">
+              Descreva aparência, jeito e o que evitar. A ficha gerada não é gravada: virar personagem
+              oficial continua sendo decisão sua.
+            </p>
+
+            {!pedidoValido && (
+              <p className="text-[11px] text-ink-3 mt-2" role="status">
+                O botão libera quando a descrição tiver pelo menos 5 caracteres.
+              </p>
+            )}
+
+            {channelData && (
+              /*
+                `AiAction` não expõe prop de desabilitado; o `fieldset` desabilita de verdade o botão
+                gerado por ele enquanto a descrição não atinge o mínimo do schema de entrada.
+              */
+              <fieldset
+                disabled={!pedidoValido}
+                className={cn('mt-3 min-w-0', !pedidoValido && 'opacity-60')}
+              >
+                <AiAction
+                  functionId="identidade-personagem"
+                  channelId={channelId}
+                  input={() => ({
+                    pedido: pedidoLimpo.slice(0, 800),
+                    canalNome: channelData.name.slice(0, 120),
+                    personagensExistentes,
+                    paleta,
+                    ...(estiloVisual ? { estiloVisual: estiloVisual.slice(0, 300) } : {}),
+                  })}
+                  label="Criar a ficha do personagem"
+                  hint="Converte a sua descrição em ficha consistente: papel, traços, prompt de imagem e notas para repetir o personagem em todo episódio."
+                />
+              </fieldset>
+            )}
+          </Card>
         </div>
 
-        <div className="lg:col-span-5 flex flex-col gap-4">
+        <div id="barra-lateral-direita" className="ams-split__aside lg:col-span-5 flex flex-col gap-4">
           <Card variant="strong" className="p-4">
             <SectionHead title="Consistência de personagem" hint="requisito, não estética" />
             <p className="text-[12px] text-ink-2">
@@ -183,8 +262,8 @@ export function IdentidadePage() {
               </li>
             </ul>
             <p className="text-[11px] text-ink-3 mt-3 border-t border-line pt-3">
-              A edição de personagem por conversa (&ldquo;quero as orelhas maiores&rdquo;) ainda não está
-              neste protótipo.
+              A descrição em português já gera uma ficha de personagem para você revisar. Gravar e
+              versionar essa ficha no canal ainda não está neste protótipo.
             </p>
           </Card>
         </div>

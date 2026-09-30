@@ -6,6 +6,27 @@
 > **Atualização desta sessão:** o ciclo do produto foi fixado em **10 etapas canônicas**
 > (`Agendar` ≠ `Publicar`; `Melhorar` no lugar de `Ajustar`) — ver `ADR-004` e a seção "Verificação
 > do ciclo canônico". A lista D1–D9 mais abaixo é anterior ao `ADR-003` e não o reflete.
+>
+> **Atualização da sessão seguinte — camada de LLM por função (2026-10-01):** o app deixou de ser
+> inerte. Existem **15 funções de IA** ligadas às telas, cada uma com provedor/nível escolhido pelo
+> servidor, prompts versionados, saída validada por schema, teto de gasto e registro de custo real.
+> Ver `ADR-006-camada-de-llm-por-funcao.md` e a seção "Verificação da camada de LLM". **Nenhum token
+> foi gasto** — toda a verificação rodou com provedor simulado ou transporte injetado.
+>
+> **Atualização desta sessão — linguagem visual do YouTube + ícone do app (2026-10-01):** o dono pediu
+> "layout moderno, atualizado, seguir modelo e fontes gráficas do YouTube" e depois enviou o **ícone do
+> app**. `docs/03-design-system.md` foi **reescrito** para a linguagem do YouTube (tema claro padrão +
+> escuro, masthead com busca, chips, cartão de vídeo) e o ícone está no favicon e no masthead. Ver
+> `ADR-009-linguagem-visual-youtube.md` e a seção "Verificação — linguagem visual do YouTube".
+> **A seção "Frente paralela — resolvida" abaixo está desatualizada quanto ao `docs/03`.**
+>
+> **Atualização desta sessão — as duas barras laterais abrem e fecham:** pedido literal do dono
+> ("as barras laterais têm que ter função de fechar/abrir, tanto da direita quanto da esquerda").
+> A barra **esquerda** passou de "recolhe para 72px" a **abre/fecha de verdade** (fechada, some), com
+> ☰ no masthead e **×** dentro da barra; a barra **direita** (coluna de contexto das telas de canal)
+> ganhou o botão **▥** no masthead. Estado em `src/app/shell.tsx`, fechamento da direita por
+> `data-rail-right` + `.ams-split` no CSS, teste próprio em `src/app/__tests__/barras-laterais.test.tsx`.
+> Detalhe e trade-offs no adendo do `ADR-009`.
 
 ## Fase atual
 
@@ -39,7 +60,104 @@ real com o YouTube e o primeiro caminho vertical ponta a ponta com dado de verda
 | Decisão de stack do **front** | ✅ `ADR-001-stack-front.md` (aceito pelo dono na sessão) |
 | Marca da **interface** | ✅ `ADR-002-marca-ai-media-studio.md` (aceito pelo dono na sessão) |
 | Decisão de stack do **backend** | ❌ aberta (segunda metade de D1) |
+| **Camada de LLM por função** | ✅ `src/ai/` (registro + schemas + limites) e `server/ai/` (handler, catálogo, adaptadores, prompt, livro de custos) |
+| **Prompts versionados** | ✅ 15 arquivos em `.rebeca/prompts/*.md` + gerador `.tools/build_prompts.mjs` com hash de origem |
+| **Proxy de IA** | ✅ mesma função em `api/ai/*` (Vercel) e no middleware do Vite (dev) — chave só no servidor |
+| `ADR-006-camada-de-llm-por-funcao.md` | ⚠️ **proposto** — verificado tecnicamente; aguarda aprovação humana dos itens listados e a revisão do `rebeca-qa` |
+| Planilha de custo de LLM | ✅ `.rebeca/custos.csv` recebe `tokens_in`, `tokens_out`, `prompt_id` (aditivo) **na primeira chamada paga** — como nenhuma chave existe e nada foi gasto, o arquivo segue com o cabeçalho antigo, intacto |
 | Repositório git | ✅ **privado** em `github.com/donclaudito/rebeca`, branch `main` — ver "Publicação na nuvem" |
+| **Linguagem visual do YouTube** | ✅ `ADR-009` + `docs/03` reescrito — ver "Verificação — linguagem visual do YouTube" |
+| **Ícone do app** | ✅ arte do dono: master em `imagens/icone-app-original.png`, servidos em `public/icone-{32,48,96,180}.png`, favicon e masthead |
+
+## Verificação — linguagem visual do YouTube + ícone do app (2026-10-01)
+
+Pedido do dono, literal: *"de um layout moderno, atualizado, seguir modelo e fontes gráficas do
+YouTube"* e, na sequência, *"usar como ícone do app"* (com a arte anexada). Decisão e alternativas
+descartadas em **`ADR-009-linguagem-visual-youtube.md`**; o contrato visual é o `docs/03` reescrito.
+
+**O que mudou:** a identidade "painel noturno azul" (gradiente + vidro + ciano, extraída de
+`imagens/modelo*.jpeg`) deu lugar à linguagem do YouTube — superfície plana, card de 8px com contorno,
+ação pill, vermelho `#E1002D` no botão (4,95:1 com branco) e `#FF0000` na marca, tipografia Roboto,
+**tema claro como padrão** com escuro a um clique. A casca virou **masthead de 56px com busca no
+centro** + **guide de 240px↔72px** (gaveta no celular); o cartão de conteúdo virou cartão de vídeo
+(16:9 + badge de duração); o filtro virou **chip**; e a busca **filtra de verdade** (`?busca=`).
+
+**De onde vêm os valores (nada inventado):** `[YT-1]`
+<https://www.sokosumi.com/tools/design-md/analysis/youtube> (extração dos tokens do youtube.com em
+25/09/2026) e `[YT-2]` <https://youtube-skins.com/youtube-dark-mode> (códigos do tema escuro). Cada
+token do `tokens.css` cita a origem; o que não veio de fonte está marcado `derivado` e existe para
+fechar contraste AA — a tabela completa é a §11 do `docs/03`.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0, nenhum erro (depois que a outra frente terminou de editar o arquivo dela) |
+| Testes | `pnpm exec vitest run --reporter=verbose` | ✅ **106/106 em 11 arquivos**, exit 0, 46s, em janela quieta — `.rebeca/evidencias/vitest-layout-youtube.txt` |
+| Build de produção | `pnpm run build` (tsc + vite) | ✅ exit 0 — html 1,58 kB · **css 35,90 kB** (gzip 7,96) · js 462,51 kB |
+| Tokens no bundle | `Select-String` no `dist/assets/*.css` | ✅ `[data-theme=dark]`, `data-rail-right` (4×), `.ams-split__*` e `data-split` presentes; `color-mix` em 7 pontos; `--ams-guide-mini-w` = 0 (token órfão removido) |
+| Nenhum token morto | grep `var(--ams-(glass\|grad-action\|glow-cyan\|cyan\|bg-deep\|sidebar-w)` em `src/**/*.tsx` | ✅ **0 ocorrências** |
+| Nenhuma cor solta | grep `#hex` em `src/**/*.tsx` e em `components.css` | ✅ **0 ocorrências** |
+| CSP × script de tema | `pnpm exec vitest run src/__tests__/headers.test.ts` | ✅ **8/8** — o hash do script inline bate com o `vercel.json` (contrato do `ADR-008`) |
+| Ícones do app | inspeção de alpha nos PNG gerados | ✅ alpha mínimo = 255; 0 px quase-branco nos cantos (o master tinha ~2px de branco) |
+| **Barras laterais abrem/fecham** | `pnpm exec vitest run src/app/__tests__/barras-laterais.test.tsx` | ✅ **4/4** — as duas abrem e fecham, o × interno fecha, `aria-controls` aponta para alvo existente, `data-rail-right` é publicado, a escolha sobrevive à remontagem |
+| **Telas de canal não regrediram** | `pnpm exec vitest run src/features src/data/__tests__/channel-scope.test.tsx src/app/__tests__` | ✅ **15/15 em 4 arquivos** — inclui revisão (com o `ams-split` novo) e o teste de vazamento entre canais |
+
+**Três defeitos/armadilhas encontrados e tratados (não maquiados):**
+
+1. **Dois vermelhos, não um.** Branco sobre o `#FF0000` do botão do YouTube dá **4,00:1** e reprova em
+   AA. O botão passou a usar `#E1002D` (**4,95:1**) e o `#FF0000` ficou só onde não há texto sobre ele
+   (marca, barra de progresso). Registrar é o que impede alguém de "consertar" isso depois.
+2. **A marca do YouTube não é a nossa.** A primeira versão do masthead desenhava um play-button
+   vermelho — que é a marca do YouTube. Trocado pelo **ícone do dono**; o glifo do YouTube ficou só em
+   uso nominativo (tela de Configurações). Reproduzir a marca de outro produto como logo é problema de
+   marca, e o `ADR-002` já diz que a marca da interface é AI Media Studio.
+3. **A arte do ícone tinha defeito de origem.** O master é **opaco**, tem só **93px de lado** e trazia
+   ~2px de **branco nos cantos** (herança de captura de tela) — que apareceria como entalhe branco
+   sobre superfície escura. Os PNG servidos são recortados em quadrado exato (93×93) e desenhados com
+   1px de sangria: alpha mínimo 255, nenhum canto branco. **`icone-180.png` é ampliação de ~1,9×** e
+   não foram gerados `192`/`512`.
+
+**Não verificado (declarado, não maquiado):**
+
+1. **Fidelidade visual — o item mais importante.** Não há navegador automatizado nesta sessão. A
+   conferência foi **estrutural** (tokens presentes no bundle, DOM nos testes), **não visual**.
+   Precisa da sua olhada em `pnpm dev`.
+2. **axe-core não rodou.** O contraste foi conferido **por cálculo** (pior caso 5,1:1 no escuro), não
+   com ferramenta; o alvo de 44px no celular não foi medido em viewport real.
+3. **Roboto não foi auto-hospedada.** O host desta sessão não tem saída de rede (o `Invoke-WebRequest`
+   e o `curl` falharam antes de baixar um byte). A pilha cai para Segoe UI/Arial — o fallback que a
+   própria `[YT-1]` declara. **YouTube Sans é proprietária e não pode ser embarcada.** Pendência do
+   `rebeca-branding`.
+4. **Ícone instalável incompleto:** sem vetor/PNG grande não há `192`/`512`, e **não existe manifest
+   de PWA** — o `rebeca-pwa` não deve publicar manifest antes da arte em resolução.
+
+**Custo de concorrência medido de novo (D9) — agora com três sintomas concretos:**
+
+1. A suíte **cresceu de 49 para 95 testes / 10 arquivos** ao longo das minhas rodadas, com arquivos
+   novos aparecendo (`src/ai/`, `src/__tests__/headers.test.ts`) — outra sessão trabalhando ao vivo.
+2. **A suíte completa deixou de ser confiável por causa do próprio tamanho, e o motivo foi medido.**
+   A rodada completa reprovou `revisao > rejeitar exige motivo` com `Test timed out in 20000ms`, **sem
+   falha de asserção**, e o runner reportou `~21.67s startup each` para **10 workers**: o *startup* de
+   um worker (ambiente jsdom) já supera o `testTimeout` de 20s. **Não é o produto:** os 3 arquivos que
+   este layout toca passam **11/11 isolados**, incluindo o teste que estourou (7,2s). O `testTimeout`
+   de 20s foi calibrado com 4 arquivos; a sessão paralela a levou a 10. **Correção sugerida (não
+   aplicada):** `isolate: false` — o próprio runner estima "at least ~21.67s faster". Não apliquei
+   porque `vite.config.ts` é de outra frente e afrouxar limite de teste para "passar" é maquiar.
+3. **Colisão de numeração de ADR por três vezes.** O `ADR-006` já era da camada de LLM; escrevi o meu
+   como 006, a sessão de segurança saiu do 007 para o 008 por causa dele, e eu também caí no 008 — o
+   meu ficou em **009**. O 008 (CSP) documenta a reorganização; o 009 também. **`ADR-007` ficou vazio**
+   de propósito: é o número que duas sessões disputaram no mesmo minuto, e renumerar de novo apagaria
+   o rastro.
+4. **Achado bom da concorrência:** a sessão de segurança **recomputou o hash do meu script inline** no
+   `vercel.json` (gravado 18:09, depois do meu `index.html` de 17:53) e **atualizou as referências do
+   `docs/03`** de ADR-006 para ADR-007 acompanhando as minhas renomeações. Nem toda colisão é dano.
+
+**Lição que fica:** o padrão de falha mudou de "teste aleatório estoura sob carga" para "a suíte
+cresceu além do limite que ela mesma configurou". Quem for mexer em teste aqui deve primeiro
+**medir o silêncio da pasta** e depois decidir; e a próxima ação real é revisar `testTimeout`/
+`isolate` com a suíte parada, não continuar repetindo a rodada até sair verde.
+
+**Nada foi commitado.** A árvore tem trabalho não commitado das duas frentes; pela própria regra do
+projeto, o commit exige a pasta quieta e a passagem pelo `rebeca-qa`.
 
 ## Frente paralela — resolvida
 
@@ -159,6 +277,115 @@ temas, e a pesquisa verificada da API do YouTube (registrada mais acima nesta p�
 três **não existem** na Analytics API — impressões/CTR de thumbnail só saem em relatório em massa. A
 promessa do PDF é maior que a fonte de dados oficial. Ver D10 na tabela de decisões pendentes.
 
+## Verificação da camada de LLM (15 funções, por função)
+
+Decisão completa em `.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md`. Ambiente: Node v26.7.0 ·
+pnpm 11.25.0 · Windows.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos (agora inclui `src`, `server` e `api`) | `pnpm exec tsc --noEmit` | ✅ exit 0, nenhum erro |
+| Suíte completa | `pnpm exec vitest run` | ✅ **106/106 em 11 arquivos**, 60,47s — `.rebeca/evidencias/vitest-ia.txt` |
+| Prompts em sincronia com o disco | `node .tools/build_prompts.mjs --check` | ✅ `OK: prompts em sincronia` |
+| Geração ponta a ponta por HTTP | `POST /api/ai/generate` (`medir-analise`) | ✅ 200, saída conforme o schema, com procedência e custo honestos |
+| Estado do motor por HTTP | `GET /api/ai/status` | ✅ 200, 5 fornecedores com política de menores, tetos e livro |
+| Pedido sem canal | `POST /api/ai/generate` sem `channelId` | ✅ HTTP 400 `canal-obrigatorio` |
+| Canal inexistente | `POST` com `canal-fantasma` | ✅ HTTP 400 `canal-desconhecido` |
+| Entrada fora do contrato | `POST` com entrada inválida | ✅ HTTP 400 dizendo **qual** campo faltou |
+| Gate infantil | `revisar-infantil` em canal adulto | ✅ HTTP 400 |
+| **Fornecedor vedado no canal infantil** | `src/ai/__tests__/handler.test.ts` | ✅ Google e DeepSeek recusados; Anthropic e OpenAI aceitos; canal adulto aceita o que o infantil recusa |
+| **Teto antes do gasto** | idem | ✅ a chamada é recusada e o provedor **nunca é chamado** |
+| **Modelo sem preço verificado** | idem | ✅ recusado por padrão — sem preço não há estimativa e, sem estimativa, a trava por chamada não valeria |
+| **Custo real** | idem | ✅ 1M + 1M tokens no modelo barato = US$ 0,60 exatos |
+| **Custo de tentativa que falhou** | idem | ✅ linha gravada com `(falhou)` e as tentativas somadas |
+| **Injeção de prompt** | idem | ✅ neutralizada tanto pelo recado humano quanto pela **entrada** da função |
+| **Segredo em mensagem de erro** | idem | ✅ chave plantada na exceção não aparece |
+| **Teto diário com campo entre aspas no livro** | idem | ✅ leitor de CSV respeita aspas — antes lia `0` e liberava a chamada |
+| **Geração paga sem livro durável** | idem | ✅ recusada (o teto diário não teria efeito em serverless) |
+| **Resposta de revisão infantil contraditória** | idem | ✅ `adequado: true` + `bloqueante: true` é recusado; a tela trava a aprovação |
+| **Identificador de conteúdo malicioso** | idem | ✅ vírgula, quebra de linha e 200 KB recusados |
+| **Simulação sob contrato** | `src/ai/__tests__/registry.test.ts` | ✅ a saída simulada das 15 funções passa no schema da própria função |
+| **Hash do prompt é calculado de verdade** | idem | ✅ sha256 recalculado no teste + teste que prova que a checagem não é decorativa |
+| **Tela de IA** | `src/components/ai/__tests__/AiAction.test.tsx` | ✅ 7 casos: avisa simulação, não inventa custo, não aplica sem clique, não mostra nome de fornecedor |
+| Isolamento de prompt | `src/ai/__tests__/registry.test.ts` | ✅ nenhum prompt de escopo `*` cita nome de canal |
+
+**Revisão adversarial (`rebeca-qa`) — veredito: REFUTADO, e corrigido.** Relatório em
+`docs/qa/QA-006-camada-de-llm.md`. A decisão arquitetural sobreviveu; **as garantias não**. Quatro
+achados de gravidade alta, todos corrigidos e cobertos por teste:
+
+| # | O que estava errado | O que ficou |
+|---|---|---|
+| QA1 | **O teto diário não existia em produção** — em serverless o livro não é durável e cada invocação nascia com gasto zero | Geração paga **recusada** onde não há livro durável; escape explícito `REBECA_ALLOW_NO_LEDGER=1` |
+| QA2 | **O leitor do livro era cego ao CSV que o próprio livro escreve** (`split(',')` contra campos citados) — `contentId` com `\n` fazia ler zero e **liberar** a chamada | Parser com aspas + quebra de linha neutralizada na escrita + `contentId` limitado |
+| QA3 | **Injeção não era neutralizada no bloco de dados** — só o recado humano era; a entrada ia crua | `neutralize` no payload serializado, com teste pela entrada |
+| QA4 | **O gate infantil não bloqueava nada** — ninguém lia `bloqueante`, e o schema aceitava contradição | Regras do prompt viraram verificação executável e a tela **trava a aprovação** com veredito bloqueante |
+
+Mais 9 achados de gravidade média e baixa corrigidos (custo `nao-verificado` gravando zero falso;
+fornecedor e modelo aparecendo na interface comum; prompt de SEO que não nomeava campos que o schema
+exige; `in` em vez de `hasOwnProperty` no validador; `estimatedCostUsd` morto; e **quatro furos nos
+próprios testes** — inclusive um "teste de hash" que não calculava hash algum).
+
+**O que o `rebeca-qa` tentou refutar e não conseguiu:** a recusa de fornecedor vedado no canal
+infantil; o gate de preço impedir o POST antes de gastar; o registro de custo de tentativa que falhou;
+a redação de segredo em erro; a migração aditiva do cabeçalho do livro.
+
+**Lacuna que a revisão deixou aberta e que importa:** o veredito do gate infantil vive no **estado da
+tela**, então recarregar a página destrava a aprovação. Persistir o veredito no conteúdo (e fazer
+`approve` consultá-lo) é trabalho da camada de dados — registrado como próximo passo, não como feito.
+
+**Defeitos reais que a própria verificação encontrou e que foram corrigidos** (registro honesto —
+nenhum destes estava visível a olho nu):
+
+1. **Os guardrails não chegavam ao modelo.** O gerador de prompt extraía só "Sistema" e "Instrução" e
+   **descartava "Guardrails" em silêncio** — a defesa contra injeção, o "não aprove nem publique" e o
+   "não invente número" não eram enviados. Pegou no teste de contrato.
+2. **Prompt de escopo global citava um canal** (`identidade-personagem@v1.md` dizia "a Luna parece a
+   Luna") — defeito de isolamento, invariante nº 2. Pegou no teste de vazamento entre canais.
+3. **Override de modelo engolido em silêncio** — a checagem de `REBECA_MODEL_*` usava um mapa que não
+   continha Anthropic nem Google.
+4. **Erro inesperado não era higienizado** — exceção de rede podia atravessar com a chave dentro.
+5. **Preço da DeepSeek invertido** — o catálogo começou com o preço de pico; a doc publica o **dobro**
+   em pico, sendo o valor menor o de fora de pico. Subestimar custo furaria o teto diário.
+6. **Campo de tokens do Google renomeado** — a doc atual usa `responseTokenCount`; ler só o nome antigo
+   faria o custo virar "não verificado".
+
+**Não verificado / não coberto (declarado, não maquiado):**
+
+1. **Nenhuma chamada real a provedor foi feita. Nenhum token foi gasto, nenhuma chave existe no
+   ambiente.** Os adaptadores HTTP reais não foram exercitados contra os endpoints de verdade — os
+   fatos de endpoint, header e nome de campo vêm da documentação oficial lida em 2026-09-30.
+2. **A função serverless da Vercel não foi executada.** O caminho `api/ai/*` foi verificado por tipos e
+   compartilha a mesma função do middleware de dev (exercitada por HTTP), mas o runtime da Vercel não
+   foi testado com deploy.
+3. **Restrição de ambiente encontrada:** `vitest` neste workspace só roda **fora do sandbox
+   confinado** — o carregador de config do Vite faz detecção de unidade de rede no Windows (`net use`)
+   e o sandbox bloqueia o `spawn` com `EPERM`. Reproduzido também com o `vite.config.ts` original,
+   logo **não** é defeito desta entrega, mas é atrito real.
+4. **Dois escritores na mesma pasta.** Enquanto esta camada era construída, outra sessão acrescentou o
+   registro de aprovação (`ApprovalRecord`, `ContentSeed`, `isApprovalValid`) e refatorou classes de
+   estilo em `RevisaoPage`. Nada foi perdido — as mudanças foram aditivas e `tsc` + suíte fecham
+   verdes com as duas —, mas **é a decisão D9 cobrando o preço outra vez**. Antes de commitar: conferir
+   que a pasta está quieta.
+5. **Sem teste de render para o painel de Configurações** — verificação de tipos apenas. O `AiAction`
+   tem 7 testes de tela (`src/components/ai/__tests__/AiAction.test.tsx`), incluindo o que prova que a
+   tela **avisa** quando a resposta é simulação, que **não** aplica nada sem clique humano e que
+   **não** mostra nome de fornecedor.
+6. **O veredito do gate infantil não sobrevive a recarregar a página** (vive no estado da tela).
+7. **5 das 15 funções não têm ponto de entrada na interface** (`criar-roteiro`, `criar-cena`,
+   `criar-thumbnail`, `aprender-insight`, `marketing-derivados`): implementadas, testadas e chamáveis
+   pela API, mas sem botão em tela.
+8. **`rebeca-qa` pediu reauditoria sobre alvo congelado** — durante a auditoria, arquivos deste
+   trabalho foram gravados e três defeitos fecharam antes ele redigir. Pedido justo e registrado.
+
+**Próximo passo imediato desta frente:**
+
+1. **Você decide D11** (qual fornecedor pode atender o canal infantil), com leitura jurídica do §3.4(8)
+   da DeepSeek. Enquanto isso, o default é conservador e está testado.
+2. **`rebeca-qa` revisa `ADR-006`** — quem produz não aprova. Relatório em `docs/qa/QA-006-*.md`.
+3. **Você cola uma chave em `.env`** (ver `.env.example`) e faz **uma** geração real de cada nível, para
+   exercitar os adaptadores HTTP que hoje só foram verificados na documentação. É o teste que falta.
+4. Confirmar a mudança aditiva do cabeçalho de `.rebeca/custos.csv` (três colunas novas no fim).
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |
@@ -192,6 +419,8 @@ orquestra ser considerada confiável para trabalho de produção.
 | D8 | Ratificar em ADR a stack já presente no `package.json` (Vite + React 19 + React Query + react-router) ou trocar | `rebeca-arquiteto`, `rebeca-react` | humano |
 | D9 | A frente paralela continua em paralelo, ou passa a operar **através desta orquestra** (com `rebeca-arquiteto` → `rebeca-qa` antes de merge)? | todo o projeto | humano |
 | D10 | **"Medir" (seção 7 do PDF) promete RPM, horários e temas — e a Analytics API não entrega os três.** Derivar dentro do Rebeca (RPM = receita ÷ views; horário e tema por agregação própria) ou mudar a promessa do `docs/00` §3.8? | `rebeca-youtube`, `rebeca-analytics` | humano |
+| D11 | **Qual fornecedor de LLM pode atender o canal infantil?** O Google está **vedado** por cláusula literal (Gemini Additional Terms, "Age Requirements"); a DeepSeek tem cláusula (§3.4(8)) que pode alcançar o caso da Luna e a **leitura jurídica está pendente**; a Anthropic permite com salvaguardas. Enquanto não houver leitura jurídica, o default do produto é conservador. Ver `ADR-006` | `rebeca-lgpd`, `rebeca-infantil`, `rebeca-seguranca` | humano |
+| D12 | **O teto de gasto de LLM aprovado nesta sessão** (US$ 0,05 por chamada, US$ 1,00 por dia) é revogável pelo dono. Está em `src/ai/limits.ts`, não em variável de ambiente, para que mudá-lo exija revisão | toda a camada de IA | humano |
 
 ## Aprovações pendentes
 
@@ -363,3 +592,188 @@ a pasta está quieta.** Isto é a decisão **D9** (as duas frentes na mesma past
 5. Só então o primeiro caminho vertical (revisar → aprovar) via `rebeca-sprint.js`.
 6. Antes de considerar a F0 confiável: rodar `rebeca-qa` sobre as 18 skills (elas foram validadas
    estruturalmente, mas nunca passaram por revisão adversarial completa).
+
+## Auditoria de segurança — 2026-09-30 (skill `rebeca-seguranca`)
+
+Entregável: **`docs/seguranca/threat-model.md`** — ativos, fronteiras de confiança, 10 ameaças com
+controle e teste por ameaça, o que está fechado, o que está aberto com dono, e o que segue
+`NÃO VERIFICADO`. Leia lá para o detalhe; aqui fica o resumo e a evidência.
+
+### Fechado nesta auditoria (com teste que refuta)
+
+**S1 — a aprovação humana era decorativa (severidade alta).** `approve()` marcava
+`status: 'agendado'` e **nada** prendia a aprovação ao conteúdo aprovado: `saveTitle()` e
+`selectThumbnail()` mudavam título, descrição e thumbnail **depois** da aprovação, e o estado
+continuava `agendado`. O que iria ao ar não era o que o humano aprovou — o invariante nº 1 era
+carimbo, não controle. Corrigido com `ApprovalRecord` (impressão da versão aprovada, canal, data),
+invalidação da aprovação em toda edição de artefato e o portão `assertPublishable()`, que recusa
+publicar sem aprovação vigente que bata com o conteúdo atual. A tela de revisão passa a mostrar o
+fato ("Aprovação humana registrada em …" / "Sem aprovação vigente").
+
+**S2 — entradas sem teto na camada de dados.** `saveTitle` só tinha mínimo (título de 1 MB passava),
+`reject` não tinha teto (o motivo vai virar prompt de IA) e `reschedule`/`approve` gravavam
+**qualquer string** como data ("amanhã de manhã" virava `scheduledAt`). Agora: título 3–100 (mesmo
+teto do campo da tela), motivo 3–400 (mesmo teto do schema de IA em `src/ai/schemas.ts`), data
+validada e normalizada para ISO, e caracteres de controle removidos do texto.
+
+**S3 — máquina de estados sem guarda.** Dava para "aprovar" conteúdo já **publicado**, reagendar o
+que está no ar e rejeitar um vídeo publicado — o estado local deixava de descrever a realidade. Cada
+ação agora declara de onde pode partir.
+
+**S4 — o scanner de segredo não achava a chave da Anthropic (severidade alta).** Provado
+empiricamente: `sk-[A-Za-z0-9]{32,}` **não casa** `sk-ant-api03-…`, porque o hífen depois de `sk-`
+interrompe a classe de caracteres — a varredura dizia "limpo" com uma credencial da Anthropic
+commitada. O formato foi confirmado na fonte oficial
+([platform.claude.com/docs/en/manage-claude/authentication](https://platform.claude.com/docs/en/manage-claude/authentication),
+lida em 2026-09-30: "Static `sk-ant-api...` secret sent as a bearer token in the `Authorization`
+header"). Padrão `anthropic-key` adicionado. Arquivo rastreado acima de 2 MB deixou de ser pulado em
+silêncio: virou **AVISO** na saída. E o scanner ganhou prova própria,
+`.tools/test_scan_secrets.py` (12 positivos, 5 negativos, UTF-16LE), rodado **no CI antes** do
+scanner — um scanner sem teste é afirmação sem prova.
+
+**S5 — deploy sem CSP e sem HSTS.** `vercel.json` não tinha `Content-Security-Policy` nem
+`Strict-Transport-Security`: a única defesa contra XSS era o escape do React. Agora tem CSP estrito
+autorizando por **hash sha256** o único script inline (o de tema, que a sessão paralela adicionou ao
+`index.html`), com `object-src`, `base-uri`, `form-action` e `frame-ancestors` fechados. O hash foi
+calculado do **artefato de produção** e confere byte a byte com o fonte (524 bytes, mesmo sha256).
+`src/__tests__/headers.test.ts` lê `index.html` e `vercel.json` do disco e falha se o hash divergir.
+Decisão e alternativas em **`ADR-008`**.
+
+### S6 — fechado nesta auditoria, mas **exigiu refutar o teste que já existia**
+
+**S6 (alta) — chave do provedor de IA chegando ao navegador pelo caminho real do adaptador.**
+O sintoma inicial era um teste do próprio autor, vermelho: "não vaza chave nem corpo cru do provedor
+na mensagem de erro". Quando ele ficou verde, **conferi em vez de aceitar** — e o verde era falso.
+
+O teste planta a chave jogando um `Error` **comum** de dentro do `transport` injetado. Esse caminho
+cai no ramo de "erro inesperado" de `handleGenerate`, que **aplica** `redact()`. O caminho que roda
+de verdade com chave configurada é outro:
+
+```
+handleGenerate → callProvider → PROVIDERS[openai].complete → postJson
+  → 401 → safeProviderMessage(body)   [providers.ts:83, sem redact]
+  → providerError(...) → AiError com o texto do provedor em `detail`
+  → catch: `if (error instanceof AiError) throw error;`   ← passava direto, sem filtro
+  → http.ts: `error.toBody()`   → resposta HTTP ao navegador
+```
+
+**Provado, não deduzido.** `src/ai/__tests__/vazamento-provedor.test.ts` (2 casos) injeta um `fetch`
+que devolve 401 ecoando o `Authorization` — pelo **adaptador OpenAI real**, sem transporte de teste —
+e reproduz o vazamento com o corpo exato que o `http.ts` serializa:
+
+```
+{"code":"provedor","message":"O provedor de IA não respondeu como esperado. …",
+ "detail":"HTTP 401 — invalid_api_key: Incorrect API key provided: Authorization: Bearer sk-chaveDeTeste…"}
+```
+
+**Correção aplicada** (`server/ai/handler.ts`, no ponto de saída do `AiError`): o erro é reemitido
+com `message` e `detail` passando por `redact()`. Escolhi o ponto de saída, e não
+`safeProviderMessage`, de propósito: vale para **todo** adaptador — inclusive os que ainda não
+existem — e também protege quem consome `handleGenerate` sem ser HTTP (log, job). Não exigiu mover
+`redact` para módulo próprio, então não criou ciclo de import.
+
+**Evidência:** `.rebeca/evidencias/seguranca-vazamento-provedor.txt` — **2 falhas antes** (a chave no
+corpo), **2/2 depois**, e os **30 testes do autor continuam verdes**.
+
+**Lição que fica registrada:** teste verde que exercita o caminho errado é pior que teste ausente —
+ele certifica uma garantia que não existe. Quem revisa tem de perguntar *por onde o ataque entra de
+verdade*, não só se a asserção passa.
+
+### S7 — fechado pela sessão paralela (verificado por mim, não presumido)
+
+**S7 (alta) — teto de custo não aplicado, custo fantasma e gate do canal infantil.** Os três testes
+estavam vermelhos. A sessão paralela corrigiu durante esta auditoria: `handler.ts:382` recusa com
+`teto-diario` antes de enviar ao provedor, o custo da tentativa que falhou passou a ser registrado
+(`(falhou)` no livro) e o override de ambiente deixou de furar o gate infantil
+(`catalog.ts:352` + a mensagem em `handler.ts:198`). **Verifiquei no código e na suíte**: os 30
+testes do `handler.test.ts` passam.
+
+**O que continua aberto em S7:** **nenhuma rota `/api/ai` tem autenticação.** Qualquer um que
+alcance o deploy consome a chave configurada, mesmo com o teto diário. O teto limita o dano, não
+substitui autenticação. **Continua bloqueando ligar geração paga em ambiente público.**
+
+**S8 (média) — contradição entre `.env.example` e o gate infantil.** `.env.example` documenta
+`REBECA_ALLOW_UNVERIFIED_MINOR_POLICY=1` como "permite usar, no canal infantil, fornecedor cujo termo
+não foi verificado"; o teste do autor exige que o override **não** fure o gate do canal infantil.
+As duas coisas não podem ser verdade ao mesmo tempo. O código hoje faz o que o teste pede (o gate
+manda), então o **texto do `.env.example` é que está errado** — mas a decisão de quem cede é do dono
+do produto, porque envolve conformidade com menor. Não editei o `.env.example` para não arbitrar
+sozinho uma decisão de conformidade.
+
+### Verificação (comando + resultado observado)
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Aprovação — **antes** | `pnpm exec vitest run src/data/__tests__/aprovacao.test.ts` | ❌ **12 falhas / 15** — `.rebeca/evidencias/seguranca-aprovacao-red.txt` |
+| Aprovação — **depois** | idem | ✅ **15/15** — `.rebeca/evidencias/seguranca-aprovacao-green.txt` |
+| Cabeçalhos e CSP | `pnpm exec vitest run src/__tests__/headers.test.ts` | ✅ **8/8** — `.rebeca/evidencias/seguranca-headers.txt` |
+| CSP — prova adversarial | trocar 1 caractere do hash e rodar | ✅ ficou **vermelho** (1 falha), depois restaurado |
+| Teste do scanner | `python .tools/test_scan_secrets.py` | ✅ 12 positivos, 5 negativos, UTF-16LE |
+| Scanner — prova adversarial | remover o padrão `anthropic-key` e rodar | ✅ **3 falhas** (positivo não detectado), depois restaurado |
+| Varredura real | `python .tools/scan_secrets.py --history` | ✅ limpo em **269 blobs** (árvore + histórico) |
+| Hash do CSP × artefato | `pnpm exec vite build` + sha256 do script inline | ✅ `sha256-qpRjRiAM…` idêntico em `index.html` e `dist/index.html` |
+| Dependências | `pnpm audit --audit-level=moderate` | ✅ nenhuma vulnerabilidade conhecida |
+| Vazamento S6 — **antes** | `pnpm exec vitest run src/ai/__tests__/vazamento-provedor.test.ts` | ❌ **2/2 falharam**, com a chave no corpo enviado ao navegador — `seguranca-vazamento-provedor.txt` |
+| Vazamento S6 — **depois** | idem + `handler.test.ts` | ✅ **32/32** (2 do vazamento + 30 do autor) |
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 (o erro de `src/ai/hooks.ts` foi corrigido pela sessão paralela) |
+| Suíte completa | `pnpm exec vitest run` | ⚠️ **93/95** — 2 falhas **por tempo** (`Test timed out in 20000ms`), ver abaixo |
+| **As 3 suítes de segurança desta auditoria** | `pnpm exec vitest run src/__tests__/headers.test.ts src/data/__tests__/aprovacao.test.ts src/ai/__tests__/vazamento-provedor.test.ts` | ✅ **25/25** — `.rebeca/evidencias/seguranca-final.txt` |
+| **`pnpm build` no fim da auditoria** | `pnpm build` | ❌ **vermelho, e não por causa desta auditoria** — ver "Estado do build" abaixo |
+
+### Achado de passagem: um byte corrompido quebrava o build inteiro
+
+Durante a verificação final, `tsc` recusou `src/ai/contract.ts` com **`TS1490: File appears to be
+binary`**. A causa: um **byte `0xFF` órfão prependido** ao arquivo — UTF-8 inválido, sem BOM, sem NUL.
+O `vitest`/esbuild tolerava (por isso a suíte passava), mas `tsc` não: **`pnpm build` estava quebrado**,
+e com ele o build da Vercel. Um arquivo de código tratado como binário é o tipo de falha que passa
+despercebida até o deploy.
+
+Varri a árvore inteira em busca do mesmo padrão (UTF-8 inválido, NUL, byte alto no início): **só esse
+arquivo** estava afetado. A sessão paralela regravou o arquivo e o byte desapareceu antes de eu
+precisar intervir — mas, no instante seguinte, ela iniciou uma refatoração em `contract.ts`
+(`estimatedCostUsd` removido do registro enquanto a interface ainda o exige), e **o `tsc` voltou a
+ficar vermelho**. Isso é trabalho em andamento dela, não desta auditoria: **`tsc` esteve exit 0 às
+18:27**, com todas as mudanças desta auditoria já aplicadas.
+
+**Fica o alerta:** enquanto as duas frentes escreverem na mesma pasta, o build pode estar vermelho a
+qualquer instante por causa de escrita alheia no meio do caminho. A verificação desta auditoria vale
+para o que ela tocou (25/25 nas três suítes, exit 0 medido no `tsc` às 18:27); **não** vale como
+atestado do estado do repositório na hora em que você ler isto.
+
+
+**As 2 falhas da suíte completa não são do produto.** `channel-scope.test.tsx` e `revisao.test.tsx`
+falharam por `Test timed out in 20000ms` com a máquina sob contenção (as duas sessões rodando suítes
+ao mesmo tempo: 22,7 s e 53,7 s de render). Rodadas **em isolamento logo depois**, passaram —
+9,1 s e 19,5 s, **8/8**. É a intermitência já registrada nesta página, e o sintoma é sempre tempo,
+nunca asserção. **Atenção:** `revisao.test.tsx` levou 19,5 s com a máquina quase ociosa, contra o
+`testTimeout` de 20 s. A suíte está na borda do próprio limite nesta máquina; **subir o limite de
+novo esconderia o problema real**, que é rodar duas sessões de agente na mesma pasta (D9).
+
+
+### Concorrência — terceira vez, agora com dano mensurável
+
+Esta auditoria rodou **em paralelo com outra sessão de agente na mesma pasta**. Dano concreto,
+diferente do que já estava registrado (que era só lentidão de teste):
+
+1. `src/features/revisao/RevisaoPage.tsx` foi regravado **entre a leitura e a edição** deste agente —
+   a ferramenta recusou a edição e exigiu releitura. O trabalho não se perdeu, mas por pouco.
+2. **Numeração de ADR colidiu duas vezes.** A sessão paralela criou `ADR-006-linguagem-visual-youtube.md`
+   e, em seguida, `ADR-006-camada-de-llm-por-funcao.md` — **dois ADR-006**. Ao renomear o primeiro
+   para 007 (`18:11:35`), colidiu com o **meu** 007 (`18:11:12`), criando **dois ADR-007**. Resolvido
+   cedendo o número: o meu virou **`ADR-008-csp-e-hash-do-script-inline.md`**.
+3. A renomeação deixou **referências quebradas**: `docs/03-design-system.md` apontava para
+   `ADR-006-linguagem-visual-youtube.md`, arquivo que deixou de existir. Corrigido para `ADR-007`
+   (linhas 15 e 83) — mas é sintoma, não causa.
+
+> **Atualização (mesma sessão, depois desta auditoria):** o número final do ADR de linguagem visual
+> **não é 007**. Ao ceder o 007, a outra sessão caiu no 008 — e o meu arquivo, que já era 008, virou
+> **`ADR-009-linguagem-visual-youtube.md`**. As linhas 15 e 83 do `docs/03` **já apontam para ADR-009**.
+> O `ADR-007` fica **vazio de propósito**: foi o número disputado no mesmo minuto, e renumerar de novo
+> apagaria o rastro da colisão. Se você chegou aqui procurando o ADR da linguagem visual, ele é o
+> **009** — e ele mesmo carrega uma nota de numeração.
+
+**Recomendação:** a decisão **D9** (as duas frentes na mesma pasta) deixou de ser questão de higiene
+e virou risco de integridade. Enquanto ela estiver aberta, **um escritor só por vez**: ou a frente
+paralela entra na orquestra, ou cada frente trabalha em branch própria. Numeração de ADR e o
+`estado.md` não são arquivos que aceitam dois escritores simultâneos.
+

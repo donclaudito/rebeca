@@ -10,6 +10,7 @@
  */
 
 import type {
+  ApprovalRecord,
   BrandKit,
   Channel,
   ChannelId,
@@ -59,20 +60,26 @@ export const qk = {
    Armazenamento mutável do protótipo
    ============================================================================= */
 
-/** Cópia mutável — aprovar/agendar precisa "pegar" durante a sessão de demonstração. */
-let store: ContentItem[] = contents.map((item) => ({
-  ...item,
-  seo: { ...item.seo, tags: [...item.seo.tags] },
-  thumbnails: item.thumbnails.map((thumb) => ({ ...thumb })),
-}));
-
-/** Restaura o estado de exemplo (usado por testes e pelo botão "reiniciar exemplo"). */
-export function resetStore(): void {
-  store = contents.map((item) => ({
+/**
+ * Semente → `ContentItem`: a cópia mutável que aprovar/agendar "pega" durante a demonstração.
+ *
+ * `approval: null` é escrito aqui, e não em `mock/db.ts`, porque é a única forma de garantir que
+ * **nenhum conteúdo nasce aprovado** — nem por descuido em dado de exemplo.
+ */
+function seedStore(): ContentItem[] {
+  return contents.map((item) => ({
     ...item,
     seo: { ...item.seo, tags: [...item.seo.tags] },
     thumbnails: item.thumbnails.map((thumb) => ({ ...thumb })),
+    approval: null,
   }));
+}
+
+let store: ContentItem[] = seedStore();
+
+/** Restaura o estado de exemplo (usado por testes e pelo botão "reiniciar exemplo"). */
+export function resetStore(): void {
+  store = seedStore();
 }
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -87,11 +94,166 @@ function findContent(channelId: ChannelId, contentId: string): ContentItem {
   return found;
 }
 
-function updateContent(channelId: ChannelId, contentId: string, patch: Partial<ContentItem>): ContentItem {
+/** Atualização crua, preservando o estado no ciclo. Uso interno e deliberado — ver `patchArtifact`. */
+function patchContent(channelId: ChannelId, contentId: string, patch: Partial<ContentItem>): ContentItem {
   const current = findContent(channelId, contentId);
   const next: ContentItem = { ...current, ...patch };
   store = store.map((item) => (item === current ? next : item));
-  return next;
+  return { ...next };
+}
+
+/* =============================================================================
+   Gate de aprovação humana (AGENTS.md, invariante nº 1)
+   -----------------------------------------------------------------------------
+
+   A aprovação não é um carimbo: é o par **conteúdo + versão**. Sem prender a versão, "aprovado"
+   vira decorativo — dá para aprovar um vídeo, trocar título, descrição e thumbnail, e ele ir ao ar
+   sem que ninguém tenha aprovado aquilo. Este bloco existe para que a pergunta "o que foi aprovado
+   é o que vai ao ar?" tenha resposta verificável, e não presumida.
+   ============================================================================= */
+
+/**
+ * Impressão da parte do conteúdo que **chega ao YouTube**. Só os campos de artefato entram aqui:
+ * data de agendamento e status ficam de fora de propósito, porque reagendar não muda o vídeo.
+ *
+ * A ordem das chaves é fixa (literal de objeto) para a string ser estável entre chamadas — sem isso
+ * a comparação acusaria diferença onde não há.
+ */
+export function contentSnapshot(
+  item: Pick<ContentItem, 'format' | 'durationSec' | 'seo' | 'selectedThumbnailId'>,
+): string {
+  return JSON.stringify({
+    format: item.format,
+    durationSec: item.durationSec,
+    title: item.seo.title,
+    description: item.seo.description,
+    tags: [...item.seo.tags],
+    thumbnailId: item.selectedThumbnailId,
+  });
+}
+
+/**
+ * A aprovação vigente ainda descreve este conteúdo?
+ *
+ * Recusa por padrão (`false`) em tudo que não der para provar: sem registro, de outro canal, de
+ * outro conteúdo, em estado que não é aprovado/agendado, ou com versão diferente da aprovada.
+ */
+export function isApprovalValid(item: ContentItem): boolean {
+  const approval = item.approval;
+  if (!approval) return false;
+  if (approval.channelId !== item.channelId) return false;
+  if (approval.contentId !== item.id) return false;
+  if (item.status !== 'aprovado' && item.status !== 'agendado') return false;
+  return approval.snapshot === contentSnapshot(item);
+}
+
+/**
+ * Portão de publicação. **Todo caminho que publica tem de passar por aqui** antes de falar com o
+ * YouTube — é a defesa em profundidade do invariante nº 1: mesmo que uma tela, um job ou um agente
+ * tente publicar por fora, sem aprovação vigente a chamada é recusada.
+ *
+ * Assíncrono porque o caminho real (API + YouTube) é assíncrono; o formato já é o definitivo.
+ */
+export async function assertPublishable(channelId: ChannelId, contentId: string): Promise<ContentItem> {
+  const item = findContent(channelId, contentId);
+  if (!isApprovalValid(item)) {
+    throw new Error(
+      'Publicação recusada: não existe aprovação humana vigente para a versão atual deste conteúdo.',
+    );
+  }
+  return { ...item };
+}
+
+/* =============================================================================
+   Validação de entrada
+   -----------------------------------------------------------------------------
+   A interface também valida (`maxLength` no campo, botão desabilitado), mas validação de tela não
+   é validação: qualquer caminho que não passe pelo React — link, teste, job, agente — chega cru na
+   camada de dados. Os tetos abaixo valem para todos eles.
+   ============================================================================= */
+
+/** Mesmo teto do campo na tela de revisão (`RevisaoPage`). */
+const TITLE_MIN = 3;
+const TITLE_MAX = 100;
+/** Mesmo teto do schema de IA para `rejeicoes` (`src/ai/schemas.ts`) — o motivo vai virar prompt. */
+const REJECTION_MIN = 3;
+const REJECTION_MAX = 400;
+
+/**
+ * Texto de uma linha só. Remove caracteres de controle (inclusive NUL) e colapsa espaços: um título
+ * com quebra de linha ou NUL vira metadado estranho no YouTube e quebra log e CSV depois.
+ */
+function normalizeSingleLine(raw: string): string {
+  const semControle = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+  return semControle.replace(/\s+/g, ' ').trim();
+}
+
+function requireTitle(raw: unknown): string {
+  if (typeof raw !== 'string') throw new Error('Título inválido.');
+  const title = normalizeSingleLine(raw);
+  if (title.length < TITLE_MIN) throw new Error('O título precisa ter pelo menos 3 caracteres.');
+  if (title.length > TITLE_MAX) throw new Error('O título precisa ter no máximo 100 caracteres.');
+  return title;
+}
+
+function requireRejectionReason(raw: unknown): string {
+  if (typeof raw !== 'string') throw new Error('Motivo inválido.');
+  const reason = normalizeSingleLine(raw);
+  if (reason.length < REJECTION_MIN) throw new Error('Conte o motivo da rejeição para a IA aprender.');
+  if (reason.length > REJECTION_MAX) {
+    throw new Error('O motivo da rejeição precisa ter no máximo 400 caracteres.');
+  }
+  return reason;
+}
+
+/** Aceita só data que o runtime consegue ler; devolve ISO normalizado. Recusa o resto em vez de gravar. */
+function requireIsoInstant(raw: unknown): string {
+  if (typeof raw !== 'string' || raw.trim() === '') throw new Error('Data e hora inválidas.');
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) throw new Error('Data e hora inválidas.');
+  return new Date(ms).toISOString();
+}
+
+/* =============================================================================
+   Máquina de estados do ciclo
+   -----------------------------------------------------------------------------
+   Cada ação declara de onde pode partir. Sem isto, "aprovar" um conteúdo já publicado ou
+   "reagendar" o que está no ar passa batido — e o estado local deixa de descrever a realidade.
+   ============================================================================= */
+
+function requireEditable(current: ContentItem): void {
+  if (current.status === 'publicado') {
+    throw new Error('Conteúdo já publicado: a edição aqui não mudaria o vídeo no ar.');
+  }
+}
+
+function requireApprovable(current: ContentItem): void {
+  if (current.status === 'publicado') {
+    throw new Error('Conteúdo já publicado não pode ser aprovado de novo.');
+  }
+  if (current.status === 'gerando' || current.status === 'falhou') {
+    throw new Error('Só conteúdo pronto para revisão pode ser aprovado.');
+  }
+}
+
+/**
+ * Edição do artefato (título, thumbnail, …): **derruba a aprovação** quando ela existia.
+ *
+ * É a correção central deste bloco. O conteúdo volta para a etapa "revisar" porque o que iria ao ar
+ * deixou de ser o que o humano aprovou; a decisão tem de ser tomada de novo, por uma pessoa.
+ */
+function patchArtifact(channelId: ChannelId, contentId: string, patch: Partial<ContentItem>): ContentItem {
+  const current = findContent(channelId, contentId);
+  requireEditable(current);
+
+  const precisaNovaAprovacao =
+    current.approval !== null || current.status === 'aprovado' || current.status === 'agendado';
+
+  return patchContent(channelId, contentId, {
+    ...patch,
+    approval: null,
+    ...(precisaNovaAprovacao ? { status: 'revisao' as ContentStatus, stage: 'revisar' as const } : {}),
+  });
 }
 
 /* =============================================================================
@@ -203,20 +365,24 @@ export const api = {
     await delay(220);
     const has = findContent(channelId, contentId).thumbnails.some((t) => t.id === thumbnailId);
     if (!has) throw new Error('Essa opção de thumbnail não pertence a este conteúdo.');
-    return updateContent(channelId, contentId, { selectedThumbnailId: thumbnailId });
+    // `patchArtifact`, não `patchContent`: trocar a thumbnail depois de aprovado invalida a aprovação.
+    return patchArtifact(channelId, contentId, { selectedThumbnailId: thumbnailId });
   },
 
   async saveTitle(channelId: ChannelId, contentId: string, title: string): Promise<ContentItem> {
     await delay(200);
-    const trimmed = title.trim();
-    if (trimmed.length < 3) throw new Error('O título precisa ter pelo menos 3 caracteres.');
+    const limpo = requireTitle(title);
     const current = findContent(channelId, contentId);
-    return updateContent(channelId, contentId, { seo: { ...current.seo, title: trimmed } });
+    return patchArtifact(channelId, contentId, { seo: { ...current.seo, title: limpo } });
   },
 
   /**
    * Aprovação humana. É a única porta para "agendado" — a IA nunca chama isso sozinha
    * (AGENTS.md, invariante nº 1).
+   *
+   * O que ela grava é um `ApprovalRecord`: **quem** aprovou ainda não existe no produto (D3 aberto,
+   * sem autenticação), mas **o quê**, **quando** e **em que canal** ficam registrados — e é isso que
+   * permite ao portão de publicação (`assertPublishable`) provar que a versão no ar é a aprovada.
    */
   async approve(
     channelId: ChannelId,
@@ -224,45 +390,75 @@ export const api = {
     scheduledAt: string | null,
   ): Promise<ContentItem> {
     await delay(320);
+    const quando = scheduledAt === null ? null : requireIsoInstant(scheduledAt);
     const current = findContent(channelId, contentId);
+    requireApprovable(current);
     if (!current.selectedThumbnailId) {
       throw new Error('Escolha uma thumbnail antes de aprovar.');
     }
-    return updateContent(channelId, contentId, {
-      status: scheduledAt ? 'agendado' : 'aprovado',
+
+    const approval: ApprovalRecord = {
+      approvedAt: new Date().toISOString(),
+      channelId,
+      contentId,
+      snapshot: contentSnapshot(current),
+      scheduledAt: quando,
+    };
+
+    return patchContent(channelId, contentId, {
+      status: quando ? 'agendado' : 'aprovado',
       // Aprovado com data entra na etapa "agendar" — publicar vem depois, quando a data chega.
-      stage: scheduledAt ? 'agendar' : 'aprovar',
-      scheduledAt: scheduledAt ?? current.scheduledAt,
+      stage: quando ? 'agendar' : 'aprovar',
+      scheduledAt: quando ?? current.scheduledAt,
+      approval,
     });
   },
 
   /** "Gostei da ideia, não da execução." */
   async requestNewVersion(channelId: ChannelId, contentId: string): Promise<ContentItem> {
     await delay(280);
-    return updateContent(channelId, contentId, {
+    requireEditable(findContent(channelId, contentId));
+    return patchContent(channelId, contentId, {
       status: 'gerando',
       stage: 'criar',
       metrics: null,
+      // Gerar outra versão é, por definição, deixar de valer a aprovação da anterior.
+      approval: null,
     });
   },
 
   /** "Não gostei de nada." O motivo vira aprendizado — por isso é obrigatório. */
   async reject(channelId: ChannelId, contentId: string, reason: string): Promise<ContentItem> {
     await delay(280);
-    const trimmed = reason.trim();
-    if (trimmed.length < 3) throw new Error('Conte o motivo da rejeição para a IA aprender.');
-    return updateContent(channelId, contentId, {
+    const motivo = requireRejectionReason(reason);
+    requireEditable(findContent(channelId, contentId));
+    return patchContent(channelId, contentId, {
       status: 'gerando',
       stage: 'criar',
       metrics: null,
-      rejectedReason: trimmed,
+      rejectedReason: motivo,
+      approval: null,
     });
   },
 
-  /** Reagendar mantém o conteúdo na etapa "agendar": ele ainda não foi publicado. */
+  /**
+   * Reagendar mantém o conteúdo na etapa "agendar": ele ainda não foi publicado.
+   *
+   * Não invalida a aprovação — o vídeo aprovado não mudou, só a data. O registro da aprovação é
+   * atualizado para a nova data, porque reagendar também é ato humano sobre o mesmo artefato.
+   */
   async reschedule(channelId: ChannelId, contentId: string, scheduledAt: string): Promise<ContentItem> {
     await delay(240);
-    return updateContent(channelId, contentId, { scheduledAt, status: 'agendado', stage: 'agendar' });
+    const quando = requireIsoInstant(scheduledAt);
+    const current = findContent(channelId, contentId);
+    requireEditable(current);
+
+    return patchContent(channelId, contentId, {
+      scheduledAt: quando,
+      status: 'agendado',
+      stage: 'agendar',
+      approval: current.approval ? { ...current.approval, scheduledAt: quando } : null,
+    });
   },
 };
 

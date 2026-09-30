@@ -45,13 +45,42 @@ python "E:\pojeto rebeca\.tools\validar_skills.py"   # 18 skills: frontmatter, n
 
 ```powershell
 pnpm install
+Copy-Item .env.example .env   # opcional: sem chave, o app roda com provedor simulado
 pnpm dev        # http://127.0.0.1:5173
-pnpm typecheck  # tsc --noEmit
+pnpm typecheck  # tsc --noEmit  (cobre src/, server/ e api/)
 pnpm test       # vitest
-pnpm build      # tsc --noEmit && vite build -> dist/
+pnpm build      # confere prompts + tipos + vite build -> dist/
+pnpm prompts:check   # o prompt versionado e o que executa estão iguais?
 ```
 
 Precisa de **Node >= 22.12** (piso imposto por `vitest@5` e `vite@8`; declarado em `engines`).
+
+## Camada de IA
+
+Cada função do app tem o modelo que faz sentido para ela — o usuário escolhe o canal, não o modelo.
+São **15 funções** (pesquisar tendência, planejar semana, roteiro, storyboard, thumbnail, SEO, revisão
+de qualidade, checagem infantil, horário, leitura de desempenho, aprendizado, melhoria de pauta,
+personagem, veredito de custo e material de divulgação).
+
+| Quero… | Leia |
+|---|---|
+| a decisão e os trade-offs | [`.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md`](.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md) |
+| configurar uma chave | [`.env.example`](.env.example) |
+| ver/editar um prompt | [`.rebeca/prompts/`](.rebeca/prompts) — `@vN.md`, nunca editado no lugar |
+| o registro de custo | [`.rebeca/custos.csv`](.rebeca/custos.csv) |
+
+**Sem chave configurada, o app funciona** — ele responde com conteúdo simulado, com a mesma forma do
+real, e **diz na tela que é simulação**. Isso mantém o app demonstrável e testável sem gastar dinheiro.
+
+Três garantias que valem conhecer antes de mexer:
+
+1. **A chave nunca vai ao navegador.** A chamada sai do servidor (`api/ai/` na Vercel, mesmo código no
+   `pnpm dev`).
+2. **Custo tem teto travado antes do gasto** — US$ 0,05 por chamada e US$ 1,00 por dia, aprovados pelo
+   dono do produto. A chamada que passaria do teto nem é enviada.
+3. **Canal infantil tem lista restrita de fornecedor.** Só entram os que permitem, no contrato, serviço
+   voltado a menores. Quando nenhum se qualifica, o canal cai em simulação — e a tela explica.
+4. **A IA nunca aprova, agenda ou publica.** Ela propõe; o clique é humano.
 
 ## Onde roda (nuvem)
 
@@ -71,11 +100,22 @@ Precisa de **Node >= 22.12** (piso imposto por `vitest@5` e `vite@8`; declarado 
 
 ## Estado
 
-A orquestra está montada e o **protótipo navegável existe** (10 telas, design system executável,
-camada de dados escopada por canal, suíte de testes). Ele roda com **dados de exemplo** — não chama
-provedor de IA, não publica no YouTube e não trata dado pessoal.
+A orquestra está montada, o **protótipo navegável existe** (10 telas, design system executável, camada
+de dados escopada por canal) e o app **tem camada de IA ligada** — 15 funções, prompts versionados,
+saída validada por schema, teto de gasto e registro de custo real.
 
-O que ainda falta depende de decisão do dono do produto (ver `.rebeca/estado.md`, "Decisões pendentes"):
+O que ainda **não** é verdade, e é importante não confundir com o que já é:
+
+- Os **dados de conteúdo são de exemplo**. As funções de IA geram conteúdo de verdade (com chave
+  configurada), mas o que aparece nas telas de biblioteca, calendário e analytics continua semeado.
+- **Nenhum upload no YouTube acontece.** Publicação é a fase seguinte.
+- **Nenhuma chamada real a provedor foi executada** na verificação desta entrega: sem chave no
+  ambiente, tudo rodou com provedor simulado ou transporte injetado. Os adaptadores HTTP foram
+  escritos a partir da documentação oficial, não de resposta observada — é o teste que falta.
+- A **revisão adversarial do `rebeca-qa`** sobre `ADR-006` é pendente, e a leitura jurídica sobre qual
+  fornecedor pode atender canal infantil também (D11).
+
+O que falta depende de decisão do dono do produto (ver `.rebeca/estado.md`, "Decisões pendentes"):
 schema com RLS, integração real com o YouTube e o primeiro caminho vertical ponta a ponta com dado de
 verdade.
 
