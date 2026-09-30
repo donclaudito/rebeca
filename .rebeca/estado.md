@@ -39,7 +39,7 @@ real com o YouTube e o primeiro caminho vertical ponta a ponta com dado de verda
 | Decisão de stack do **front** | ✅ `ADR-001-stack-front.md` (aceito pelo dono na sessão) |
 | Marca da **interface** | ✅ `ADR-002-marca-ai-media-studio.md` (aceito pelo dono na sessão) |
 | Decisão de stack do **backend** | ❌ aberta (segunda metade de D1) |
-| Repositório git | ❌ não inicializado (`.gitignore` pronto) |
+| Repositório git | ✅ **privado** em `github.com/donclaudito/rebeca`, branch `main` — ver "Publicação na nuvem" |
 
 ## Frente paralela — resolvida
 
@@ -187,7 +187,7 @@ orquestra ser considerada confiável para trabalho de produção.
 | D3 | Modelo de acesso: só o dono, ou equipe com papéis (editor/revisor)? | `rebeca-supabase` (RLS), `rebeca-produto` | humano |
 | D4 | Canal piloto para o primeiro ciclo real (Luna?) e meta de publicação | `rebeca-produto`, `rebeca-analytics` | humano |
 | D5 | Limite mensal de gasto em geração e o que fazer ao atingir | `rebeca-backend`, `rebeca-seguranca` | humano |
-| D6 | Onde roda (local Windows, VPS, Vercel/Supabase Cloud) e como o Windows entra no build | `rebeca-powershell`, `rebeca-github` | humano |
+| ~~D6~~ | ✅ **fechada em 2026-09-30** — repositório privado no GitHub + Vercel (ver `ADR-003` e "Publicação na nuvem") | `rebeca-powershell`, `rebeca-github` | humano |
 | D7 | **Nome do produto: "Rebeca" (pasta e PDF) ou "AI Media Studio" (protótipo da frente paralela)?** | todo o código, UI, SEO e comunicação | humano |
 | D8 | Ratificar em ADR a stack já presente no `package.json` (Vite + React 19 + React Query + react-router) ou trocar | `rebeca-arquiteto`, `rebeca-react` | humano |
 | D9 | A frente paralela continua em paralelo, ou passa a operar **através desta orquestra** (com `rebeca-arquiteto` → `rebeca-qa` antes de merge)? | todo o projeto | humano |
@@ -270,6 +270,54 @@ antecedência, comportamento no disparo), duração máxima de vídeo, resoluç�
 playlist, o que o YouTube faz com a declaração MFK, e **o corpo da maioria das páginas
 `support.google.com`** — o fetch direto devolve só o título; a de monetização foi obtida por extrator
 de terceiro e as demais (`/answer/10774223`, `/answer/6162278`, `/answer/9528076`) seguem não lidas.
+
+## Publicação na nuvem (D6 fechada nesta sessão)
+
+O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decisão e trade-offs em
+`ADR-003-onde-roda-github-vercel.md`. O que existe agora:
+
+| Item | Estado |
+|---|---|
+| Repositório | ✅ **privado** `github.com/donclaudito/rebeca`, branch `main`, commit `4c49743`, **126 arquivos** |
+| `vercel.json` | ✅ build estático, rewrite de SPA para `/index.html`, headers de segurança |
+| CI (`.github/workflows/ci.yml`) | ✅ varredura de segredo + tipos + testes + build no piso Node 22; **não publica e não gasta API paga** |
+| `pull_request_template.md`, `dependabot.yml` | ✅ contrato de PR do projeto; Dependabot **já ativo** no repositório |
+| `.gitignore` / `.gitattributes` | ✅ segredo, mídia pesada e normalização de fim de linha (Windows → build em Linux) |
+| `package.json` | ✅ `engines.node: ">=22.12.0"` — piso real de `vitest@5` e `vite@8` |
+| Projeto na Vercel | ⏳ **o dono faz o import em `vercel.com/new`** (opção escolhida: sem token compartilhado) |
+
+**Evidência (snapshot congelado, máquina ociosa):**
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Testes no snapshot | `pnpm test` | ✅ **19/19 em 4 arquivos**, 17,07s, exit 0 (`testTimeout`/`asyncUtilTimeout` do ADR acima) |
+| Build de produção | `pnpm build` | ✅ exit 0 — 0,64 kB html · 29,98 kB css · 424,16 kB js |
+| Segredo no index | `git grep --cached` por `ghp_`/`gho_`/`AIza`/`PRIVATE KEY`/`sk-` | ✅ nenhum match |
+| Segredo/build rastreado | `git ls-files` filtrado | ✅ nenhum `.env`, `*.pem`, `*.key`, `node_modules/`, `dist/`, `.vercel/` |
+| Regras de ignore | `git check-ignore -v <caminho>` | ✅ os 11 caminhos sensíveis testados voltaram **ignorados**; app, `imagens/`, PDF e `.rebeca/` rastreados |
+| Push | `git push -u origin main` | ✅ `main` rastreando `origin/main` (hash remoto = local) |
+| **CI no GitHub** | run [`36764392338`](https://github.com/donclaudito/rebeca/actions/runs/36764392338) | ✅ **success**, 8/8 steps verdes no `ubuntu-latest`: checkout, pnpm+Node 22, varredura de segredo, tipos, testes, build, artefato |
+
+**Achado de concorrência (importa para quem vier depois):** durante esta sessão **duas sessões de
+agente escreveram na mesma pasta ao mesmo tempo**. Consequência medida: a suíte ficou intermitente —
+o mesmo commit falhava em testes **diferentes** a cada rodada, sempre por tempo, com um render de
+jsdom levando 4–9 s sob contenção contra **2,4 s com a máquina ociosa** (build: 7,5 s → 2,4 s).
+Não era defeito do produto. O commit só foi feito depois de **3+ minutos sem gravação** e com
+**19/19 verdes** medidos nesse instante. **Regra prática: antes de commitar ou publicar, confirme que
+a pasta está quieta.** Isto é a decisão **D9** (as duas frentes na mesma pasta) cobrando o preço.
+
+**Não verificado (declarado, não maquiado):**
+
+1. **A URL de produção não existe ainda** — depende do import do dono. Logo o rewrite de SPA e os
+   headers **não** foram provados com HTTP 200 em rota profunda (`/c/luna/inicio`), que é exatamente a
+   prova exigida no `ADR-003`. Até esse teste, o item 4 da Decisão daquele ADR segue como premissa.
+2. **Custo/limite do plano da Vercel** (`NÃO VERIFICADO`) — conferir na conta antes de assumir.
+3. **Proteção de branch em `main` não foi aplicada**: exige plano pago em repositório privado
+   (`NÃO VERIFICADO` quanto ao plano atual) e, com uma única pessoa no projeto, a revisão obrigatória
+   do `rebeca-qa` ainda não tem um segundo aprovador humano. Fica pendente.
+4. O commit `4c49743` carrega trabalho da sessão irmã (D2, ciclo canônico, telas) que **não passou por
+   `rebeca-qa`** nesta sessão — o CI prova que compila, testa e builda; não prova que o produto está
+   correto.
 
 ## Próximo passo sugerido
 
