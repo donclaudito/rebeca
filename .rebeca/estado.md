@@ -296,6 +296,7 @@ O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decis�
 | Segredo/build rastreado | `git ls-files` filtrado | ✅ nenhum `.env`, `*.pem`, `*.key`, `node_modules/`, `dist/`, `.vercel/` |
 | Regras de ignore | `git check-ignore -v <caminho>` | ✅ os 11 caminhos sensíveis testados voltaram **ignorados**; app, `imagens/`, PDF e `.rebeca/` rastreados |
 | Push | `git push -u origin main` | ✅ `main` rastreando `origin/main` (hash remoto = local) |
+| **Node que a Vercel vai usar** | leitura de `packages/build-utils/src/fs/node-version.ts` (`vercel/vercel`) | ✅ `engines: ">=22.12.0"` resolve para **Node 24.x** (a lista é percorrida do mais novo ao mais antigo e vence o primeiro que intersecta). Node 20 tem `discontinueDate: 2026-10-01` — o piso 22 evita a versão descontinuada **sem** ajuste manual no painel |
 | **CI no GitHub** | run [`36764392338`](https://github.com/donclaudito/rebeca/actions/runs/36764392338) | ✅ **success**, 8/8 steps verdes no `ubuntu-latest`: checkout, pnpm+Node 22, varredura de segredo, tipos, testes, build, artefato |
 
 **Achado de concorrência (importa para quem vier depois):** durante esta sessão **duas sessões de

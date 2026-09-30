@@ -35,7 +35,8 @@ verificado** em `.rebeca/estado.md`) não poderia ser conferida de outro disposi
    Verificação, com HTTP 200 em rota profunda — não aceito como fato até esse teste.)*
 5. O **piso de Node é 22.x** (`engines.node: ">=22.12.0"`), imposto pelo toolchain real: `vitest@5`
    exige `^22.12.0` e `vite@8` exige `^20.19.0 || >=22.12.0`. O CI do Actions testa **no piso**
-   (node@22), que é o cenário mais restritivo.
+   (node@22), que é o cenário mais restritivo — a Vercel, com essa faixa, roda **Node 24.x**
+   (verificado na Verificação, item 5).
 6. **O CI não faz deploy.** Ele roda tipos, testes, build e uma varredura de segredo em texto claro.
    Publicar é ação da integração Git da Vercel, com trilha por commit. Nenhum job de CI publica no
    YouTube nem gasta API paga — invariante de aprovação humana preservado.
@@ -77,6 +78,15 @@ verificado** em `.rebeca/estado.md`) não poderia ser conferida de outro disposi
    `/c/luna/inicio` — é isso que refuta (ou confirma) o item 4 da Decisão e prova que o rewrite de SPA
    funciona.
 4. `git ls-files` não contém `.env`, `*.pem`, `*.key` nem `node_modules/`.
+5. **Resolução da versão do Node na Vercel — verificada na implementação, não presumida.** Lido
+   `packages/build-utils/src/fs/node-version.ts` do repositório `vercel/vercel`
+   (`raw.githubusercontent.com/vercel/vercel/main/...`, 2026-09-30): `getSupportedNodeVersion()`
+   percorre `NODE_VERSIONS` **do mais novo para o mais antigo** e seleciona o primeiro cujo `range`
+   **intersecta** o valor de `engines.node`. Com `">=22.12.0"` o primeiro intersectado é `24.x`
+   → **a Vercel constrói com Node 24.x**, que satisfaz `vite@8` e `vitest@5`. A mesma fonte mostra
+   `discontinueDate: 2026-10-01` para o Node 20: o piso 22 adotado aqui evita a versão que é
+   descontinuada exatamente hoje, sem depender de ajuste manual no painel.
+6. CI do repositório na `main`: verde, com os 8 steps do workflow.
 
 Reavaliar quando existir backend real (D1, segunda metade): se a API passar a ter função de servidor,
 ela ganha projeto e configuração próprios, e este ADR deixa de cobrir tudo.
