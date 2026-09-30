@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { handleGenerate, handleStatus } from '../../../server/ai/handler';
 import { LEDGER_HEADER, resetMemoryLedger } from '../../../server/ai/ledger';
+import { resetConfigCache } from '../../../server/ai/secrets';
 import { simulate } from '../../../server/ai/simulated';
 import { validInput, CHANNEL_ADULT, CHANNEL_CHILD } from './fixtures';
 
@@ -34,6 +35,7 @@ import { validInput, CHANNEL_ADULT, CHANNEL_CHILD } from './fixtures';
 
 let tempDir: string;
 let ledgerFile: string;
+let settingsFile: string;
 const originalEnv = { ...process.env };
 
 /** Variáveis que a resolução de modelo lê. Limpar entre testes evita contaminação cruzada. */
@@ -46,6 +48,8 @@ const MANAGED_ENV = [
   'REBECA_PROVIDER_ORDER',
   'REBECA_ALLOW_UNVERIFIED_MINOR_POLICY',
   'REBECA_ALLOW_UNPRICED_MODEL',
+  'REBECA_ALLOW_NO_LEDGER',
+  'REBECA_SETTINGS_FILE',
   'REBECA_MODEL_RACIOCINIO',
   'REBECA_MODEL_CRIATIVO',
   'REBECA_MODEL_RAPIDO',
@@ -56,7 +60,17 @@ beforeEach(() => {
   tempDir = mkdtempSync(join(tmpdir(), 'rebeca-ai-test-'));
   ledgerFile = join(tempDir, 'custos.csv');
   process.env['REBECA_COST_LEDGER'] = ledgerFile;
+  /**
+   * Isola a configuração de IA. Sem isto, os testes leem o arquivo **real** de quem está rodando:
+   * numa máquina com chave cadastrada, "sem chave nenhuma, responde por simulação" falha — e, pior,
+   * um teste futuro poderia disparar uma chamada **paga de verdade** sem querer. Teste não pode
+   * depender de credencial real nem gastar dinheiro de ninguém.
+   */
+  settingsFile = join(tempDir, 'llm.json');
+  process.env['REBECA_SETTINGS_FILE'] = settingsFile;
   for (const key of MANAGED_ENV) delete process.env[key];
+  process.env['REBECA_SETTINGS_FILE'] = settingsFile;
+  resetConfigCache();
   resetMemoryLedger();
 });
 
@@ -68,6 +82,8 @@ afterEach(() => {
     else process.env[key] = value;
   }
   delete process.env['REBECA_COST_LEDGER'];
+  delete process.env['REBECA_SETTINGS_FILE'];
+  resetConfigCache();
   resetMemoryLedger();
 });
 

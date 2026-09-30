@@ -62,10 +62,25 @@ const arr = (items: JsonSchema, extra: { minItems?: number; maxItems?: number } 
   items,
   ...extra,
 });
-const obj = (
-  properties: Readonly<Record<string, JsonSchema>>,
-  required: readonly string[],
-): JsonSchema => ({ type: 'object', properties, required, additionalProperties: false });
+/**
+ * Objeto de schema.
+ *
+ * **Toda** propriedade declarada entra em `required`, e isto não é estilo: no modo `strict` da OpenAI
+ * a API **recusa a requisição** quando alguma propriedade não está em `required`. Descoberto com uma
+ * chamada real — `HTTP 400: Invalid schema for response_format 'resposta': 'required' is required to
+ * be supplied and to be an array including every key in properties. Missing 'hashtags'.` O contrato
+ * do provedor passou a ser o contrato do schema.
+ *
+ * Consequência de projeto, e ela é boa: "campo sem valor" passa a ser expresso por **valor vazio**
+ * (lista vazia, texto vazio), nunca por ausência de chave. A ambiguidade entre "não há capítulos" e
+ * "o modelo esqueceu de dizer" desaparece.
+ */
+const obj = (properties: Readonly<Record<string, JsonSchema>>): JsonSchema => ({
+  type: 'object',
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
 
 const SEVERITY = ['alta', 'media', 'baixa'] as const;
 const FORMAT = ['video', 'short'] as const;
@@ -212,8 +227,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         audience: str({ minLength: 2, maxLength: 200 }),
         recentThemes: arr(str({ maxLength: 120 }), { maxItems: 30 }),
         rejectedThemes: arr(str({ maxLength: 120 }), { maxItems: 30 }),
-      },
-      ['niche', 'audience'],
+      }
     ),
     output: obj(
       {
@@ -225,13 +239,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               saturacao: str({ enum: ['baixa', 'media', 'alta'] }),
               oportunidade: int({ minimum: 0, maximum: 100 }),
               evidencia: str({ minLength: 5, maxLength: 400 }),
-            },
-            ['tema', 'porQue', 'saturacao', 'oportunidade', 'evidencia'],
+            }
           ),
           { minItems: 3, maxItems: 6 },
         ),
-      },
-      ['temas'],
+      }
     ),
   },
 
@@ -244,8 +256,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         historico: arr(str({ maxLength: 200 }), { maxItems: 40 }),
         temasFortes: arr(str({ maxLength: 120 }), { maxItems: 20 }),
         videosPorSemana: int({ minimum: 1, maximum: 14 }),
-      },
-      ['niche', 'audience', 'weekStart'],
+      }
     ),
     output: obj(
       {
@@ -259,13 +270,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               angulo: str({ minLength: 10, maxLength: 300 }),
               gancho: str({ minLength: 10, maxLength: 300 }),
               duracaoSeg: int({ minimum: 15, maximum: 1800 }),
-            },
-            ['dia', 'formato', 'tema', 'angulo', 'gancho', 'duracaoSeg'],
+            }
           ),
           { minItems: 1, maxItems: 14 },
         ),
-      },
-      ['resumo', 'pauta'],
+      }
     ),
   },
 
@@ -280,8 +289,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         idadeAlvo: str({ maxLength: 40 }),
         personagens: arr(str({ maxLength: 80 }), { maxItems: 10 }),
         valores: arr(str({ maxLength: 80 }), { maxItems: 10 }),
-      },
-      ['tema', 'angulo', 'gancho', 'formato', 'duracaoSeg'],
+      }
     ),
     output: obj(
       {
@@ -297,13 +305,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               narracao: str({ minLength: 1, maxLength: 1200 }),
               acao: str({ minLength: 1, maxLength: 600 }),
               emocao: str({ minLength: 2, maxLength: 60 }),
-            },
-            ['ordem', 'tempoInicioSeg', 'tempoFimSeg', 'narracao', 'acao', 'emocao'],
+            }
           ),
           { minItems: 3, maxItems: 40 },
         ),
-      },
-      ['titulo', 'logline', 'moral', 'blocos'],
+      }
     ),
   },
 
@@ -315,15 +321,10 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         personagens: arr(str({ maxLength: 80 }), { maxItems: 10 }),
         estiloVisual: str({ maxLength: 300 }),
         blocos: arr(
-          obj({ ordem: int(), narracao: str({ maxLength: 1200 }), acao: str({ maxLength: 600 }) }, [
-            'ordem',
-            'narracao',
-            'acao',
-          ]),
+          obj({ ordem: int(), narracao: str({ maxLength: 1200 }), acao: str({ maxLength: 600 }) }),
           { minItems: 1, maxItems: 40 },
         ),
-      },
-      ['tema', 'formato', 'blocos'],
+      }
     ),
     output: obj(
       {
@@ -338,13 +339,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               promptImagem: str({ minLength: 20, maxLength: 1200 }),
               negativePrompt: str({ maxLength: 600 }),
               seed: int({ minimum: 0, maximum: 2147483647 }),
-            },
-            ['numero', 'duracaoSeg', 'descricao', 'enquadramento', 'promptImagem'],
+            }
           ),
           { minItems: 1, maxItems: 60 },
         ),
-      },
-      ['cenas'],
+      }
     ),
   },
 
@@ -356,8 +355,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         personagemPrincipal: str({ maxLength: 80 }),
         paleta: arr(str({ maxLength: 40 }), { maxItems: 8 }),
         estilo: str({ maxLength: 300 }),
-      },
-      ['tema', 'titulo'],
+      }
     ),
     output: obj(
       {
@@ -375,13 +373,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
                * pré-selecionada na tela — escolher thumbnail é ato humano (invariante nº 1).
                */
               sugestao: bool(),
-            },
-            ['id', 'label', 'alt', 'conceito', 'textoNaArte', 'promptImagem', 'sugestao'],
+            }
           ),
           { minItems: 3, maxItems: 4 },
         ),
-      },
-      ['opcoes'],
+      }
     ),
   },
 
@@ -393,8 +389,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         roteiroResumo: str({ minLength: 10, maxLength: 2000 }),
         canalNome: str({ minLength: 2, maxLength: 120 }),
         publico: str({ maxLength: 200 }),
-      },
-      ['titulo', 'tema', 'roteiroResumo', 'canalNome'],
+      }
     ),
     output: obj(
       {
@@ -403,11 +398,10 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         tags: arr(str({ maxLength: 40 }), { minItems: 3, maxItems: 20 }),
         hashtags: arr(str({ maxLength: 40 }), { maxItems: 8 }),
         capitulos: arr(
-          obj({ tempo: str({ maxLength: 10 }), rotulo: str({ maxLength: 100 }) }, ['tempo', 'rotulo']),
+          obj({ tempo: str({ maxLength: 10 }), rotulo: str({ maxLength: 100 }) }),
           { maxItems: 20 },
         ),
-      },
-      ['titulo', 'descricao', 'tags'],
+      }
     ),
   },
 
@@ -418,8 +412,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         roteiroResumo: str({ minLength: 10, maxLength: 4000 }),
         formato: str({ enum: FORMAT }),
         idadeAlvo: str({ maxLength: 40 }),
-      },
-      ['titulo', 'roteiroResumo', 'formato'],
+      }
     ),
     output: obj(
       {
@@ -431,8 +424,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
             gancho: int({ minimum: 0, maximum: 100 }),
             clareza: int({ minimum: 0, maximum: 100 }),
             adequacaoEtaria: int({ minimum: 0, maximum: 100 }),
-          },
-          ['originalidade', 'gancho', 'clareza', 'adequacaoEtaria'],
+          }
         ),
         achados: arr(
           obj(
@@ -441,13 +433,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               criterio: str({ minLength: 3, maxLength: 80 }),
               evidencia: str({ minLength: 5, maxLength: 400 }),
               sugestao: str({ minLength: 5, maxLength: 400 }),
-            },
-            ['gravidade', 'criterio', 'evidencia', 'sugestao'],
+            }
           ),
           { maxItems: 12 },
         ),
-      },
-      ['veredito', 'nota', 'rubrica', 'achados'],
+      }
     ),
   },
 
@@ -457,8 +447,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         titulo: str({ minLength: 3, maxLength: 200 }),
         roteiroResumo: str({ minLength: 10, maxLength: 4000 }),
         idadeAlvo: str({ maxLength: 40 }),
-      },
-      ['titulo', 'roteiroResumo', 'idadeAlvo'],
+      }
     ),
     output: obj(
       {
@@ -475,13 +464,11 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               criterio: str({ minLength: 3, maxLength: 80 }),
               evidencia: str({ minLength: 5, maxLength: 400 }),
               sugestao: str({ minLength: 5, maxLength: 400 }),
-            },
-            ['gravidade', 'criterio', 'evidencia', 'sugestao'],
+            }
           ),
           { maxItems: 12 },
         ),
-      },
-      ['adequado', 'bloqueante', 'faixaEtariaRecomendada', 'ritmoSegPorCena', 'achados'],
+      }
     ),
   },
 
@@ -492,14 +479,10 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         fusoHorario: str({ minLength: 3, maxLength: 60 }),
         formato: str({ enum: FORMAT }),
         historicoHorarios: arr(
-          obj({ horario: str({ maxLength: 40 }), retencaoPct: num({ minimum: 0, maximum: 100 }) }, [
-            'horario',
-            'retencaoPct',
-          ]),
+          obj({ horario: str({ maxLength: 40 }), retencaoPct: num({ minimum: 0, maximum: 100 }) }),
           { maxItems: 60 },
         ),
-      },
-      ['fusoHorario', 'formato'],
+      }
     ),
     output: obj(
       {
@@ -509,18 +492,15 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
             hora: str({ minLength: 4, maxLength: 6 }),
             justificativa: str({ minLength: 10, maxLength: 400 }),
             confiancaPct: int({ minimum: 0, maximum: 100 }),
-          },
-          ['diaSemana', 'hora', 'justificativa', 'confiancaPct'],
+          }
         ),
         alternativas: arr(
           obj(
-            { diaSemana: str({ maxLength: 20 }), hora: str({ maxLength: 6 }), justificativa: str({ maxLength: 300 }) },
-            ['diaSemana', 'hora', 'justificativa'],
+            { diaSemana: str({ maxLength: 20 }), hora: str({ maxLength: 6 }), justificativa: str({ maxLength: 300 }) }
           ),
           { maxItems: 3 },
         ),
-      },
-      ['recomendacao'],
+      }
     ),
   },
 
@@ -541,11 +521,9 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
             views: num({ minimum: 0 }),
             ctrPct: num({ minimum: 0, maximum: 100 }),
             retencaoPct: num({ minimum: 0, maximum: 100 }),
-          },
-          ['views', 'ctrPct', 'retencaoPct'],
+          }
         ),
-      },
-      ['titulo', 'formato', 'views', 'ctrPct', 'retencaoPct', 'receitaBrl', 'custoUsd', 'cambioBrlPorUsd', 'mediaCanal'],
+      }
     ),
     output: obj(
       {
@@ -554,8 +532,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         comparacaoVsMediaPct: num({ minimum: -100, maximum: 10000 }),
         leitura: str({ minLength: 20, maxLength: 1200 }),
         alertas: arr(str({ maxLength: 300 }), { maxItems: 8 }),
-      },
-      ['valeuAPena', 'roiPct', 'comparacaoVsMediaPct', 'leitura', 'alertas'],
+      }
     ),
   },
 
@@ -574,14 +551,12 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               ctrPct: num({ minimum: 0, maximum: 100 }),
               retencaoPct: num({ minimum: 0, maximum: 100 }),
               views: int({ minimum: 0 }),
-            },
-            ['titulo', 'tema', 'formato', 'ctrPct', 'retencaoPct', 'views'],
+            }
           ),
           { minItems: 2, maxItems: 60 },
         ),
         rejeicoes: arr(str({ maxLength: 400 }), { maxItems: 40 }),
-      },
-      ['canalNome', 'itens'],
+      }
     ),
     output: obj(
       {
@@ -592,14 +567,12 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               forca: str({ enum: ['forte', 'moderada', 'fraca'] }),
               evidencia: str({ minLength: 5, maxLength: 400 }),
               acao: str({ minLength: 5, maxLength: 400 }),
-            },
-            ['padrao', 'forca', 'evidencia', 'acao'],
+            }
           ),
           { maxItems: 10 },
         ),
         evitar: arr(str({ maxLength: 300 }), { maxItems: 10 }),
-      },
-      ['padroes', 'evitar'],
+      }
     ),
   },
 
@@ -611,8 +584,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         pautaAtual: arr(str({ maxLength: 200 }), { maxItems: 20 }),
         temasSaturados: arr(str({ maxLength: 120 }), { maxItems: 20 }),
         rejeicoes: arr(str({ maxLength: 400 }), { maxItems: 20 }),
-      },
-      ['canalNome'],
+      }
     ),
     output: obj(
       {
@@ -622,8 +594,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               de: str({ minLength: 3, maxLength: 300 }),
               para: str({ minLength: 3, maxLength: 300 }),
               porQue: str({ minLength: 10, maxLength: 400 }),
-            },
-            ['de', 'para', 'porQue'],
+            }
           ),
           { maxItems: 10 },
         ),
@@ -634,14 +605,12 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               formato: str({ enum: FORMAT }),
               tema: str({ minLength: 3, maxLength: 120 }),
               angulo: str({ minLength: 10, maxLength: 300 }),
-            },
-            ['dia', 'formato', 'tema', 'angulo'],
+            }
           ),
           { maxItems: 14 },
         ),
         confiancaPct: int({ minimum: 0, maximum: 100 }),
-      },
-      ['mudancas', 'proximaSemana', 'confiancaPct'],
+      }
     ),
   },
 
@@ -653,8 +622,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         personagensExistentes: arr(str({ maxLength: 80 }), { maxItems: 20 }),
         paleta: arr(str({ maxLength: 40 }), { maxItems: 8 }),
         estiloVisual: str({ maxLength: 300 }),
-      },
-      ['pedido', 'canalNome'],
+      }
     ),
     output: obj(
       {
@@ -666,8 +634,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         negativePrompt: str({ maxLength: 600 }),
         seed: int({ minimum: 0, maximum: 2147483647 }),
         notasConsistencia: str({ minLength: 10, maxLength: 800 }),
-      },
-      ['nome', 'papel', 'descricaoVisual', 'tracos', 'promptImagem', 'notasConsistencia'],
+      }
     ),
   },
 
@@ -680,8 +647,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         views: int({ minimum: 0 }),
         cambioBrlPorUsd: num({ minimum: 0.01, maximum: 100 }),
         mediaCustoUsdCanal: num({ minimum: 0 }),
-      },
-      ['titulo', 'custoProducaoUsd', 'receitaBrl', 'views', 'cambioBrlPorUsd'],
+      }
     ),
     output: obj(
       {
@@ -691,8 +657,7 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         custoPorMilViewsUsd: num({ minimum: 0, maximum: 1000000 }),
         recomendacao: str({ minLength: 20, maxLength: 1000 }),
         riscos: arr(str({ maxLength: 300 }), { maxItems: 8 }),
-      },
-      ['veredito', 'margemUsd', 'margemPct', 'custoPorMilViewsUsd', 'recomendacao', 'riscos'],
+      }
     ),
   },
 
@@ -705,24 +670,18 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         canalNome: str({ minLength: 2, maxLength: 120 }),
         tom: str({ maxLength: 200 }),
         idadeAlvo: str({ maxLength: 40 }),
-      },
-      ['titulo', 'tema', 'canalNome'],
+      }
     ),
     output: obj(
       {
-        short: obj({ gancho: str({ minLength: 5, maxLength: 300 }), texto: str({ minLength: 5, maxLength: 800 }) }, [
-          'gancho',
-          'texto',
-        ]),
+        short: obj({ gancho: str({ minLength: 5, maxLength: 300 }), texto: str({ minLength: 5, maxLength: 800 }) }),
         instagram: obj(
-          { legenda: str({ minLength: 5, maxLength: 1500 }), hashtags: arr(str({ maxLength: 40 }), { maxItems: 15 }) },
-          ['legenda'],
+          { legenda: str({ minLength: 5, maxLength: 1500 }), hashtags: arr(str({ maxLength: 40 }), { maxItems: 15 }) }
         ),
-        tiktok: obj({ texto: str({ minLength: 5, maxLength: 800 }) }, ['texto']),
-        comunidadeYoutube: obj({ texto: str({ minLength: 5, maxLength: 1000 }) }, ['texto']),
-        story: obj({ texto: str({ minLength: 3, maxLength: 400 }) }, ['texto']),
-      },
-      ['short', 'instagram', 'tiktok', 'comunidadeYoutube', 'story'],
+        tiktok: obj({ texto: str({ minLength: 5, maxLength: 800 }) }),
+        comunidadeYoutube: obj({ texto: str({ minLength: 5, maxLength: 1000 }) }),
+        story: obj({ texto: str({ minLength: 3, maxLength: 400 }) }),
+      }
     ),
   },
 };

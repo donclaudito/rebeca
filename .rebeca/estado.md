@@ -437,6 +437,44 @@ existe aqui); a recusa de escrita em ambiente publicado foi testada por variáve
 heurística `VERCEL` não reconhece outro host publicado; não há teste de render do painel; e a revisão
 adversarial do `rebeca-qa` sobre o `ADR-007` não foi executada.
 
+## Verificação com chave paga real (2026-10-01) — o app gerou conteúdo de verdade
+
+O dono do produto entregou uma **chave paga da OpenAI**, cadastrada pela tela de Configurações. Foi o
+**primeiro gasto real** do projeto e respondeu às duas perguntas que estavam abertas: os adaptadores
+HTTP funcionam, e a conta de custo está certa.
+
+A chave foi instalada por `.tools/instalar-chave-ia.mjs`, que grava direto em
+`.rebeca/segredos/llm.json` (ignorado pelo git) e imprime **apenas a máscara** — o valor não passou por
+contexto de agente nem por log de terminal.
+
+| Verificação | Resultado observado |
+|---|---|
+| Modelos que a conta enxerga | ✅ `GET /v1/models` → **HTTP 200, 133 modelos** |
+| Os IDs do catálogo existem | ✅ `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-luna`, `gpt-5.4-nano`, `gpt-5-nano` — **todos presentes** |
+| Teste de conexão real | ✅ `ok=true`, `gpt-6-luna`, 4.326 ms, **custo real US$ 0,0000048** |
+| **Geração real com schema** | ✅ `criar-seo` no canal infantil: 929 tokens de entrada, 269 de saída, **1 tentativa**, 3.651 ms, `simulated=false` |
+| **A conta do custo confere** | ✅ `929 × 0,10/1M + 269 × 0,50/1M = US$ 0,0002274` — exatamente o valor registrado |
+| Livro de custos | ✅ duas linhas reais com `tokens_in`, `tokens_out` e `prompt_id`; cabeçalho migrado de forma aditiva |
+| Conteúdo gerado | ✅ título, descrição com gancho de duas linhas, tags e hashtags em pt-BR, `capitulos` como lista vazia (comportamento correto) |
+
+**Gasto total da verificação: menos de US$ 0,001.** Teto diário intacto.
+
+**Defeito de integração que só a API real revelou:** o modo `strict` da OpenAI exige que **toda**
+propriedade esteja em `required` — a requisição era recusada com HTTP 400 (`Missing 'hashtags'`).
+Vários schemas declaravam campos opcionais. Nenhum teste com provedor simulado pegava, porque o
+simulado preenchia tudo. **Corrigido na raiz:** `obj()` passou a derivar `required` das propriedades, e
+o segundo argumento deixou de existir. Efeito colateral bom: "campo sem valor" agora é **valor vazio**
+(lista vazia), nunca ausência de chave.
+
+**Falha de isolamento nos testes — encontrada e corrigida.** O `handler.test.ts` isolava o livro de
+custos mas **não** a configuração de IA: com uma chave real cadastrada na máquina, o teste "sem chave
+nenhuma, responde por simulação" passou a falhar. Pior: um teste futuro poderia ter disparado uma
+**chamada paga de verdade**. Todo teste agora redireciona `REBECA_SETTINGS_FILE` para temporário.
+**Teste não pode depender de credencial real nem gastar dinheiro de ninguém.**
+
+**Continua não verificado:** os outros quatro provedores (só a OpenAI foi exercitada de verdade) e a
+função serverless em deploy real.
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |

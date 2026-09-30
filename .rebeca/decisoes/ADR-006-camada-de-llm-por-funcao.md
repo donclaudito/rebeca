@@ -311,6 +311,11 @@ Ambiente: Node v26.7.0 · pnpm 11.25.0 · Windows.
 
 **Não verificado / não coberto (declarado, não maquiado):**
 
+> **Isso mudou em 2026-10-01.** Com uma chave paga real cadastrada pela tela de Configurações, os
+> itens 1 e 2 deixaram de ser verdade: os adaptadores HTTP foram exercitados contra a API de verdade,
+> com custo real registrado no livro. Ver **"Verificação com chave paga real"** no fim deste
+> documento — inclusive o defeito de integração que só apareceu ali.
+
 1. **Nenhuma chamada real a provedor foi feita.** Todas as verificações acima usam o provedor
    simulado ou um transporte injetado. **Nenhum token foi gasto, nenhuma chave existe no ambiente.**
    Logo: os adaptadores HTTP reais (OpenAI, DeepSeek, Anthropic, Google, OpenRouter) **não foram
@@ -330,6 +335,66 @@ Ambiente: Node v26.7.0 · pnpm 11.25.0 · Windows.
 6. **Nenhum teste de render foi escrito para o painel de Configurações.** O `AiAction` tem teste de
    tela (`src/components/ai/__tests__/AiAction.test.tsx`, 6 casos); o painel de status do motor de IA
    tem verificação de tipos apenas.
+
+## Verificação com chave paga real (2026-10-01)
+
+O dono do produto entregou uma **chave paga da OpenAI**, cadastrada pela tela de Configurações
+(`ADR-007`). Foi o primeiro gasto real do projeto, e ele respondeu às duas perguntas que ficaram
+abertas acima.
+
+**Chave instalada sem passar pelo contexto do agente nem por log**: o script `instalar-chave-ia.mjs`
+lê o arquivo, valida o formato e grava direto em `.rebeca/segredos/llm.json` (ignorado pelo git),
+imprimindo apenas a máscara. Em nenhum momento o valor apareceu em saída de terminal ou de ferramenta.
+
+### O que ficou provado
+
+| Verificação | Resultado observado |
+|---|---|
+| Modelos que a conta enxerga | ✅ `GET /v1/models` → **HTTP 200, 133 modelos** |
+| **Os IDs do catálogo existem** | ✅ `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-astra`, `gpt-5.6-sol`, `gpt-5.6-luna`, `gpt-5.4-nano`, `gpt-5-nano` — **todos presentes** |
+| Teste de conexão real | ✅ `ok=true`, modelo `gpt-6-luna`, 4.326 ms, **custo real US$ 0,0000048** |
+| **Geração real com schema** | ✅ `criar-seo` no canal infantil: 929 tokens de entrada, 269 de saída, **1 tentativa**, 3.651 ms |
+| **A conta do custo confere** | ✅ `929 × 0,10/1M + 269 × 0,50/1M = US$ 0,0002274` — exatamente o valor registrado |
+| Livro de custos | ✅ duas linhas reais, com `tokens_in`, `tokens_out` e `prompt_id` preenchidos |
+| Migração do cabeçalho | ✅ colunas novas acrescentadas no fim, as 11 originais intactas |
+| Conteúdo gerado | ✅ título, descrição com gancho de duas linhas, tags e hashtags em pt-BR; `capitulos` como lista vazia, que é o comportamento correto |
+
+O conteúdo produzido foi adequado ao público (3 a 5 anos) e no tom do canal — a camada funciona de
+ponta a ponta, com custo medido, não estimado.
+
+### Defeito de integração que só a API real revelou
+
+**O modo `strict` da OpenAI exige que TODA propriedade esteja em `required`.** Requisição recusada com
+HTTP 400:
+
+> `Invalid schema for response_format 'resposta': In context=(), 'required' is required to be supplied
+> and to be an array including every key in properties. Missing 'hashtags'.`
+
+Vários schemas declaravam campos opcionais (`hashtags`, `capitulos`, `paleta`, `negativePrompt`,
+`seed`, `alternativas`, `vocabulario`, `valores`, e `instagram.hashtags`) fora de `required`. Nenhum
+teste com provedor simulado pegava — o simulado preenchia tudo de qualquer forma.
+
+**Corrigido na raiz:** o construtor `obj()` passou a **derivar `required` das próprias propriedades**,
+e o segundo argumento (que listava um subconjunto) deixou de existir. A consequência de projeto é
+boa: "campo sem valor" passa a ser expresso por **valor vazio** (lista vazia, texto vazio), nunca por
+ausência de chave — e a ambiguidade entre "não há capítulos" e "o modelo esqueceu de dizer"
+desaparece.
+
+### Segurança — o que mudou com uma chave real no ambiente
+
+- **Os testes passaram a vazar para a configuração real.** O `handler.test.ts` isolava o livro de
+  custos mas **não** a configuração de IA: numa máquina com chave cadastrada, o teste "sem chave
+  nenhuma, responde por simulação" falhava. Pior: um teste futuro poderia ter disparado uma **chamada
+  paga de verdade**. Corrigido — todo teste agora redireciona `REBECA_SETTINGS_FILE` para temporário.
+  **Teste não pode depender de credencial real nem gastar dinheiro de ninguém.**
+- A varredura de segredo segue limpa (204 blobs), e `.rebeca/segredos/` continua ignorado pelo git.
+
+### Continua não verificado
+
+- **Os demais provedores** (Anthropic, DeepSeek, Google, OpenRouter) seguem sem chamada real — só a
+  OpenAI foi exercitada.
+- **A função serverless da Vercel** continua sem execução em deploy real.
+- O **gasto acumulado** desta verificação foi de **menos de US$ 0,001**, muito abaixo do teto diário.
 
 ## Quem decidiu
 

@@ -11,67 +11,62 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
  RUN  v5.0.2 E:/pojeto rebeca
 
- ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7249ms
+ ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7085ms
    ✓ gate de aprovação humana (15)
-     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 376ms
-     ✓ não deixa aprovar o que não está em revisão (já publicado) 341ms
-     ✓ não deixa aprovar conteúdo de outro canal 335ms
-     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 574ms
-     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 564ms
-     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 582ms
-     ✓ não deixa reagendar conteúdo já publicado 316ms
-     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 519ms
-     ✓ o portão de publicação recusa o que não tem aprovação vigente 547ms
-     ✓ o portão de publicação não atravessa canal 330ms
-     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 615ms
-     ✓ recusa título fora do limite antes de gravar 436ms
-     ✓ recusa motivo de rejeição fora do limite do schema de IA 593ms
-     ✓ recusa data de agendamento que não é data 843ms
- ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 11111ms
-   ✓ isolamento entre canais (4)
-     ✓ a camada de dados recusa conteúdo que pertence a outro canal 358ms
-     ✓ a fila de revisão nunca devolve conteúdo de outro canal 420ms
-     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 10202ms
- ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 11733ms
+     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 361ms
+     ✓ não deixa aprovar o que não está em revisão (já publicado) 333ms
+     ✓ não deixa aprovar conteúdo de outro canal 336ms
+     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 548ms
+     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 555ms
+     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 573ms
+     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 501ms
+     ✓ o portão de publicação recusa o que não tem aprovação vigente 561ms
+     ✓ o portão de publicação não atravessa canal 345ms
+     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 622ms
+     ✓ recusa título fora do limite antes de gravar 428ms
+     ✓ recusa motivo de rejeição fora do limite do schema de IA 598ms
+     ✓ recusa data de agendamento que não é data 833ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 8777ms
    ✓ barras laterais abrem e fecham (4)
-     ✓ as duas nascem abertas, com os dois controles no masthead 2034ms
-     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 2780ms
-     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 2998ms
-     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 3893ms
- ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 18966ms
+     ✓ as duas nascem abertas, com os dois controles no masthead 1907ms
+     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 3187ms
+     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 1891ms
+     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 1775ms
+ ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 8954ms
+   ✓ isolamento entre canais (4)
+     ✓ a camada de dados recusa conteúdo que pertence a outro canal 349ms
+     ✓ a fila de revisão nunca devolve conteúdo de outro canal 429ms
+     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 8070ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 16561ms
    ✓ tela de revisão (4)
-     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 4022ms
-     ✓ aprova uma única vez mesmo com dois cliques seguidos 5758ms
-     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 8834ms
-     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 329ms
- ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 5226ms
+     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 3611ms
+     ✓ aprova uma única vez mesmo com dois cliques seguidos 3593ms
+     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 8991ms
+     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 350ms
+ ✓ src/ai/__tests__/handler.test.ts (35 tests) 796ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 4767ms
    ✓ tela "Como funciona" (3)
-     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2785ms
-     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1263ms
-     ✓ continua dizendo que o passo da aprovação é humano 1154ms
- ✓ src/ai/__tests__/handler.test.ts (35 tests) 953ms
- ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 7584ms
+     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2883ms
+     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1118ms
+     ✓ continua dizendo que o passo da aprovação é humano 745ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 4537ms
    ✓ AiAction (7)
-     ✓ não chama a IA sozinho: só depois do clique 3782ms
-     ✓ mostra o resultado e a procedência quando a geração é real 882ms
-     ✓ NÃO mostra nome de fornecedor nem de modelo na interface comum 603ms
-     ✓ AVISA quando a resposta é simulação — não deixa passar por geração real 388ms
-     ✓ não exibe valor de custo quando o preço não foi verificado 429ms
-     ✓ mostra o erro em pt-BR vindo do servidor, sem jargão de provedor 445ms
-     ✓ não aplica nada na tela sem clique no botão de aplicar 1013ms
- ✓ src/ai/__tests__/settings.test.ts (27 tests) 2665ms
-   ✓ teste de conexão (3)
-     ✓ recusa provedor desconhecido 344ms
- ✓ src/ai/__tests__/registry.test.ts (16 tests) 943ms
- ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 76ms
- ✓ src/data/__tests__/cycle.test.ts (8 tests) 113ms
- ✓ src/__tests__/headers.test.ts (8 tests) 69ms
+     ✓ não chama a IA sozinho: só depois do clique 2277ms
+     ✓ mostra o resultado e a procedência quando a geração é real 434ms
+     ✓ NÃO mostra nome de fornecedor nem de modelo na interface comum 345ms
+     ✓ AVISA quando a resposta é simulação — não deixa passar por geração real 340ms
+     ✓ não aplica nada na tela sem clique no botão de aplicar 667ms
+ ✓ src/ai/__tests__/settings.test.ts (27 tests) 622ms
+ ✓ src/ai/__tests__/registry.test.ts (16 tests) 138ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 90ms
+ ✓ src/data/__tests__/cycle.test.ts (8 tests) 119ms
+ ✓ src/__tests__/headers.test.ts (8 tests) 35ms
 
  Test Files  12 passed (12)
       Tests  133 passed (133)
-   Start at  19:13:05
-   Duration  79.17s (environment 50%, tests 24%, setup 14%, import 5%, transform 5%, worker 1%)
+   Start at  20:42:15
+   Duration  67.05s (environment 46%, setup 22%, tests 21%, transform 5%, import 5%, worker 1%)
 
-    Isolate  12 workers spawned · ~12.65s startup each (spawn + environment, per file)
-             at least ~25.31s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  12 workers spawned · ~10.56s startup each (spawn + environment, per file)
+             at least ~21.12s faster with isolate: false — reuses workers across files instead of one per file
 

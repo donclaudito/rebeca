@@ -1,7 +1,9 @@
-data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por
+data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por,tokens_in,tokens_out,prompt_id
 # Registro obrigatorio de custo real por ativo gerado.
 # Regra do projeto: nenhuma decisao de conteudo esta completa sem o custo real.
 # Preencha uma linha por geracao paga (imagem, voz, musica, render, tokens de LLM).
 # "aprovado_por" e o humano que aprovou o gasto/publicacao; vazio = ainda nao aprovado.
 # Exemplo (nao e dado real, e apenas formato):
 # 2026-01-15,Luna e o Jardim das Cores,Luna e as Borboletas Coloridas,imagem,<provedor>,<modelo>,imagem,24,1.20,,humano
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-09-30,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1198,0.000227,0.000,humano:teto-aprovado,929,269,criar-seo@v1
