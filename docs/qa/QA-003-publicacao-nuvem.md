@@ -94,7 +94,7 @@ Em repositório git isolado, com o **comando exato do CI**:
 ```text
 # (1) mesmo segredo, dois encodings
 > git grep -nEI '(ghp_...[AIza[0-9A-Za-z_-]{35}|...|sk-[A-Za-z0-9]{20,})' -- .
-utf8.txt:1:GOOGLE_API_KEY=AIzaSyD9k3Lm2Qp7Rt5Vw8Xy1Za4Bc6De0Fg9Hi      <-- UTF-8: PEGA
+utf8.txt:1:GOOGLE_API_KEY=AIza<35 alfanuméricos>              <-- UTF-8: PEGA
 > git grep -nI --text 'AIza' -- utf16.txt
 ( sem saída, exit 1 )                                                   <-- UTF-16LE: NÃO PEGA
 > git ls-files --eol utf16.txt utf8.txt
@@ -120,7 +120,7 @@ vitest-ciclo-final.txt           bytes=5520  NUL=2739 first4=FF FE 0D 00
 > git grep -nEI '(...)' -- outros.txt
 ( sem saída )
 > git grep -nI 'GOCSPX' -- outros.txt          # controle: o arquivo É varrido
-outros.txt:2:GOOGLE_CLIENT_SECRET=GOCSPX-Ab3xY9zQ7wL2mN5pR8sT1vW4
+outros.txt:2:GOOGLE_CLIENT_SECRET=GOCSPX-<20+ alfanuméricos>
 ```
 
 Não cobertos: `GOCSPX-` (client secret do Google), JWT `eyJ...` (service_role do Supabase),
