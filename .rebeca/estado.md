@@ -298,7 +298,8 @@ O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decis�
 | Regras de ignore | `git check-ignore -v <caminho>` | ✅ os 11 caminhos sensíveis testados voltaram **ignorados**; app, `imagens/`, PDF e `.rebeca/` rastreados |
 | Push | `git push -u origin main` | ✅ `main` rastreando `origin/main` (hash remoto = local) |
 | **Node que a Vercel vai usar** | leitura de `packages/build-utils/src/fs/node-version.ts` (`vercel/vercel`) | ✅ `engines: ">=22.12.0"` resolve para **Node 24.x** (a lista é percorrida do mais novo ao mais antigo e vence o primeiro que intersecta). Node 20 tem `discontinueDate: 2026-10-01` — o piso 22 evita a versão descontinuada **sem** ajuste manual no painel |
-| **CI no GitHub** | run [`36764392338`](https://github.com/donclaudito/rebeca/actions/runs/36764392338) | ✅ **success**, 8/8 steps verdes no `ubuntu-latest`: checkout, pnpm+Node 22, varredura de segredo, tipos, testes, build, artefato |
+| **CI no GitHub** | run [`36769295864`](https://github.com/donclaudito/rebeca/actions/runs/36769295864) | ✅ **success**, 8/8 steps verdes no `ubuntu-latest` (commit `b03cbb7`): checkout com `fetch-depth: 0`, pnpm (`Downloading pnpm 11.25.0` — o pin do `packageManager` foi lido), varredura de segredo árvore+histórico, tipos, testes, build, artefato |
+| Pin do pnpm honrado no runner | log do step `pnpm + Node` | ✅ `Downloading pnpm 11.25.0 from the npm registry` (antes do fix baixava 11.28.3 pelo `version: 11`) — CI, máquina local e o pin da Vercel dizem a mesma versão |
 
 **Revisão adversarial (`rebeca-qa`) — veredito: REFUTADO. Os dois bloqueantes foram corrigidos.**
 Relatório completo em `docs/qa/QA-003-publicacao-nuvem.md`.
@@ -335,6 +336,9 @@ a pasta está quieta.** Isto é a decisão **D9** (as duas frentes na mesma past
 1. **A URL de produção não existe ainda** — depende do import do dono. Logo o rewrite de SPA e os
    headers **não** foram provados com HTTP 200 em rota profunda (`/c/luna/inicio`), que é exatamente a
    prova exigida no `ADR-003`. Até esse teste, o item 4 da Decisão daquele ADR segue como premissa.
+   **Atenção antes do import:** `ai-media-studio.vercel.app` **já é de terceiro** (confirmado: HTTP 200
+   servindo outro produto de vídeo com IA). A Vercel vai atribuir outra URL (sufixo aleatório) ou pedir
+   outro nome de projeto — não conte com esse endereço. Isso alimenta a decisão **D7** (nome do produto).
 2. **Custo/limite do plano da Vercel** (`NÃO VERIFICADO`) — conferir na conta antes de assumir.
 3. **Proteção de branch em `main` não foi aplicada**: exige plano pago em repositório privado
    (`NÃO VERIFICADO` quanto ao plano atual) e, com uma única pessoa no projeto, a revisão obrigatória
