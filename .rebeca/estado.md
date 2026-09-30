@@ -187,7 +187,7 @@ orquestra ser considerada confiável para trabalho de produção.
 | D3 | Modelo de acesso: só o dono, ou equipe com papéis (editor/revisor)? | `rebeca-supabase` (RLS), `rebeca-produto` | humano |
 | D4 | Canal piloto para o primeiro ciclo real (Luna?) e meta de publicação | `rebeca-produto`, `rebeca-analytics` | humano |
 | D5 | Limite mensal de gasto em geração e o que fazer ao atingir | `rebeca-backend`, `rebeca-seguranca` | humano |
-| ~~D6~~ | ✅ **fechada em 2026-09-30** — repositório privado no GitHub + Vercel (ver `ADR-003` e "Publicação na nuvem") | `rebeca-powershell`, `rebeca-github` | humano |
+| ~~D6~~ | ✅ **decidida em 2026-09-30** (GitHub privado + Vercel, ver `ADR-003`): *onde roda* está fechado. A **publicação efetiva** ainda depende do import do dono na Vercel — as duas coisas são separadas de propósito | `rebeca-powershell`, `rebeca-github` | humano |
 | D7 | **Nome do produto: "Rebeca" (pasta e PDF) ou "AI Media Studio" (protótipo da frente paralela)?** | todo o código, UI, SEO e comunicação | humano |
 | D8 | Ratificar em ADR a stack já presente no `package.json` (Vite + React 19 + React Query + react-router) ou trocar | `rebeca-arquiteto`, `rebeca-react` | humano |
 | D9 | A frente paralela continua em paralelo, ou passa a operar **através desta orquestra** (com `rebeca-arquiteto` → `rebeca-qa` antes de merge)? | todo o projeto | humano |
@@ -271,7 +271,7 @@ playlist, o que o YouTube faz com a declaração MFK, e **o corpo da maioria das
 `support.google.com`** — o fetch direto devolve só o título; a de monetização foi obtida por extrator
 de terceiro e as demais (`/answer/10774223`, `/answer/6162278`, `/answer/9528076`) seguem não lidas.
 
-## Publicação na nuvem (D6 fechada nesta sessão)
+## Publicação na nuvem (D6 decidida nesta sessão; publicação pendente do import do dono)
 
 O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decisão e trade-offs em
 `ADR-003-onde-roda-github-vercel.md`. O que existe agora:
@@ -292,12 +292,35 @@ O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decis�
 |---|---|---|
 | Testes no snapshot | `pnpm test` | ✅ **19/19 em 4 arquivos**, 17,07s, exit 0 (`testTimeout`/`asyncUtilTimeout` do ADR acima) |
 | Build de produção | `pnpm build` | ✅ exit 0 — 0,64 kB html · 29,98 kB css · 424,16 kB js |
-| Segredo no index | `git grep --cached` por `ghp_`/`gho_`/`AIza`/`PRIVATE KEY`/`sk-` | ✅ nenhum match |
+| Segredo em texto claro | `python .tools/scan_secrets.py --history` | ✅ limpo em 126 blobs (árvore **+ histórico**), sem falso positivo contra os docs do projeto (que citam `AIza`, `eyJ`, `refresh_token`) |
+| Scanner provado adversarialmente | segredo falso plantado em UTF-8 **e** em UTF-16LE | ✅ achou **os dois** e mascara o valor. O `git grep -I` que estava no CI achava **só o de UTF-8**: a falha era real e foi corrigida |
 | Segredo/build rastreado | `git ls-files` filtrado | ✅ nenhum `.env`, `*.pem`, `*.key`, `node_modules/`, `dist/`, `.vercel/` |
 | Regras de ignore | `git check-ignore -v <caminho>` | ✅ os 11 caminhos sensíveis testados voltaram **ignorados**; app, `imagens/`, PDF e `.rebeca/` rastreados |
 | Push | `git push -u origin main` | ✅ `main` rastreando `origin/main` (hash remoto = local) |
 | **Node que a Vercel vai usar** | leitura de `packages/build-utils/src/fs/node-version.ts` (`vercel/vercel`) | ✅ `engines: ">=22.12.0"` resolve para **Node 24.x** (a lista é percorrida do mais novo ao mais antigo e vence o primeiro que intersecta). Node 20 tem `discontinueDate: 2026-10-01` — o piso 22 evita a versão descontinuada **sem** ajuste manual no painel |
 | **CI no GitHub** | run [`36764392338`](https://github.com/donclaudito/rebeca/actions/runs/36764392338) | ✅ **success**, 8/8 steps verdes no `ubuntu-latest`: checkout, pnpm+Node 22, varredura de segredo, tipos, testes, build, artefato |
+
+**Revisão adversarial (`rebeca-qa`) — veredito: REFUTADO. Os dois bloqueantes foram corrigidos.**
+Relatório completo em `docs/qa/QA-003-publicacao-nuvem.md`.
+
+| # | Gravidade | O que estava errado | O que ficou |
+|---|---|---|---|
+| A1 | **bloqueante** | o `ADR-003` afirmava que publicaríamos em `ai-media-studio.vercel.app` — sem verificar | **o domínio é de terceiro** (conferido: HTTP 200 servindo outro produto de vídeo com IA, Wan 2.2/LTX/FLUX). O ADR não afirma mais URL: ela entra só depois de observada. **Efeito de produto:** "AI Media Studio" já está ocupado como subdomínio → insumo direto para **D7** (nome do produto) |
+| A2 | **bloqueante** | o CI provava o build com **pnpm 11**; a Vercel instalaria com **pnpm 10** — política dela: `PNPM_11_PREFERRED_AT = 2027-03-01` (adiado porque o pnpm 11 liga `minimumReleaseAge` de 1 dia) | `"packageManager": "pnpm@11.25.0"` no `package.json`; o workflow deixou de passar `version` e passa a ler o pin. Ressalva registrada no ADR: o pin só vale se `/pnpm11` existir na imagem; senão cai para 10 sem erro (lockfile 9.0 é aceito pelos dois) |
+| A3 | não bloqueante, corrigido | `git grep -I` pulava arquivos UTF-16LE — e **este repo tem**: `.rebeca/evidencias/*.txt` são UTF-16LE no Windows; e não varria o histórico | `.tools/scan_secrets.py`: lê em bytes, decide encoding por BOM/NUL, varre árvore **e histórico** (`fetch-depth: 0`), **mascara** o valor. Antes disso, o próprio scanner novo falhou no meu teste (decodificava UTF-16LE como UTF-8 com sucesso e nunca tentava UTF-16) — corrigido e re-provado |
+| A4/A5 | não bloqueante, corrigido | a linha de evidência citava o comando **sem** o `-I`, o que a tornava falsa como escrita; `sk-`+20 casava prosa (`disk-…`); o mesmo comando era checklist do PR template e nunca passaria | evidência agora cita o comando real; padrões exigem formato de credencial; `sk-` ganhou guarda `(?<![A-Za-z0-9])`; PR template aponta para o scanner |
+| A7 | não bloqueante, corrigido | labels `area:infra` e `risco:dependencia` do Dependabot não existiam no repositório | labels criadas no repo |
+| A9 | não bloqueante, corrigido | range do `vitest@5` citado incompleto | corrigido para `^22.12.0 \|\| ^24.0.0 \|\| >=26.0.0` no CI e no ADR |
+
+**O que o `rebeca-qa` tentou refutar e NÃO conseguiu** (também é resultado): as versões de action
+(`pnpm/setup@v3`, `checkout@v7`, `upload-artifact@v7` com `runtime: node@22`); a resolução do Node
+como faixa na Vercel; os tamanhos do `dist` do artefato do CI, que batem byte a byte com esta página;
+o `.gitattributes` (não corrompe `.jpeg`/`.pdf` — `git check-attr` confirma `binary: set`); o
+repositório privado sem PII real; e o CI que não publica nada.
+
+**Falha de processo admitida (A6):** a revisão começou sobre o commit `bc37d53` e o `main` recebeu
+`fc9ca29` durante a auditoria — escopo revisado ≠ escopo publicado. Foi obra minha (não de terceiro),
+mas o correto era congelar antes de mandar revisar. É o mesmo preço do D9 já registrado abaixo.
 
 **Achado de concorrência (importa para quem vier depois):** durante esta sessão **duas sessões de
 agente escreveram na mesma pasta ao mesmo tempo**. Consequência medida: a suíte ficou intermitente —

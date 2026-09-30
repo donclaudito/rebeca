@@ -24,24 +24,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Histórico completo: a varredura de segredo também olha os blobs antigos. Com o
+          # `fetch-depth: 1` padrão, segredo commitado e depois removido passaria batido.
+          fetch-depth: 0
 
-      # `pnpm/setup` é o sucessor do `pnpm/action-setup` para pnpm v11+ (nosso caso: 11.25.0) e instala
-      # o Node no mesmo passo. Node 22.x é o piso real do toolchain: `vitest@5` exige ^22.12.0 e
-      # `vite@8` exige ^20.19.0 || >=22.12.0.
+      # `pnpm/setup` é o sucessor do `pnpm/action-setup` para pnpm v11+ e instala o Node no mesmo
+      # passo. A versão do pnpm vem de `package.json#packageManager` (11.25.0) — sem o input
+      # `version` aqui, para o CI usar exatamente a mesma versão da máquina de desenvolvimento.
+      # Node 22.x é o piso real do toolchain: `vitest@5` exige `^22.12.0 || ^24.0.0 || >=26.0.0`
+      # e `vite@8` exige `^20.19.0 || >=22.12.0`.
       - name: pnpm + Node
         uses: pnpm/setup@v3
         with:
-          version: 11
           runtime: node@22
           cache: true
 
-      - name: Nenhum segredo em texto claro
-        run: |
-          if git grep -nEI '(ghp_[0-9A-Za-z]{36}|gho_[0-9A-Za-z]{36}|github_pat_[0-9A-Za-z_]{22,}|AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9]{20,})' -- .; then
-            echo "::error::possível segredo em texto claro versionado — rotacione antes de seguir"
-            exit 1
-          fi
-          echo "nenhum segredo em texto claro encontrado"
+      # O scanner lê cada arquivo rastreado em bytes e tenta UTF-8 e UTF-16: o `git grep -I` que
+      # estava aqui pulava os `.rebeca/evidencias/*.txt`, que são UTF-16LE no Windows — provado
+      # pelo `rebeca-qa` (mesmo segredo: pego em UTF-8, invisível em UTF-16LE). Ele mascara o
+      # valor encontrado, para o log do CI não virar o vazamento.
+      - name: Nenhum segredo em texto claro (árvore + histórico)
+        run: python3 .tools/scan_secrets.py --history
 
       - name: Tipos
         run: pnpm typecheck

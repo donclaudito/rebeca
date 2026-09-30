@@ -39,8 +39,9 @@ PR sem as 7 seções abaixo é devolvido ao autor. Quem escreve não aprova: a r
 - [ ] **Aprovação humana:** este PR não publica, não aprova e não agenda nada sozinho.
 - [ ] **Isolamento entre canais:** nenhum dado, asset, prompt ou cache cruza `channelId`; se mexeu
       na camada de dados, o teste de vazamento entre canais foi executado e passa.
-- [ ] **Segredo:** nenhum token, chave, `.env` ou credencial em texto claro no diff
-      (`git diff --cached` filtrado por `ghp_|gho_|AIza|PRIVATE KEY|sk-` volta vazio).
+- [ ] **Segredo:** `python3 .tools/scan_secrets.py --history` volta limpo. (`git grep -I` sozinho
+      **não basta**: ele pula arquivo classificado como binário, e os `.rebeca/evidencias/*.txt` são
+      UTF-16LE no Windows — um segredo ali seria invisível.)
 - [ ] **Custo:** se houve geração paga, a linha foi lançada em `.rebeca/custos.csv`.
 - [ ] **Multi-canal:** nada foi codificado para um único canal.
 
