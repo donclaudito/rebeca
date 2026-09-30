@@ -11,13 +11,14 @@
  * corpo, nunca só no cache.
  */
 
-import { useMutation, useQuery, type UseMutationResult } from '@tanstack/react-query';
-import { fetchAiStatus, generate } from './client';
-import type { AiFunctionId, AiResult } from './contract';
+import { useMutation, useQuery, useQueryClient, type UseMutationResult } from '@tanstack/react-query';
+import { fetchSettings, fetchAiStatus, generate, saveSettings, testProvider } from './client';
+import type { AiFunctionId, AiResult, AiSettingsPatch } from './contract';
 import type { ChannelId } from '../data/types';
 
 export const aiKeys = {
   status: () => ['ai', 'status'] as const,
+  settings: () => ['ai', 'settings'] as const,
 };
 
 export function useAiStatus() {
@@ -28,6 +29,45 @@ export function useAiStatus() {
     // cada foco de janela, mas também não pode ficar velho a sessão inteira.
     staleTime: 60_000,
     retry: 1,
+  });
+}
+
+/** Configuração de IA: chaves (mascaradas), endereços e escolha de modelo. */
+export function useAiSettings() {
+  return useQuery({
+    queryKey: aiKeys.settings(),
+    queryFn: fetchSettings,
+    // A tela de Configurações é onde o usuário mexe nisto; manter fresco evita mostrar estado velho
+    // logo depois de salvar em outra aba.
+    staleTime: 0,
+    retry: 1,
+  });
+}
+
+/** Grava a configuração. Devolve também a configuração já atualizada, para a tela não piscar. */
+export function useSaveAiSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: AiSettingsPatch) => saveSettings(patch),
+    onSuccess: (result) => {
+      // Escreve o resultado direto no cache: evita uma segunda ida ao servidor e evita a tela
+      // mostrar o estado antigo por um instante depois de salvar.
+      queryClient.setQueryData(aiKeys.settings(), result.settings);
+      void queryClient.invalidateQueries({ queryKey: aiKeys.status() });
+    },
+  });
+}
+
+/** Testa a conexão de um provedor (chamada mínima real, com custo registrado). */
+export function useTestProvider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (provider: string) => testProvider(provider),
+    onSuccess: () => {
+      // O teste grava custo real no livro — o painel de gasto precisa refletir isso.
+      void queryClient.invalidateQueries({ queryKey: aiKeys.settings() });
+      void queryClient.invalidateQueries({ queryKey: aiKeys.status() });
+    },
   });
 }
 

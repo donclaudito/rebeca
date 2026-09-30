@@ -7,7 +7,7 @@
  * documento.
  */
 
-import { AiError, type AiErrorBody, type AiRequest, type AiResult, type AiStatus } from './contract';
+import { AiError, type AiErrorBody, type AiRequest, type AiResult, type AiSettingsPatch, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type ProviderTestResult } from './contract';
 
 const BASE = '/api/ai';
 
@@ -73,5 +73,36 @@ export function generate(request: AiRequest): Promise<AiResult> {
   });
 }
 
+/* =============================================================================
+   Configuração: segredos, endereços e escolha de modelo
+   ============================================================================= */
+
+/** Lê a configuração. A resposta **nunca** traz valor de chave — só máscara e presença. */
+export function fetchSettings(): Promise<AiSettingsView> {
+  return requestJson<AiSettingsView>('/settings');
+}
+
+/**
+ * Grava a configuração.
+ *
+ * Sobre `apiKey`: omitir o campo **preserva** a chave atual; enviar `null` **remove**. Essa distinção
+ * é o que permite a tela mostrar um campo de chave vazio (porque o valor nunca chega ao navegador)
+ * sem apagar a chave a cada salvamento.
+ */
+export function saveSettings(patch: AiSettingsPatch): Promise<AiSettingsSaveResult> {
+  return requestJson<AiSettingsSaveResult>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** Testa a conexão de um provedor com uma chamada mínima real. */
+export function testProvider(provider: string): Promise<ProviderTestResult> {
+  return requestJson<ProviderTestResult>('/test', {
+    method: 'POST',
+    body: JSON.stringify({ provider }),
+  });
+}
+
 export { AiError };
-export type { AiResult, AiStatus, AiRequest };
+export type { AiResult, AiStatus, AiRequest, AiSettingsPatch, AiSettingsSaveResult, AiSettingsView, ProviderTestResult };

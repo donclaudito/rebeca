@@ -11,6 +11,7 @@ import {
   Skeleton,
 } from '@/components/ui/primitives';
 import { YouTubeGlyph } from '@/components/icons';
+import { AiSettingsPanel } from './AiSettingsPanel';
 import { useAiStatus } from '@/ai/hooks';
 import { useChannelId } from '@/app/useChannel';
 import { resetStore } from '@/data/client';
@@ -122,6 +123,7 @@ export function ConfiguracoesPage() {
           </Card>
 
           <AiEngineCard childDirected={channel.data?.childDirected ?? false} />
+          <AiSettingsPanel />
         </div>
 
         <div id="barra-lateral-direita" className="ams-split__aside lg:col-span-5 flex flex-col gap-4">

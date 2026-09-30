@@ -62,25 +62,37 @@ São **15 funções** (pesquisar tendência, planejar semana, roteiro, storyboar
 de qualidade, checagem infantil, horário, leitura de desempenho, aprendizado, melhoria de pauta,
 personagem, veredito de custo e material de divulgação).
 
+**Para ligar o app:** abra **Configurações → Inteligência artificial** dentro do app. Ali você cola a
+chave, troca o endereço do provedor se precisar, escolhe o modelo de cada tipo de trabalho — e pode
+sobrescrever uma função específica — e clica em **testar conexão**. Não precisa editar `.env` nem
+reiniciar o servidor.
+
 | Quero… | Leia |
 |---|---|
-| a decisão e os trade-offs | [`.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md`](.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md) |
-| configurar uma chave | [`.env.example`](.env.example) |
+| a decisão e os trade-offs da camada | [`.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md`](.rebeca/decisoes/ADR-006-camada-de-llm-por-funcao.md) |
+| a decisão sobre a tela de configuração | [`.rebeca/decisoes/ADR-007-configuracao-pela-interface.md`](.rebeca/decisoes/ADR-007-configuracao-pela-interface.md) |
+| configurar por variável de ambiente | [`.env.example`](.env.example) |
 | ver/editar um prompt | [`.rebeca/prompts/`](.rebeca/prompts) — `@vN.md`, nunca editado no lugar |
 | o registro de custo | [`.rebeca/custos.csv`](.rebeca/custos.csv) |
 
 **Sem chave configurada, o app funciona** — ele responde com conteúdo simulado, com a mesma forma do
 real, e **diz na tela que é simulação**. Isso mantém o app demonstrável e testável sem gastar dinheiro.
 
-Três garantias que valem conhecer antes de mexer:
+Quatro garantias que valem conhecer antes de mexer:
 
 1. **A chave nunca vai ao navegador.** A chamada sai do servidor (`api/ai/` na Vercel, mesmo código no
-   `pnpm dev`).
+   `pnpm dev`). A tela de configuração recebe apenas a máscara — não existe rota que devolva o valor.
 2. **Custo tem teto travado antes do gasto** — US$ 0,05 por chamada e US$ 1,00 por dia, aprovados pelo
    dono do produto. A chamada que passaria do teto nem é enviada.
 3. **Canal infantil tem lista restrita de fornecedor.** Só entram os que permitem, no contrato, serviço
    voltado a menores. Quando nenhum se qualifica, o canal cai em simulação — e a tela explica.
 4. **A IA nunca aprova, agenda ou publica.** Ela propõe; o clique é humano.
+
+**Sobre a tela de configuração:** em ambiente **publicado** (Vercel) ela é somente leitura, porque não
+existe autenticação nesta fase e uma rota pública que aceita chave de API de qualquer visitante seria
+uma vulnerabilidade. Ali, o lugar do segredo é o gerenciador de segredos do host. Localmente, as
+chaves ficam em `.rebeca/segredos/llm.json` — arquivo ignorado pelo git, **não um cofre**, e a própria
+tela diz isso.
 
 ## Onde roda (nuvem)
 

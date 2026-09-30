@@ -64,6 +64,8 @@ real com o YouTube e o primeiro caminho vertical ponta a ponta com dado de verda
 | **Prompts versionados** | ✅ 15 arquivos em `.rebeca/prompts/*.md` + gerador `.tools/build_prompts.mjs` com hash de origem |
 | **Proxy de IA** | ✅ mesma função em `api/ai/*` (Vercel) e no middleware do Vite (dev) — chave só no servidor |
 | `ADR-006-camada-de-llm-por-funcao.md` | ⚠️ **proposto** — verificado tecnicamente; aguarda aprovação humana dos itens listados e a revisão do `rebeca-qa` |
+| **Configuração de IA pela interface** | ✅ `ADR-007` — tela em Configurações → Inteligência artificial: chave, endereço do provedor, teste de conexão e escolha de modelo por nível **e** por função |
+| `ADR-007-configuracao-pela-interface.md` | ⚠️ **proposto** — verificado; aguarda aprovação humana (escrita desabilitada em produção) e revisão do `rebeca-qa` |
 | Planilha de custo de LLM | ✅ `.rebeca/custos.csv` recebe `tokens_in`, `tokens_out`, `prompt_id` (aditivo) **na primeira chamada paga** — como nenhuma chave existe e nada foi gasto, o arquivo segue com o cabeçalho antigo, intacto |
 | Repositório git | ✅ **privado** em `github.com/donclaudito/rebeca`, branch `main` — ver "Publicação na nuvem" |
 | **Linguagem visual do YouTube** | ✅ `ADR-009` + `docs/03` reescrito — ver "Verificação — linguagem visual do YouTube" |
@@ -382,9 +384,58 @@ nenhum destes estava visível a olho nu):
 1. **Você decide D11** (qual fornecedor pode atender o canal infantil), com leitura jurídica do §3.4(8)
    da DeepSeek. Enquanto isso, o default é conservador e está testado.
 2. **`rebeca-qa` revisa `ADR-006`** — quem produz não aprova. Relatório em `docs/qa/QA-006-*.md`.
-3. **Você cola uma chave em `.env`** (ver `.env.example`) e faz **uma** geração real de cada nível, para
-   exercitar os adaptadores HTTP que hoje só foram verificados na documentação. É o teste que falta.
+3. **Você cola a chave na tela** (Configurações → Inteligência artificial), clica em **testar conexão**
+   e faz **uma** geração real de cada nível, para exercitar os adaptadores HTTP que hoje só foram
+   verificados na documentação. É o teste que falta — e agora dá para fazer tudo pelo app.
 4. Confirmar a mudança aditiva do cabeçalho de `.rebeca/custos.csv` (três colunas novas no fim).
+
+## Verificação — configuração de IA pela interface (ADR-007, 2026-10-01)
+
+Decisão completa em `.rebeca/decisoes/ADR-007-configuracao-pela-interface.md`. O que a tela resolve:
+colar a chave, trocar o endereço do provedor, testar a conexão e **diferenciar o modelo de cada
+função** — sem editar `.env` e reiniciar o servidor.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Testes da configuração | `pnpm exec vitest run src/ai/__tests__/settings.test.ts` | ✅ **27/27** |
+| Suíte completa | `pnpm exec vitest run` | ✅ **133/133 em 12 arquivos** — `.rebeca/evidencias/vitest-ia.txt` |
+| **Determinismo da suíte** | `pnpm exec vitest run`, duas rodadas seguidas | ✅ 133/133 nas duas, 57 s cada |
+| Build de produção | `pnpm run build` | ✅ exit 0 |
+| Leitura da configuração (HTTP real) | `GET /api/ai/settings` | ✅ 5 provedores, 4 níveis, 15 funções, 15 opções de catálogo |
+| **A chave volta ao navegador?** | varredura da resposta HTTP pelo valor | ✅ **não aparece**; só `••••7890` e a origem (`configuracao`) |
+| **SSRF — metadados de nuvem** | `PUT` com `169.254.169.254` | ✅ HTTP 400 recusado |
+| **SSRF — credencial na URL** | `PUT` com `https://user:senha@…` | ✅ HTTP 400 recusado |
+| Chave implausível | `PUT` com chave de 3 caracteres | ✅ HTTP 400 recusado |
+| Endereço local em modo local | `PUT` com `http://127.0.0.1:5199/mock` | ✅ aceito (modelo local é caso legítimo) |
+| Diferenciar por função | `PUT` com `functionModels.criar-roteiro` | ✅ a função passa a resolver aquele modelo, com origem `funcao` |
+| O endereço configurado é usado | `POST /api/ai/test` apontando para caminho inexistente | ✅ o servidor chamou o endereço configurado e tratou a falha |
+| Arquivo ignorado pelo git | `git check-ignore -v .rebeca/segredos/llm.json` | ✅ casado; nada aparece em `git status` |
+| Chave de teste removida do disco | inspeção após a verificação | ✅ arquivo removido; nenhuma chave real existe no ambiente |
+
+**Dois defeitos reais que só o teste ponta a ponta com o servidor no ar pegou** (nenhum teste unitário
+pegava):
+
+1. **A chave salva na tela era ignorada na escolha do modelo padrão** — a checagem de "existe chave?"
+   consultava só a variável de ambiente. Efeito: o usuário colava a chave, salvava, e o app continuava
+   em simulação sem explicar por quê. É exatamente o "não funciona" que esta entrega existe para
+   resolver. Corrigido em `providerHasKey`, com teste de regressão.
+2. **`PUT /api/ai/settings` chegava vazio no servidor de desenvolvimento** — o middleware do Vite lia o
+   corpo só em `POST`. O erro aparecia como "formato inesperado", ou seja, defeito de encanamento
+   disfarçado de defeito de validação.
+
+**Instabilidade da suíte — causa encontrada e corrigida (não maquiada).** A suíte falhava em arquivos
+**diferentes** a cada rodada, sempre por tempo, e cada arquivo passava isolado em menos de 7 s. Causa:
+esta máquina tem **6 processadores lógicos** e a suíte tem **12 arquivos** de teste; sem teto, o pool
+sobrecarregava a máquina ~2× e o render de jsdom + React 19 estourava o limite. Corrigido com
+`maxWorkers: 4` em `vite.config.ts`. **Duas rodadas verdes seguidas**, e a suíte ficou **mais rápida**
+(57 s contra 72 s). Um limite de tempo maior teria escondido o problema em vez de resolvê-lo.
+
+**Não verificado (declarado):** nenhuma chamada real a provedor com credencial **válida** (a mecânica
+do teste de conexão está provada; o sucesso contra um provedor de verdade depende de uma chave que não
+existe aqui); a recusa de escrita em ambiente publicado foi testada por variável, não em deploy real; a
+heurística `VERCEL` não reconhece outro host publicado; não há teste de render do painel; e a revisão
+adversarial do `rebeca-qa` sobre o `ADR-007` não foi executada.
 
 ## Verificação da F0 (o que foi realmente checado)
 

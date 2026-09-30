@@ -74,5 +74,12 @@ export default defineConfig({
     // `threads` em vez de `forks`: os testes não precisam de processo separado e o pool de threads
     // dispensa IPC entre processos, que é o que trava em ambiente confinado.
     pool: 'threads',
+    // Teto de workers. Esta máquina tem 6 processadores lógicos e a suíte tem 12 arquivos: sem teto,
+    // o pool sobrecarrega a máquina ~2× e o render de jsdom + React 19 estoura o limite do teste —
+    // a suíte falhava em arquivos DIFERENTES a cada rodada, sempre por tempo. Foi o que aconteceu
+    // três vezes com `revisao.test.tsx` e `channel-scope.test.tsx`, e cada uma passava isolada em
+    // menos de 7 s. Deixar o vermelho aleatório seria pior que não ter teste: ensina o time a
+    // ignorá-lo. O teto troca um pouco de velocidade por determinismo, que é o que a suíte precisa.
+    maxWorkers: 4,
   },
 });

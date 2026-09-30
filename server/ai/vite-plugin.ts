@@ -51,7 +51,11 @@ export function aiDevServer(): Plugin {
           try {
             const module = (await server.ssrLoadModule('/server/ai/http.ts')) as unknown as AiHttpModule;
             const method = (req.method ?? 'GET').toUpperCase();
-            const body = method === 'POST' ? await module.readJsonBody(req) : undefined;
+            // POST **e** PUT têm corpo. Ler só no POST fazia `PUT /api/ai/settings` chegar vazio ao
+            // servidor e a tela receber "formato inesperado" — o defeito era do encanamento, não da
+            // validação, e é o tipo de erro que só aparece quando se testa a rota de verdade.
+            const hasBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
+            const body = hasBody ? await module.readJsonBody(req) : undefined;
             const result = await module.routeAiRequest(method, pathname, body);
             module.sendJson(res, result.status, result.body);
           } catch (error) {

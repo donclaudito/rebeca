@@ -98,6 +98,7 @@ export const ANTHROPIC_PROVIDER: ProviderAdapter = {
   envVar: 'ANTHROPIC_API_KEY',
   maxTokensParam: 'max_tokens',
   supportsJsonSchema: true,
+  defaultBaseUrl: 'https://api.anthropic.com/v1/messages',
 
   async complete(call): Promise<ProviderResponse> {
     const payload: Record<string, unknown> = {
@@ -114,7 +115,8 @@ export const ANTHROPIC_PROVIDER: ProviderAdapter = {
     }
 
     const body = await postWithKey(
-      'https://api.anthropic.com/v1/messages',
+      // Endereço resolvido e validado pelo handler (tela → ambiente → padrão).
+      call.baseUrl,
       {
         'x-api-key': call.apiKey,
         // Header de versão obrigatório — sem ele a API recusa a requisição.
@@ -192,6 +194,12 @@ export const GOOGLE_PROVIDER: ProviderAdapter = {
   envVar: 'GEMINI_API_KEY',
   maxTokensParam: 'maxOutputTokens',
   supportsJsonSchema: true,
+  /**
+   * O endereço do Google tem o **modelo no caminho** (`.../models/{model}:generateContent`), então o
+   * padrão aqui é a base e o adaptador monta o caminho. Guardar a URL completa no padrão faria a tela
+   * mostrar um endereço que não é o que se edita.
+   */
+  defaultBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 
   async complete(call): Promise<ProviderResponse> {
     const generationConfig: Record<string, unknown> = {
@@ -212,7 +220,9 @@ export const GOOGLE_PROVIDER: ProviderAdapter = {
     };
 
     const body = await postWithKey(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(call.model)}:generateContent`,
+      // O modelo vai no caminho, então o endereço configurável é a **base** e o caminho é montado
+      // aqui. Assim a tela de Configurações edita uma base, não uma URL que muda por modelo.
+      `${call.baseUrl.replace(/\/+$/, '')}/models/${encodeURIComponent(call.model)}:generateContent`,
       { 'x-goog-api-key': call.apiKey },
       payload,
       call.signal,

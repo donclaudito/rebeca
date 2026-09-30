@@ -480,6 +480,7 @@ export const SIMULATED_PROVIDER: ProviderAdapter = {
   envVar: '',
   maxTokensParam: 'max_tokens',
   supportsJsonSchema: false,
+  defaultBaseUrl: '',
   async complete(_call: ProviderCall): Promise<ProviderResponse> {
     throw new Error('O provedor simulado é chamado por simulate(), não por complete().');
   },

@@ -275,7 +275,13 @@ export function saveConfig(patch: unknown, now: Date = new Date()): SaveResult {
     }
   }
 
-  const functionModels: Record<string, string> = { ...current.functionModels };
+  // Cópia explícita em vez de espalhamento: `Partial<Record<string, string>>` espalhado produz
+  // `string | undefined` em cada chave, e o compilador recusa. Filtrar aqui também garante que só
+  // entra valor de fato texto.
+  const functionModels: Record<string, string> = {};
+  for (const [id, spec] of Object.entries(current.functionModels)) {
+    if (typeof spec === 'string' && spec.length > 0) functionModels[id] = spec;
+  }
   const incomingFunctionModels = incoming['functionModels'];
   if (typeof incomingFunctionModels === 'object' && incomingFunctionModels !== null) {
     for (const [id, value] of Object.entries(incomingFunctionModels as Record<string, unknown>)) {

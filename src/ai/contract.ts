@@ -428,6 +428,121 @@ export interface AiResult<TData = unknown> {
 }
 
 /* =============================================================================
+   Tela de Configurações — segredos, endereços e escolha de modelo
+   ============================================================================= */
+
+/** Rótulo em pt-BR de cada nível, para a interface não repetir o identificador técnico. */
+export const AI_TIER_LABEL: Record<AiTier, string> = {
+  raciocinio: 'Raciocínio e análise',
+  criativo: 'Escrita e criação',
+  rapido: 'Tarefas rápidas e baratas',
+  visao: 'Leitura de imagem',
+};
+
+export const AI_TIER_PURPOSE: Record<AiTier, string> = {
+  raciocinio: 'Revisar, comparar, planejar e julgar. É o nível que decide se um conteúdo presta.',
+  criativo: 'Escrever roteiro, cena, personagem e texto de divulgação.',
+  rapido: 'Extrair, classificar e formatar metadados — trabalho mecânico, modelo barato.',
+  visao: 'Ler imagem. Hoje nenhuma função usa este nível.',
+};
+
+/** Uma opção de modelo oferecida nos seletores. */
+export interface AiCatalogOption {
+  /** `provedor:modelo` — o valor que o seletor devolve. */
+  readonly spec: string;
+  readonly provider: string;
+  readonly model: string;
+  readonly label: string;
+  readonly inputUsdPerMillion: number;
+  readonly outputUsdPerMillion: number;
+  readonly minorPolicy: 'permitido' | 'restrito-menores' | 'nao-verificado';
+  readonly allowsChildChannel: boolean;
+}
+
+export interface AiProviderSettingsView {
+  readonly provider: string;
+  /** Nome da variável de ambiente equivalente — o caminho de quem publica o app. */
+  readonly envVar: string;
+  readonly configured: boolean;
+  /** Só o suficiente para o humano reconhecer a chave. **Nunca** o valor. */
+  readonly keyMask: string;
+  readonly keySource: 'configuracao' | 'ambiente' | 'ausente';
+  readonly baseUrl: string;
+  readonly defaultBaseUrl: string;
+  readonly baseUrlCustomized: boolean;
+  readonly minorPolicy: 'permitido' | 'restrito-menores' | 'nao-verificado';
+  readonly allowedForChildDirected: boolean;
+}
+
+export interface AiFunctionModelView {
+  readonly functionId: AiFunctionId;
+  readonly label: string;
+  readonly tier: AiTier;
+  /** `provedor:modelo` que de fato atende esta função agora. */
+  readonly resolved: string;
+  readonly source: 'funcao' | 'nivel' | 'ambiente' | 'catalogo' | 'simulacao';
+}
+
+export interface AiTierSettingsView {
+  readonly tier: AiTier;
+  readonly label: string;
+  readonly purpose: string;
+  /** Sobreposição salva, ou `null` quando vale o padrão do catálogo. */
+  readonly override: string | null;
+  readonly resolved: string;
+}
+
+export interface AiSettingsView {
+  /** `false` significa: este ambiente não aceita gravar segredo pela interface. */
+  readonly writable: boolean;
+  /** `true` quando o app está publicado — contexto em que o segredo vem do gerenciador de segredos. */
+  readonly hosted: boolean;
+  readonly configPath: string | null;
+  readonly providers: readonly AiProviderSettingsView[];
+  readonly tiers: readonly AiTierSettingsView[];
+  readonly functions: readonly AiFunctionModelView[];
+  readonly flags: {
+    readonly allowUnverifiedMinorPolicy: boolean;
+    readonly allowUnpricedModel: boolean;
+    readonly allowNoLedger: boolean;
+  };
+  readonly catalog: readonly AiCatalogOption[];
+  readonly updatedAt: string | null;
+  /** Onde o custo está sendo registrado agora. */
+  readonly ledger: 'csv' | 'memoria';
+}
+
+export interface AiSettingsPatch {
+  readonly providers?: Readonly<
+    Record<string, { apiKey?: string | null; baseUrl?: string | null }>
+  >;
+  readonly models?: Readonly<Partial<Record<AiTier, string | null>>>;
+  readonly functionModels?: Readonly<Record<string, string | null>>;
+  readonly allowUnverifiedMinorPolicy?: boolean;
+  readonly allowUnpricedModel?: boolean;
+  readonly allowNoLedger?: boolean;
+}
+
+export interface AiSettingsSaveResult {
+  readonly changed: readonly string[];
+  readonly updatedAt: string;
+  /** A configuração como ficou — a tela se atualiza sem uma segunda requisição. */
+  readonly settings: AiSettingsView;
+}
+
+/** Resultado de "testar conexão": uma chamada mínima real, com custo e latência medidos. */
+export interface ProviderTestResult {
+  readonly provider: string;
+  readonly ok: boolean;
+  /** Mensagem em pt-BR pronta para a tela, sem chave e sem corpo cru do provedor. */
+  readonly message: string;
+  readonly model: string;
+  readonly latencyMs: number;
+  readonly costUsd: number;
+  readonly costSource: AiCostSource;
+}
+
+/* =============================================================================
    Erros
    ============================================================================= */
 

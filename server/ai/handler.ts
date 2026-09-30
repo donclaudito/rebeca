@@ -22,12 +22,14 @@
  * - Nenhuma mensagem de erro carrega chave, token ou corpo cru do provedor.
  */
 
-import { AiError, getAiFunction, type AiRequest, type AiResult, type AiStatus, type AiTier, type AiUsage } from '../../src/ai/contract';
+import { AiError, getAiFunction, AI_FUNCTIONS, AI_FUNCTION_IDS, AI_TIER_LABEL, AI_TIER_PURPOSE, type AiFunctionId, type AiFunctionModelView, type AiRequest, type AiResult, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type AiTier, type AiTierSettingsView, type AiUsage, type AiCatalogOption, type AiProviderSettingsView, type ProviderTestResult } from '../../src/ai/contract';
+import { relative, resolve } from 'node:path';
 import { AI_LIMITS } from '../../src/ai/limits';
 import { getFunctionSchema, validateSchema } from '../../src/ai/schemas';
 import {
   allowUnpricedModel,
   allowUnverifiedMinorPolicy,
+  CATALOG,
   defaultModelFor,
   effectivePrice,
   estimateCostUsd,
@@ -42,8 +44,17 @@ import {
 import { findServerChannel, type ServerChannel } from './channels';
 import { recordCost, spentTodayUsd, ledgerPath, ledgerDisplayPath } from './ledger';
 import { buildMessages, extractJson } from './prompt';
-import { PROVIDERS, PROVIDER_ENV, providerKey, type ProviderId } from './providers';
+import { PROVIDERS, PROVIDER_ENV, type ProviderId } from './providers';
 import { PROMPTS } from './prompts.generated';
+import {
+  configPath,
+  isHosted,
+  loadConfig,
+  maskSecret,
+  resolveProvider,
+  saveConfig,
+  settingsWritable,
+} from './secrets';
 import { simulate } from './simulated';
 
 /* =============================================================================
@@ -207,6 +218,21 @@ interface ModelChoice {
 }
 
 /**
+ * Existe chave utilizável para este provedor?
+ *
+ * Considera **configuração salva na tela** e variável de ambiente — nunca só a variável.
+ *
+ * Este era um defeito real: a escolha do modelo padrão checava apenas `providerKey()` (ambiente),
+ * então uma chave colada na tela de Configurações era **ignorada** na hora de montar o padrão do
+ * catálogo. O resultado era cruel: o usuário cadastrava a chave, salvava, e o app continuava
+ * respondendo por simulação sem explicar por quê. Foi o teste ponta a ponta com o servidor no ar que
+ * pegou — nenhum teste unitário pegava, porque todos configuravam por ambiente.
+ */
+function providerHasKey(provider: RealProviderId): boolean {
+  return resolveProvider(provider, PROVIDER_ENV[provider], '').apiKey.length > 0;
+}
+
+/**
  * As três decisões que o produto exige que sejam **explícitas do dono**, e não padrão silencioso.
  *
  * Valem por configuração salva na tela **ou** por variável de ambiente, nessa ordem: quem acabou de
@@ -352,7 +378,7 @@ function chooseModel(tier: AiTier, channel: ServerChannel, functionId: AiFunctio
   }
 
   for (const provider of providerOrder()) {
-    if (providerKey(provider).length === 0) continue;
+    if (!providerHasKey(provider)) continue;
     const entry = defaultModelFor(tier, provider);
     if (!entry) continue;
     const allowed = isAllowedForChannel(entry.minorPolicy, channel.childDirected, {
@@ -397,6 +423,7 @@ export interface HandleOptions {
     user: string;
     maxOutputTokens: number;
     apiKey: string;
+    baseUrl: string;
     jsonSchema: unknown;
     signal: AbortSignal;
   }) => Promise<{ raw: string; tokensIn: number; tokensOut: number }>;
@@ -487,7 +514,7 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
   }
 
   // --- escolha do modelo e trava de custo -----------------------------------
-  const choice = chooseModel(spec.tier, channel);
+  const choice = chooseModel(spec.tier, channel, spec.id);
   const maxOutputTokens = outputTokenBudget(choice.entry, Math.min(spec.maxOutputTokens, prompt.maxOutputTokens));
 
   const built = buildMessages({
@@ -514,7 +541,7 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
      * fazer. Quem quiser operar assim assume a decisão em `REBECA_ALLOW_NO_LEDGER=1` — o mesmo padrão
      * dos outros dois escapes deste arquivo: default seguro, decisão explícita e registrada.
      */
-    if (ledgerPath() === null && process.env.REBECA_ALLOW_NO_LEDGER !== '1') {
+    if (ledgerPath() === null && !policyFlags().allowNoLedger) {
       throw new AiError(
         {
           code: 'nao-autorizado',
@@ -724,6 +751,19 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
   }
 }
 
+/** Endereço oficial de cada provedor, usado como padrão quando a tela não define outro. */
+async function defaultBaseUrlFor(provider: RealProviderId): Promise<string> {
+  if (provider in PROVIDERS) {
+    return PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl;
+  }
+  // Anthropic e Google vivem em `providers-extra`, importado dinamicamente para o `vite.config.ts`
+  // não arrastar o grafo do servidor inteiro para dentro da configuração do Vite.
+  const extra = await import('./providers-extra');
+  return provider === 'anthropic'
+    ? extra.ANTHROPIC_PROVIDER.defaultBaseUrl
+    : extra.GOOGLE_PROVIDER.defaultBaseUrl;
+}
+
 async function callProvider(
   choice: ModelChoice,
   messages: { system: string; user: string },
@@ -738,13 +778,20 @@ async function callProvider(
     );
   }
 
-  const apiKey = providerKey(choice.provider);
-  if (apiKey.length === 0) {
+  // Chave e endereço vêm da configuração salva na tela, com a variável de ambiente como reserva.
+  const resolved = resolveProvider(
+    choice.provider,
+    PROVIDER_ENV[choice.provider],
+    await defaultBaseUrlFor(choice.provider),
+  );
+
+  if (resolved.apiKey.length === 0) {
     throw new AiError(
       {
         code: 'sem-provedor',
-        message: 'A chave do provedor não está configurada no servidor.',
-        detail: `variável ausente: ${PROVIDER_ENV[choice.provider]}`,
+        message:
+          'Este provedor não tem chave configurada. Abra Configurações → Inteligência artificial e cadastre a chave.',
+        detail: `sem chave: ${choice.provider} (configuração da tela e variável ${PROVIDER_ENV[choice.provider]})`,
         retryable: false,
       },
       503,
@@ -758,7 +805,8 @@ async function callProvider(
       system: messages.system,
       user: messages.user,
       maxOutputTokens,
-      apiKey,
+      apiKey: resolved.apiKey,
+      baseUrl: resolved.baseUrl,
       jsonSchema,
       signal: AbortSignal.timeout(AI_LIMITS.requestTimeoutMs),
     });
@@ -788,7 +836,8 @@ async function callProvider(
       // forma, então enviar é ganho, nunca dependência.
       jsonSchema: (jsonSchema as Parameters<typeof activeAdapter.complete>[0]['jsonSchema']) ?? null,
       signal: controller.signal,
-      apiKey,
+      apiKey: resolved.apiKey,
+      baseUrl: resolved.baseUrl,
     });
   } finally {
     clearTimeout(timer);
@@ -821,17 +870,19 @@ function computeCost(
    ============================================================================= */
 
 export function handleStatus(now: Date = new Date()): AiStatus {
+  const flags = policyFlags();
   const order = providerOrder();
   const providers = order.map((provider) => {
     const entry = defaultModelFor('raciocinio', provider);
     const policy = entry?.minorPolicy ?? 'nao-verificado';
     return {
       provider,
-      configured: providerKey(provider).length > 0,
+      // Considera configuração da tela **e** ambiente — ver `providerHasKey`.
+      configured: providerHasKey(provider),
       envVar: PROVIDER_ENV[provider],
       minorPolicy: policy,
       allowedForChildDirected: isAllowedForChannel(policy, true, {
-        allowUnverified: allowUnverifiedMinorPolicy(),
+        allowUnverified: flags.allowUnverifiedMinor,
       }),
     };
   });
@@ -857,10 +908,8 @@ export function handleStatus(now: Date = new Date()): AiStatus {
   const models = {} as Record<AiTier, string>;
   const childDirectedModels = {} as Record<AiTier, string>;
   for (const tier of tiers) {
-    const adult = chooseModelQuietly(tier, adultChannel);
-    const child = chooseModelQuietly(tier, childChannel);
-    models[tier] = adult;
-    childDirectedModels[tier] = child;
+    models[tier] = chooseModelQuietly(tier, adultChannel);
+    childDirectedModels[tier] = chooseModelQuietly(tier, childChannel);
   }
 
   const path = ledgerPath();
@@ -875,7 +924,7 @@ export function handleStatus(now: Date = new Date()): AiStatus {
     models,
     childDirectedModels,
     childDirectedFallsBackToSimulation: childSimulated,
-    policyOverride: allowUnverifiedMinorPolicy(),
+    policyOverride: flags.allowUnverifiedMinor,
     budget: {
       perCallUsd: AI_LIMITS.perCallUsd,
       dailyUsd: AI_LIMITS.dailyUsd,
@@ -886,15 +935,290 @@ export function handleStatus(now: Date = new Date()): AiStatus {
   };
 }
 
-/** Igual a `chooseModel`, mas nunca lança — usado só para montar o painel de status. */
-function chooseModelQuietly(tier: AiTier, channel: ServerChannel): string {
+/** Igual a `chooseModel`, mas nunca lança — usado só para montar o painel. */
+function chooseModelQuietly(tier: AiTier, channel: ServerChannel, functionId?: AiFunctionId): string {
   try {
-    const choice = chooseModel(tier, channel);
+    const choice = chooseModel(tier, channel, functionId ?? 'criar-seo');
     return `${choice.provider}:${choice.model}`;
   } catch (error) {
-    // Um override recusado **não** cai no provedor padrão: a chamada falha. Dizer "simulado" aqui
-    // faria o painel mentir sobre o que vai acontecer quando o usuário clicar em gerar.
+    // Uma sobreposição recusada **não** cai no provedor padrão: a chamada falha. Dizer "simulado"
+    // aqui faria o painel mentir sobre o que vai acontecer quando o usuário clicar em gerar.
     const detail = error instanceof AiError ? error.detail : undefined;
     return `recusado: ${detail ?? 'configuração de modelo inválida'}`;
   }
+}
+
+/* =============================================================================
+   Tela de Configurações: leitura, gravação e teste de conexão
+   ============================================================================= */
+
+/**
+ * Sobreposição resolvida de cada função — é o que mostra, na tela, que **cada LLM está diferenciada**
+ * e qual delas atende cada trabalho agora.
+ *
+ * Usa o canal de referência **não infantil** para reportar o modelo-base; a diferença por canal
+ * aparece na seção de canal infantil. Misturar as duas coisas numa lista só faria o operador não
+ * entender qual regra está valendo.
+ */
+function functionModelViews(): AiFunctionModelView[] {
+  const reference: ServerChannel = {
+    id: '__(referencia)__',
+    name: 'Canal de referência',
+    niche: '',
+    childDirected: false,
+    ageRange: null,
+  };
+
+  return AI_FUNCTION_IDS.map((id) => {
+    const spec = AI_FUNCTIONS[id];
+    let resolved = 'simulado:simulado';
+    let source: AiFunctionModelView['source'] = 'simulacao';
+    try {
+      const choice = chooseModel(spec.tier, reference, id);
+      resolved = `${choice.provider}:${choice.model}`;
+      source = choice.source;
+    } catch (error) {
+      resolved = `recusado: ${error instanceof AiError ? (error.detail ?? 'configuração inválida') : 'erro'}`;
+      source = 'funcao';
+    }
+    return { functionId: id, label: spec.label, tier: spec.tier, resolved, source };
+  });
+}
+
+function tierViews(): AiTierSettingsView[] {
+  const config = loadConfig();
+  return (['raciocinio', 'criativo', 'rapido', 'visao'] as AiTier[]).map((tier) => ({
+    tier,
+    label: AI_TIER_LABEL[tier],
+    purpose: AI_TIER_PURPOSE[tier],
+    override: config.models[tier] ?? null,
+    resolved: chooseModelQuietly(tier, {
+      id: '__(referencia)__',
+      name: 'Canal de referência',
+      niche: '',
+      childDirected: false,
+      ageRange: null,
+    }),
+  }));
+}
+
+function providerViews(): AiProviderSettingsView[] {
+  const flags = policyFlags();
+  const order = providerOrder();
+
+  return order.map((provider) => {
+    const adapter = PROVIDERS[provider as keyof typeof PROVIDERS];
+    const defaultBaseUrl = adapter?.defaultBaseUrl ?? '';
+    const resolved = resolveProvider(provider, PROVIDER_ENV[provider], defaultBaseUrl);
+    const entry = defaultModelFor('raciocinio', provider);
+    const policy = entry?.minorPolicy ?? 'nao-verificado';
+
+    return {
+      provider,
+      envVar: PROVIDER_ENV[provider],
+      configured: resolved.apiKey.length > 0,
+      keyMask: maskSecret(resolved.apiKey),
+      keySource: resolved.apiKeySource,
+      baseUrl: resolved.baseUrl,
+      defaultBaseUrl,
+      baseUrlCustomized: resolved.baseUrlSource === 'configuracao',
+      minorPolicy: policy,
+      allowedForChildDirected: isAllowedForChannel(policy, true, {
+        allowUnverified: flags.allowUnverifiedMinor,
+      }),
+    };
+  });
+}
+
+function catalogOptions(): AiCatalogOption[] {
+  const flags = policyFlags();
+  return CATALOG.map((entry) => ({
+    spec: `${entry.provider}:${entry.model}`,
+    provider: entry.provider,
+    model: entry.model,
+    label: entry.label,
+    inputUsdPerMillion: entry.inputUsdPerMillion,
+    outputUsdPerMillion: entry.outputUsdPerMillion,
+    minorPolicy: entry.minorPolicy,
+    allowsChildChannel: isAllowedForChannel(entry.minorPolicy, true, {
+      allowUnverified: flags.allowUnverifiedMinor,
+    }),
+  }));
+}
+
+/** Monta a visão completa da tela de Configurações. Nunca inclui valor de chave. */
+export function buildSettingsView(): AiSettingsView {
+  const config = loadConfig();
+  const path = ledgerPath();
+  return {
+    writable: settingsWritable(),
+    hosted: isHosted(),
+    configPath: isHosted() ? null : relativePathOf(configPath()),
+    providers: providerViews(),
+    tiers: tierViews(),
+    functions: functionModelViews(),
+    flags: {
+      allowUnverifiedMinorPolicy: config.allowUnverifiedMinorPolicy,
+      allowUnpricedModel: config.allowUnpricedModel,
+      allowNoLedger: config.allowNoLedger,
+    },
+    catalog: catalogOptions(),
+    updatedAt: config.updatedAt,
+    ledger: path ? 'csv' : 'memoria',
+  };
+}
+
+/** Caminho relativo, para a tela não exibir a estrutura de diretórios da máquina. */
+function relativePathOf(absolute: string): string {
+  const root = process.env.REBECA_ROOT ? resolve(process.env.REBECA_ROOT) : process.cwd();
+  const rel = relative(root, absolute);
+  return (rel.startsWith('..') ? absolute : rel).replaceAll('\\', '/');
+}
+
+export function handleGetSettings(): AiSettingsView {
+  return buildSettingsView();
+}
+
+export function handleSaveSettings(body: unknown, now: Date = new Date()): AiSettingsSaveResult {
+  const result = saveConfig(body, now);
+  return { changed: result.changed, updatedAt: result.updatedAt, settings: buildSettingsView() };
+}
+
+/**
+ * "Testar conexão" — faz uma chamada mínima **real** ao provedor.
+ *
+ * É o que transforma "salvei a chave" em "a chave funciona": sem isso o usuário só descobre que a
+ * chave está errada quando tenta gerar conteúdo de verdade, e culpa o produto.
+ *
+ * Cuidados: a chamada é curta (64 tokens de saída, prompt mínimo) para custar centavos; passa pelas
+ * mesmas travas de custo; e o custo **real** aparece no resultado e vai para o livro — teste pago é
+ * gasto como qualquer outro.
+ */
+export async function handleTestProvider(body: unknown, now: Date = new Date()): Promise<ProviderTestResult> {
+  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  const provider = typeof record['provider'] === 'string' ? record['provider'].trim() : '';
+
+  if (!(provider in PROVIDER_ENV)) {
+    throw new AiError(
+      {
+        code: 'entrada-invalida',
+        message: 'Provedor desconhecido para teste.',
+        detail: `recebido: ${provider || '(vazio)'}`,
+        retryable: false,
+      },
+      400,
+    );
+  }
+
+  const typed = provider as RealProviderId;
+  const entry = defaultModelFor('rapido', typed) ?? defaultModelFor('raciocinio', typed);
+
+  const resolved = resolveProvider(typed, PROVIDER_ENV[typed], await defaultBaseUrlFor(typed));
+  if (resolved.apiKey.length === 0) {
+    return {
+      provider: typed,
+      ok: false,
+      message: 'Não há chave cadastrada para este provedor. Cole a chave e tente de novo.',
+      model: entry?.model ?? '(desconhecido)',
+      latencyMs: 0,
+      costUsd: 0,
+      costSource: 'nao-verificado',
+    };
+  }
+
+  const flags = policyFlags();
+  if (ledgerPath() === null && !flags.allowNoLedger) {
+    return {
+      provider: typed,
+      ok: false,
+      message:
+        'Neste ambiente o custo não fica registrado de forma durável, então o teto diário não pode ser aplicado — o teste fica indisponível.',
+      model: entry?.model ?? '(desconhecido)',
+      latencyMs: 0,
+      costUsd: 0,
+      costSource: 'nao-verificado',
+    };
+  }
+
+  const model = entry?.model ?? '';
+  const maxOutputTokens = 64;
+  const system = 'Responda apenas com a palavra ok.';
+  const user = 'Responda apenas com a palavra ok.';
+
+  const startedAt = performance.now();
+  try {
+    const adapter =
+      typed === 'anthropic'
+        ? (await import('./providers-extra')).ANTHROPIC_PROVIDER
+        : typed === 'google'
+          ? (await import('./providers-extra')).GOOGLE_PROVIDER
+          : PROVIDERS[typed];
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30_000);
+    let response;
+    try {
+      response = await adapter.complete({
+        model,
+        system,
+        user,
+        maxOutputTokens,
+        jsonSchema: null,
+        signal: controller.signal,
+        apiKey: resolved.apiKey,
+        baseUrl: resolved.baseUrl,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const usage: AiUsage = { tokensIn: response.tokensIn, tokensOut: response.tokensOut };
+    // O modelo é chamado sem schema de saída, então a resposta não é JSON. O que se mede aqui é
+    // **conexão e credencial** — não aderência ao contrato, que já tem teste próprio.
+    const { costUsd, costSource } = computeCost(entry ?? null, usage, now);
+
+    if (!isSimulatedProvider(typed)) {
+      recordCost({
+        canal: '(teste de conexão)',
+        conteudo: '—',
+        etapa: 'configurar',
+        provedor: typed,
+        modelo: model,
+        tokensIn: usage.tokensIn,
+        tokensOut: usage.tokensOut,
+        custoUsd: costSource === 'real' ? costUsd : null,
+        tempoMin: 0,
+        promptId: 'teste-de-conexao',
+        data: todayLocal(now),
+      });
+    }
+
+    return {
+      provider: typed,
+      ok: true,
+      message: `Conexão e credencial funcionando. O provedor respondeu em ${Math.round(performance.now() - startedAt)} ms.`,
+      model,
+      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      costUsd,
+      costSource,
+    };
+  } catch (error) {
+    // Mensagem em pt-BR para a tela; o detalhe técnico já vem higienizado pelos adaptadores.
+    const detail =
+      error instanceof AiError && error.detail ? redact(error.detail) : redact(error instanceof Error ? error.message : '');
+    return {
+      provider: typed,
+      ok: false,
+      message: `O provedor não aceitou a chamada de teste. ${detail}`.trim().slice(0, 400),
+      model,
+      latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
+      costUsd: 0,
+      costSource: 'nao-verificado',
+    };
+  }
+}
+
+/** Hoje nenhum provedor do catálogo é simulado, mas o guarda fica para o dia em que for. */
+function isSimulatedProvider(provider: string): boolean {
+  return provider === 'simulado';
 }

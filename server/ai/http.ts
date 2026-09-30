@@ -16,7 +16,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AiError, type AiErrorBody } from '../../src/ai/contract';
-import { handleGenerate, handleStatus, redact } from './handler';
+import { handleGenerate, handleGetSettings, handleSaveSettings, handleStatus, handleTestProvider, redact } from './handler';
 
 /**
  * Reexportado para o plugin de desenvolvimento conseguir higienizar o detalhe de um erro sem
@@ -117,6 +117,37 @@ export async function routeAiRequest(
         );
       }
       return { status: 200, body: await handleGenerate(body, options.now ? { now: options.now } : {}) };
+    }
+
+    /*
+     * Configuração de IA: segredos, endereços e escolha de modelo.
+     *
+     * A LEITURA nunca devolve valor de chave — só máscara e indicador de presença (ver
+     * `buildSettingsView`). A ESCRITA é recusada quando o app está publicado: rota pública que aceita
+     * chave de API de qualquer visitante é vulnerabilidade, não funcionalidade. Como não existe
+     * autenticação nesta fase (D3 aberta), a única defesa honesta é desligar por ambiente.
+     */
+    if (pathname === '/api/ai/settings') {
+      if (method === 'GET') {
+        return { status: 200, body: handleGetSettings() };
+      }
+      if (method === 'PUT' || method === 'POST') {
+        return { status: 200, body: handleSaveSettings(body, options.now ?? new Date()) };
+      }
+      throw new AiError(
+        { code: 'entrada-invalida', message: 'Este endereço responde a GET e PUT.', retryable: false },
+        405,
+      );
+    }
+
+    if (pathname === '/api/ai/test') {
+      if (method !== 'POST') {
+        throw new AiError(
+          { code: 'entrada-invalida', message: 'Este endereço responde apenas a POST.', retryable: false },
+          405,
+        );
+      }
+      return { status: 200, body: await handleTestProvider(body, options.now ?? new Date()) };
     }
 
     throw new AiError(
