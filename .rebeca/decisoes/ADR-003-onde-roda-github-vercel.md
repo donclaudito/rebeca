@@ -31,6 +31,12 @@ verificado** em `.rebeca/estado.md`) não poderia ser conferida de outro disposi
    pedir outro nome de projeto. A URL só entra neste ADR **depois de observada**, pelo teste do item 3
    da Verificação. Consequência de produto: o nome "AI Media Studio" também já está ocupado como
    subdomínio — insumo direto para a decisão **D7** (nome do produto).
+
+   **Atualização de 2026-09-30 — a URL foi observada:** o dono importou o repositório e a produção
+   vive em **`https://rebeca-odda.vercel.app`** (projeto `rebeca-odda`). Há **dois** projetos da Vercel
+   recebendo este repositório (`rebeca-odda` e `rebeca`), o que duplica builds e deploys: convém
+   manter um só. O nome do projeto **não** é `ai-media-studio`, exatamente como o parágrafo acima
+   previa.
 3. O deploy é por **integração Git**, não por CLI: `push` em `main` → build e publicação automáticos;
    PR → URL de preview. A Vercel roda `pnpm install --frozen-lockfile` e `pnpm build` (configurado em
    `vercel.json`), em Linux.
@@ -91,9 +97,26 @@ verificado** em `.rebeca/estado.md`) não poderia ser conferida de outro disposi
 ## Verificação
 1. `pnpm build` local verde (tipos + `vite build` gerando `dist/`).
 2. CI do repositório verde na `main` (tipos, testes, build, varredura de segredo).
-3. **A prova que importa:** a URL publicada responde `200` em `/` **e** em rota profunda
-   `/c/luna/inicio` — é isso que refuta (ou confirma) o item 4 da Decisão e prova que o rewrite de SPA
-   funciona.
+3. **A prova que importa — FEITA em 2026-09-30.** A URL publicada responde **HTTP 200** em `/` **e**
+   em rota profunda `/c/luna/inicio`, observada com `web_fetch` em
+   `https://rebeca-odda.vercel.app/c/luna/inicio`. **Logo o rewrite de SPA funciona e o item 4 da
+   Decisão está confirmado, não mais presumido.** A URL observada é
+   `https://rebeca-odda.vercel.app` (projeto `rebeca-odda`, criado pelo dono no import) — e não
+   `ai-media-studio.vercel.app`, como o item 2 já corrigia.
+
+   **Achado colateral desta prova, ainda aberto:** as funções serverless respondem **HTTP 500** em
+   produção. `GET /api/ai/status` e `GET /api/ai/settings` devolvem o JSON de erro genérico da
+   própria Vercel (`{"error":{"code":"500","message":"A server error has occurred"}}`), não o HTML do
+   app. **Isso prova duas coisas:** (a) o rewrite catch-all **não** atropela `/api/*` — a requisição
+   chega na função; (b) a função **quebra** no runtime da Vercel. **Causa-raiz: `NÃO VERIFICADO`** —
+   exige o log de runtime do projeto na Vercel, que não é acessível por este agente. Uma tentativa de
+   reproduzir localmente com `VERCEL=1` falhou por motivo **diferente** (o ESM do Node não resolve
+   import sem extensão), portanto **não** serve como diagnóstico. Hipóteses não confirmadas, nesta
+   ordem: interoperabilidade ESM × `"type": "module"` no runtime de `/api`, ou o empacotamento não
+   trazer os módulos de fora de `api/` (`server/`, `src/`) para o bundle da função.
+   **Consequência para o dono: a IA não funciona em produção até isso ser resolvido** — o que, por
+   outro lado, coincide com a recusa de geração paga em serverless já registrada em
+   `server/ai/handler.ts:449`.
 4. `git ls-files` não contém `.env`, `*.pem`, `*.key` nem `node_modules/`.
 5. **Resolução da versão do Node na Vercel — verificada na implementação, não presumida.** Lido
    `packages/build-utils/src/fs/node-version.ts` do repositório `vercel/vercel`

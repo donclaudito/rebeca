@@ -551,7 +551,7 @@ playlist, o que o YouTube faz com a declaração MFK, e **o corpo da maioria das
 `support.google.com`** — o fetch direto devolve só o título; a de monetização foi obtida por extrator
 de terceiro e as demais (`/answer/10774223`, `/answer/6162278`, `/answer/9528076`) seguem não lidas.
 
-## Publicação na nuvem (D6 decidida nesta sessão; publicação pendente do import do dono)
+## Publicação na nuvem — **publicada e verificada em produção** (2026-09-30)
 
 O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decisão e trade-offs em
 `ADR-003-onde-roda-github-vercel.md`. O que existe agora:
@@ -564,7 +564,9 @@ O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decis�
 | `pull_request_template.md`, `dependabot.yml` | ✅ contrato de PR do projeto; Dependabot **já ativo** no repositório |
 | `.gitignore` / `.gitattributes` | ✅ segredo, mídia pesada e normalização de fim de linha (Windows → build em Linux) |
 | `package.json` | ✅ `engines.node: ">=22.12.0"` — piso real de `vitest@5` e `vite@8` |
-| Projeto na Vercel | ⏳ **o dono faz o import em `vercel.com/new`** (opção escolhida: sem token compartilhado) |
+| Projeto na Vercel | ✅ **no ar** em `https://rebeca-odda.vercel.app` — o dono importou. ⚠️ há **dois** projetos recebendo este repositório (`rebeca-odda` e `rebeca`): convém manter um só |
+| Prova do rewrite de SPA | ✅ `https://rebeca-odda.vercel.app/c/luna/inicio` → **HTTP 200** (`web_fetch`, 2026-09-30). Fecha o item 3 da verificação do `ADR-003` — deixou de ser premissa |
+| Funções serverless em produção | ❌ **HTTP 500** em `GET /api/ai/status` e `GET /api/ai/settings` — JSON de erro genérico da Vercel, não o HTML do app. **O rewrite NÃO atropela `/api/*`** (a função é alcançada); a função é que quebra. Causa-raiz `NÃO VERIFICADO`: exige o log de runtime do projeto na Vercel. Detalhe no `ADR-003`, item 3 da Verificação |
 
 **Evidência (snapshot congelado, máquina ociosa):**
 
@@ -613,12 +615,13 @@ a pasta está quieta.** Isto é a decisão **D9** (as duas frentes na mesma past
 
 **Não verificado (declarado, não maquiado):**
 
-1. **A URL de produção não existe ainda** — depende do import do dono. Logo o rewrite de SPA e os
-   headers **não** foram provados com HTTP 200 em rota profunda (`/c/luna/inicio`), que é exatamente a
-   prova exigida no `ADR-003`. Até esse teste, o item 4 da Decisão daquele ADR segue como premissa.
-   **Atenção antes do import:** `ai-media-studio.vercel.app` **já é de terceiro** (confirmado: HTTP 200
-   servindo outro produto de vídeo com IA). A Vercel vai atribuir outra URL (sufixo aleatório) ou pedir
-   outro nome de projeto — não conte com esse endereço. Isso alimenta a decisão **D7** (nome do produto).
+1. **RESOLVIDO em 2026-09-30:** a URL existe e o rewrite de SPA **foi provado** com HTTP 200 em rota
+   profunda (`/c/luna/inicio`) — ver a tabela acima. O que **substitui** este item como pendência é o
+   **HTTP 500 das funções serverless** (`/api/ai/status`, `/api/ai/settings`), cuja causa-raiz segue
+   `NÃO VERIFICADO` por exigir o log de runtime da Vercel.
+   **Registro do que a previsão acertou:** `ai-media-studio.vercel.app` **é de terceiro** (HTTP 200
+   servindo outro produto de vídeo com IA) e por isso a produção acabou em `rebeca-odda.vercel.app`.
+   Isso alimenta a decisão **D7** (nome do produto).
 2. **Custo/limite do plano da Vercel** (`NÃO VERIFICADO`) — conferir na conta antes de assumir.
 3. **Proteção de branch em `main` não foi aplicada**: exige plano pago em repositório privado
    (`NÃO VERIFICADO` quanto ao plano atual) e, com uma única pessoa no projeto, a revisão obrigatória
