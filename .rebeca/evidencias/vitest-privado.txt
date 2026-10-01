@@ -1,0 +1,14 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./server/ai/vite-plugin" without a file extension (vite.config.ts:6:29). Add the file extension
+  - import "./server/media/vite-plugin" without a file extension (vite.config.ts:7:32). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.2 E:/pojeto rebeca
+
+ ✓ src/__tests__/headers.test.ts (11 tests) 31ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  06:42:29
+   Duration  3.61s (environment 76%, setup 18%, transform 3%, worker 1%, tests 1%, import 1%)
+

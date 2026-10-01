@@ -1,0 +1,12 @@
+# Rebeca / AI Media Studio — ambiente privado de operação.
+#
+# Este app não é conteúdo público: é uma ferramenta interna que fala com provedores de IA pagos.
+# Nenhum robô deve indexar, arquivar ou seguir links daqui. O bloqueio vale para todos os agentes,
+# inclusive os que ignoram regras por padrão de mercado (o cabeçalho `X-Robots-Tag` e a meta tag do
+# documento reforçam a mesma decisão — ver `.rebeca/decisoes/ADR-011-app-privado.md`).
+#
+# Isto NÃO substitui o controle de acesso: quem souber a URL ainda a alcança. Quem fecha a porta é a
+# proteção de deploy (Vercel Authentication) e, depois, a autenticação da F1.
+
+User-agent: *
+Disallow: /

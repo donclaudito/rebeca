@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
+    <!--
+      Ambiente privado de operação: não deve ser indexado, arquivado nem aparecer em resultado de
+      busca. Reforça o cabeçalho `X-Robots-Tag` do vercel.json e o public/robots.txt, para o caso de
+      o documento ser servido por outro host que não aplique os cabeçalhos.
+      Ver .rebeca/decisoes/ADR-011-app-privado.md.
+    -->
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
     <!-- Ícone do app. Master intocado em imagens/icone-app-original.png; ver docs/03 §8. -->
     <link rel="icon" type="image/png" sizes="32x32" href="/icone-32.png" />
     <link rel="icon" type="image/png" sizes="96x96" href="/icone-96.png" />

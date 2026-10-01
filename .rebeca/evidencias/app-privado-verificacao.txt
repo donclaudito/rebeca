@@ -1,0 +1,50 @@
+VERIFICACAO - app privado (ADR-011, camada 2: nao indexar)
+Data: 2026-10-01 | Ambiente: Windows, Node v26.7.0, pnpm 11.25.0
+
+PROBLEMA: a arvore de trabalho tem trabalho nao commitado de OUTRA sessao
+(server/media/library.ts, nao rastreado) que quebra o tsc local. Verificar a arvore
+inteira mediria a outra sessao, nao esta entrega. Metodo usado: reconstruir a arvore
+EXATA que sera publicada (HEAD + os arquivos desta entrega) e verificar essa.
+
+COMANDO 1 (reconstrucao):
+  git -c core.autocrlf=false archive HEAD | tar -x -C <tmp>   # + copia dos arquivos desta entrega
+
+ARMADILHA ENCONTRADA NO CAMINHO (registrada, nao maquiada): o repositorio guarda os
+.md de prompt e o prompts.generated.ts com CRLF no blob, e o gerador compara o ARQUIVO
+INTEIRO ('.tools/build_prompts.mjs', 'current !== generated'). Resultado: num checkout
+Windows com core.autocrlf=true o 'pnpm run build' FALHA em 'prompts fora de sincronia'.
+No Linux (Vercel/CI) o checkout normaliza para LF e o build passa. A verificacao abaixo
+emula o checkout do Linux (todos os arquivos texto em LF), que e o ambiente do deploy.
+
+COMANDO 2 (build da arvore do push): pnpm run build
+  âœ“ 1979 modules transformed.
+  rendering chunks...
+  computing gzip size...
+  dist/index.html                   2.01 kB â”‚ gzip:   1.03 kB
+  dist/assets/index-DrP4Od5t.css   38.41 kB â”‚ gzip:   8.37 kB
+  dist/assets/index-D5zREzlz.js   487.47 kB â”‚ gzip: 143.48 kB
+  
+  âœ“ built in 4.67s
+  EXIT CODE: 0
+  dist/robots.txt existe: True
+  sha256 dist/robots.txt = sha256 public/robots.txt -> 8185F13BB9C54872... (identicos)
+  meta robots presente em dist/index.html: True
+
+COMANDO 3 (suite completa, mesmo comando do CI): pnpm exec vitest run
+  Test Files  22 passed (22)
+  Tests  215 passed (215)
+  EXIT CODE: 0
+
+COMANDO 4 (arquivo de cabecalhos): pnpm exec vitest run src/__tests__/headers.test.ts
+  Tests  11 passed (11)   EXIT CODE: 0
+
+COMANDO 5 (prova adversarial: remover as 3 camadas de proposito):
+  Tests  3 failed | 8 passed (11)   EXIT CODE: 1
+  AssertionError: expected '' to contain 'noindex'
+  AssertionError: expected false to be true            (robots.txt ausente)
+  AssertionError: expected +0 to be 1                  (meta robots ausente)
+  Arquivos restaurados byte a byte: True
+
+NAO VERIFICADO: a camada 1 (Vercel Authentication, escopo All Deployments) nao foi
+ligada - o agente nao tem credencial da Vercel. Enquanto isso o app publicado continua
+respondendo a qualquer visitante e a camada 2 e apenas redutora de descoberta.

@@ -798,7 +798,7 @@ correspondente **vermelho**. Também corrigidos: `renderPath` sem validação de
 arquivo de evidência que não existia, `CHARS_PER_SECOND` sem procedência e a contradição de status no
 `ADR-010`. Suíte: **215/215 em 22 arquivos**; `tsc` e build exit 0.
 
-## App publicado é privado — decisão tomada, camada de código entregue (2026-10-01)
+## App publicado — decisão de torná-lo privado: camada 2 entregue, camada 1 **pendente do dono** (2026-10-01)
 
 Pedido literal do dono: *"fazer ele privado"*, na sequência de ter lido o aviso da tela de
 Configurações (a chave não pode ser colada no ambiente publicado e **"hoje quem alcançar o endereço
@@ -820,8 +820,9 @@ gasta) continuava livre.
 **Fato de fonte (com data, porque preço e plano mudam):** *Vercel Authentication*, *Standard
 Protection* e *All Deployments* constam como **"Included" no plano Hobby**; *Password Protection*
 **não existe no Hobby** (US$ 20/mês por projeto no Pro). Deployment Protection "requires
-authentication for **all** requests, including those to Routing Middleware" e *All Deployments*
-protege "all URLs, including production domains". Fonte:
+authentication for **all** requests, including those to Routing Middleware" e, sobre o escopo *All
+Deployments*, a doc diz literalmente: *"With this configuration, all URLs are protected, including
+your production domain `example.com` and generated URLs like `my-project-1234.vercel.app`"*. Fonte:
 <https://vercel.com/docs/deployment-protection> e
 <https://vercel.com/docs/deployment-protection/usage-and-pricing>, ambos `last_updated: 2026-09-15`,
 lidos em 2026-10-01. **É por isso que a camada 1 é a recomendada: é gratuita e não exige código.**
@@ -840,11 +841,38 @@ diz isso com todas as letras. **Também não verificado:** que exista um único 
 `ADR-003` registra **dois** (`rebeca-odda` e `rebeca`), e a proteção vale por projeto, então ligar em
 um só deixa o outro aberto.
 
-**Ordem recomendada ao dono:** ligar a proteção de deploy **primeiro** (ela vale para os deploys
-existentes no ato) e só depois publicar as mudanças de código.
+**Ordem recomendada ao dono:** ligar a proteção de deploy **primeiro** e só depois publicar as mudanças
+de código. (*"No ato", isto é, cobrindo deploys já existentes e não só os futuros: é **inferência** da
+leitura da doc — a frase que trata explicitamente de "past production deployments" só existe nas
+variantes **legadas**, e a doc atual não promete imediatez. Marcado como `NÃO VERIFICADO` pelo
+`rebeca-qa`.*)
 
-**Nada foi commitado nem publicado** — a árvore tem trabalho não commitado, e o commit aqui exige a
-pasta quieta e a passagem pelo `rebeca-qa`.
+**Revisão adversarial (`rebeca-qa`) — veredito: REFUTADO, em escopo restrito, e corrigido.** Relatório
+em `docs/qa/QA-011-app-privado.md`. O miolo técnico **passou**: `dist/robots.txt` chega ao artefato com
+**sha256 idêntico** ao de `public/`, a meta tag está no HTML construído, o rewrite de SPA **não** engole
+arquivo existente (provado em produção com `/icone-32.png` → 200 `image/png`), cada uma das três
+camadas mutadas derruba **exatamente** o seu teste, e o contrato de hash do CSP (`ADR-008`) sobreviveu.
+
+| # | O que o QA derrubou | O que ficou |
+|---|---|---|
+| QA-A1 (alta) | O `README.md` apresentava o deploy como privado **sem marcar a camada 1 como pendente** — o único documento da entrega que não trazia o `⏳` | README reescrito: "a camada que fecha a porta ainda **NÃO** está ligada", com o 200 medido e o comando de verificação |
+| QA-A4 (média) | O README apontava o projeto Vercel **`ai-media-studio`**, que é **de terceiro** (o `QA-003` já registrara isso e nunca fora corrigido) | Corrigido para `rebeca-odda`, com aviso explícito de que `ai-media-studio.vercel.app` é de outro |
+| QA-A5 (baixa) | `Sitemap:` vazio no `robots.txt` — diretiva sem valor (ruído, RFC 9309 §2.2.4) | Linha removida |
+| QA-A6 (baixa) | Citação **não literal** da Vercel neste arquivo | Substituída pela frase literal da doc |
+| QA-A7 (baixa) | *"vale para os deploys existentes no ato"* apresentado como fato | Marcado como inferência `NÃO VERIFICADO` |
+| QA-A8 (baixa) | Manchete afirmativa ("App publicado é privado") | Título passou a declarar o estado real das camadas |
+| QA-A9 (baixa) | Os 3 testes novos eram **mais estritos que o HTML/ABNF válidos** (ordem de atributos, caixa, espaço no fim) — falso vermelho | Asserções passaram a ser sobre o **significado** (diretivas parseadas, atributos em qualquer ordem) |
+
+**A2/A3 do QA ficaram obsoletos por medição, não por argumento:** ele viu `tsc` e `pnpm run build`
+**vermelhos** por causa de dois erros da frente de mídia, em edição concorrente no mesmo minuto (D9
+cobrando o preço outra vez). Medido de novo ao fim: `pnpm exec tsc --noEmit` → **exit 0** e
+`pnpm run build` → **exit 0** (`1979 modules transformed`, `dist/index.html` 2,01 kB) —
+`.rebeca/evidencias/tsc-check.txt` e `.rebeca/evidencias/build-check.txt`. **A lição operacional fica:**
+enquanto duas sessões escreverem na mesma árvore, "o build está quebrado" tem prazo de validade de
+minutos — medir de novo antes de publicar, nunca publicar com base em medição alheia.
+
+**Nada foi commitado no momento em que este parágrafo foi escrito** — o commit exige a pasta quieta e a
+passagem pelo `rebeca-qa`, que foi feita (acima).
 
 ## Verificação da F0 (o que foi realmente checado)
 

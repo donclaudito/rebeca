@@ -99,8 +99,28 @@ tela diz isso.
 | Frente | Onde |
 |---|---|
 | Código e memória durável | repositório **privado** `donclaudito/rebeca` no GitHub |
-| Aplicação em produção | **Vercel**, projeto `ai-media-studio` (build estático do `dist/`) |
+| Aplicação em produção | **Vercel**, projeto `rebeca-odda` → `rebeca-odda.vercel.app` (build estático do `dist/`) |
 | Preview de PR | URL automática por pull request |
+
+> O nome `ai-media-studio` **não** é deste projeto: `ai-media-studio.vercel.app` é de terceiro (o
+> `QA-003` já tinha registrado isso). O endereço do dono é `rebeca-odda.vercel.app`.
+
+**O deploy precisa ser privado — e a camada que fecha a porta ainda NÃO está ligada** (`ADR-011`).
+Sem enfeite: **hoje o app publicado responde a qualquer visitante** — medido em 2026-10-01,
+`GET /api/ai/status` → **HTTP 200 sem credencial nenhuma**.
+
+- **Camada 1 — ⏳ pendente, é ação do dono no painel da Vercel** (não há como fazer por código):
+  *Deployment Protection → Vercel Authentication*, escopo **_All Deployments_**. É gratuita no plano
+  Hobby e cobre **todas** as requisições, inclusive `/api/*`. Vale **por projeto**: ligue em todos os
+  que recebem este repositório. **Verificação:** com a camada ligada, `/api/ai/status` **sem sessão**
+  deve deixar de devolver 200 — enquanto continuar 200, ela está desligada.
+- **Camada 2 — ✅ no código** (`X-Robots-Tag`, `public/robots.txt` e a meta tag do documento): só
+  descoberta. Impede indexação e arquivamento, **não** é controle de acesso — quem souber a URL ainda
+  chega se a camada 1 estiver desligada.
+- **Camada 3 — ⏳ aberta**: autenticação das rotas de IA com identidade, papéis e trilha é da F1
+  (`D3`). Até lá, **gerar pela API publicada é recusado de propósito**: sem livro de custo durável no
+  serverless o teto diário não teria efeito, e ligar `REBECA_ALLOW_NO_LEDGER=1` para destravar
+  significaria gastar **sem teto**. Para usar as APIs com teto valendo, rode local (`pnpm dev`).
 
 - **Deploy:** `push` em `main` publica produção; abrir PR gera preview. O deploy é da integração Git
   da Vercel — **o CI não publica**.

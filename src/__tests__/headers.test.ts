@@ -16,7 +16,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -120,6 +120,59 @@ describe('cabeçalhos de segurança do deploy', () => {
     for (const recurso of ['camera', 'microphone', 'geolocation', 'payment']) {
       expect(policy).toContain(`${recurso}=()`);
     }
+  });
+
+  /*
+   * Ambiente privado (ADR-011). O app fala com provedores de IA pagos: não é conteúdo para ser
+   * encontrado por busca. Três camadas independentes dizem a mesma coisa de propósito — o cabeçalho
+   * vale para toda resposta da Vercel, o `robots.txt` vale para o rastreador educado e a meta tag
+   * sobrevive quando o documento é servido por um host que não aplica os cabeçalhos. Se alguém
+   * remover uma delas, o teste aponta qual.
+   */
+  it('recusa indexação, arquivamento e snippet em toda resposta', () => {
+    // Diretiva de `X-Robots-Tag` é case-insensitive: a asserção é sobre a diretiva, não sobre a caixa.
+    const robots = (globalHeaders.get('X-Robots-Tag') ?? '').toLowerCase();
+    for (const diretiva of ['noindex', 'nofollow', 'noarchive']) {
+      expect(robots).toContain(diretiva);
+    }
+  });
+
+  it('publica um robots.txt que bloqueia todos os agentes', () => {
+    const file = resolve(process.cwd(), 'public', 'robots.txt');
+    expect(existsSync(file)).toBe(true);
+
+    /*
+     * Parseia as diretivas em vez de casar a forma da linha. A ABNF do RFC 9309 é case-insensitive
+     * (via RFC 5234 §2.3) e admite espaço em volta do valor, então `User-Agent: *` e `Disallow: / `
+     * são equivalentes ao que este arquivo escreve. A primeira versão deste teste casava a forma
+     * exata e **reprovava arquivo válido** — falso vermelho apontado pelo `rebeca-qa` (QA-A9). A
+     * asserção agora é sobre o significado: existe um bloco de todos os agentes e ele bloqueia a raiz.
+     */
+    const diretivas = readFileSync(file, 'utf8')
+      .split(/\r?\n/)
+      .map((linha) => linha.replace(/#.*$/, '').trim())
+      .filter((linha) => linha.includes(':'))
+      .map((linha) => {
+        const separador = linha.indexOf(':');
+        return {
+          campo: linha.slice(0, separador).trim().toLowerCase(),
+          valor: linha.slice(separador + 1).trim(),
+        };
+      });
+
+    expect(diretivas).toContainEqual({ campo: 'user-agent', valor: '*' });
+    expect(diretivas).toContainEqual({ campo: 'disallow', valor: '/' });
+    // Um `allow` abriria exceção ao bloqueio que o bloco acima promete.
+    expect(diretivas.some((diretiva) => diretiva.campo === 'allow')).toBe(false);
+  });
+
+  it('repete a recusa no próprio documento, para host que ignore cabeçalhos', () => {
+    // Qualquer ordem de atributos é HTML válido: a tag é identificada por ter `name="robots"`.
+    const robotsMeta = (html.match(/<meta\b[^>]*>/gi) ?? []).filter((tag) =>
+      /\bname\s*=\s*["']?robots["']?/i.test(tag),
+    );
+    expect(robotsMeta.length).toBe(1);
+    expect(robotsMeta[0]).toMatch(/\bcontent\s*=\s*["'][^"']*noindex/i);
   });
 
   it('engessa o cache só dos assets com hash no nome', () => {

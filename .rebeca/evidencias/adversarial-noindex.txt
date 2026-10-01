@@ -1,0 +1,85 @@
+(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - import "./server/ai/vite-plugin" without a file extension (vite.config.ts:6:29). Add the file extension
+  - import "./server/media/vite-plugin" without a file extension (vite.config.ts:7:32). Add the file extension
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
+
+ RUN  v5.0.2 E:/pojeto rebeca
+
+ ❯ src/__tests__/headers.test.ts (11 tests | 3 failed) 29ms
+   ❯ cabeçalhos de segurança do deploy (11)
+     ✓ tem uma regra de cabeçalhos para todas as rotas 2ms
+     ✓ declara Content-Security-Policy de verdade (não vazia) 1ms
+     ✓ autoriza por hash cada script inline que o documento carrega 3ms
+     ✓ não afrouxa o script-src com unsafe-inline nem unsafe-eval 1ms
+     ✓ fecha as diretivas que sobram quando só default-src é declarado 1ms
+     ✓ declara os cabeçalhos de transporte e de enquadramento 1ms
+     ✓ não permite câmera, microfone, localização nem pagamento 1ms
+     × recusa indexação, arquivamento e snippet em toda resposta 9ms
+     × publica um robots.txt que bloqueia todos os agentes 3ms
+     × repete a recusa no próprio documento, para host que ignore cabeçalhos 2ms
+     ✓ engessa o cache só dos assets com hash no nome 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > recusa indexação, arquivamento e snippet em toda resposta
+AssertionError: expected '' to contain 'noindex'
+
+- Expected
++ Received
+
+- noindex
+
+ ❯ src/__tests__/headers.test.ts:136:22
+    134|     const robots = (globalHeaders.get('X-Robots-Tag') ?? '').toLowerCa…
+    135|     for (const diretiva of ['noindex', 'nofollow', 'noarchive']) {
+    136|       expect(robots).toContain(diretiva);
+       |                      ^
+    137|     }
+    138|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > publica um robots.txt que bloqueia todos os agentes
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ src/__tests__/headers.test.ts:142:30
+    140|   it('publica um robots.txt que bloqueia todos os agentes', () => {
+    141|     const file = resolve(process.cwd(), 'public', 'robots.txt');
+    142|     expect(existsSync(file)).toBe(true);
+       |                              ^
+    143|
+    144|     /*
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/__tests__/headers.test.ts > cabeçalhos de segurança do deploy > repete a recusa no próprio documento, para host que ignore cabeçalhos
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ src/__tests__/headers.test.ts:174:31
+    172|       /\bname\s*=\s*["']?robots["']?/i.test(tag),
+    173|     );
+    174|     expect(robotsMeta.length).toBe(1);
+       |                               ^
+    175|     expect(robotsMeta[0]).toMatch(/\bcontent\s*=\s*["'][^"']*noindex/i…
+    176|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 8 passed (11)
+   Start at  06:42:36
+   Duration  2.36s (environment 71%, setup 23%, transform 3%, tests 1%, worker 1%)
+
