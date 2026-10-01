@@ -108,15 +108,26 @@ verificado** em `.rebeca/estado.md`) não poderia ser conferida de outro disposi
    produção. `GET /api/ai/status` e `GET /api/ai/settings` devolvem o JSON de erro genérico da
    própria Vercel (`{"error":{"code":"500","message":"A server error has occurred"}}`), não o HTML do
    app. **Isso prova duas coisas:** (a) o rewrite catch-all **não** atropela `/api/*` — a requisição
-   chega na função; (b) a função **quebra** no runtime da Vercel. **Causa-raiz: `NÃO VERIFICADO`** —
-   exige o log de runtime do projeto na Vercel, que não é acessível por este agente. Uma tentativa de
-   reproduzir localmente com `VERCEL=1` falhou por motivo **diferente** (o ESM do Node não resolve
-   import sem extensão), portanto **não** serve como diagnóstico. Hipóteses não confirmadas, nesta
-   ordem: interoperabilidade ESM × `"type": "module"` no runtime de `/api`, ou o empacotamento não
-   trazer os módulos de fora de `api/` (`server/`, `src/`) para o bundle da função.
+   chega na função; (b) a função **quebra** no runtime da Vercel. **Causa-raiz: `NÃO VERIFICADO` no
+   runtime da Vercel** — exige o log do projeto, que não é acessível por este agente.
+   **Correção de um raciocínio meu anterior:** uma reprodução local com `VERCEL=1` falhou com
+   `Cannot find module '…/src/ai/contract' imported from '…/server/ai/http.ts'` e eu tratei isso como
+   "artefato de tooling, não serve de diagnóstico". **Descartei errado.** Os imports de `server/` e
+   `api/` são **sem extensão** (estilo TypeScript) e o `package.json` declara `"type": "module"` — em
+   ESM o Node **exige extensão explícita**. A falha local e o 500 de produção têm o **mesmo sintoma**,
+   o que torna esta a hipótese principal — ainda **não confirmada** no runtime da Vercel.
+   Hipóteses, nesta ordem: (1) resolução ESM de import sem extensão no caminho `api/` → `server/` →
+   `src/`, que é o que a reprodução local mostra; (2) o empacotamento não compilar os módulos de fora
+   de `api/`. O grafo de imports é limpo (só built-ins do Node), o que **descarta** dependência
+   faltando. **Como confirmar:** Vercel → projeto → o deployment → Functions → Logs da invocação que
+   falhou. **Correções possíveis, a decidir com o erro em mãos:** extensão `.js` explícita nos imports
+   relativos de `server/` e `api/` (convenção ESM + TypeScript), ou um passo de bundle
+   (`esbuild --bundle --platform=node`) com a função consumindo a saída.
    **Consequência para o dono: a IA não funciona em produção até isso ser resolvido** — o que, por
    outro lado, coincide com a recusa de geração paga em serverless já registrada em
-   `server/ai/handler.ts:449`.
+   `server/ai/handler.ts:449`. Uma chave paga real foi cadastrada pelo dono em 2026-10-01 e funciona
+   **em desenvolvimento** (`ADR-006`, "Verificação com chave paga real"); é **só** no deploy que ela
+   não é alcançada.
 4. `git ls-files` não contém `.env`, `*.pem`, `*.key` nem `node_modules/`.
 5. **Resolução da versão do Node na Vercel — verificada na implementação, não presumida.** Lido
    `packages/build-utils/src/fs/node-version.ts` do repositório `vercel/vercel`

@@ -604,7 +604,7 @@ O dono pediu para publicar o protótipo na nuvem com **GitHub + Vercel**. Decis�
 | `package.json` | ✅ `engines.node: ">=22.12.0"` — piso real de `vitest@5` e `vite@8` |
 | Projeto na Vercel | ✅ **no ar** em `https://rebeca-odda.vercel.app` — o dono importou. ⚠️ há **dois** projetos recebendo este repositório (`rebeca-odda` e `rebeca`): convém manter um só |
 | Prova do rewrite de SPA | ✅ `https://rebeca-odda.vercel.app/c/luna/inicio` → **HTTP 200** (`web_fetch`, 2026-09-30). Fecha o item 3 da verificação do `ADR-003` — deixou de ser premissa |
-| Funções serverless em produção | ❌ **HTTP 500** em `GET /api/ai/status` e `GET /api/ai/settings` — JSON de erro genérico da Vercel, não o HTML do app. **O rewrite NÃO atropela `/api/*`** (a função é alcançada); a função é que quebra. Causa-raiz `NÃO VERIFICADO`: exige o log de runtime do projeto na Vercel. Detalhe no `ADR-003`, item 3 da Verificação |
+| Funções serverless em produção | ❌ **HTTP 500** em `GET /api/ai/status` e `GET /api/ai/settings` — JSON de erro genérico da Vercel, não o HTML do app. **O rewrite NÃO atropela `/api/*`** (a função é alcançada); a função é que quebra. **Hipótese principal, corrigindo um descarte errado meu:** os imports de `server/` e `api/` são **sem extensão** e o `package.json` é `"type": "module"` — em ESM o Node exige extensão, e a reprodução local com `VERCEL=1` falha com `Cannot find module …`, o **mesmo sintoma**. Confirmar no log da função na Vercel (Functions → Logs). Detalhe no `ADR-003`, item 3 da Verificação |
 
 **Evidência (snapshot congelado, máquina ociosa):**
 
