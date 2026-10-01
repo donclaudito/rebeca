@@ -22,10 +22,10 @@
  * - Nenhuma mensagem de erro carrega chave, token ou corpo cru do provedor.
  */
 
-import { AiError, getAiFunction, AI_FUNCTIONS, AI_FUNCTION_IDS, AI_TIER_LABEL, AI_TIER_PURPOSE, type AiFunctionId, type AiFunctionModelView, type AiRequest, type AiResult, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type AiTier, type AiTierSettingsView, type AiUsage, type AiCatalogOption, type AiProviderSettingsView, type ProviderTestResult } from '../../src/ai/contract';
+import { AiError, getAiFunction, AI_FUNCTIONS, AI_FUNCTION_IDS, AI_TIER_LABEL, AI_TIER_PURPOSE, type AiFunctionId, type AiFunctionModelView, type AiRequest, type AiResult, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type AiTier, type AiTierSettingsView, type AiUsage, type AiCatalogOption, type AiProviderSettingsView, type ProviderTestResult } from '../../src/ai/contract.js';
 import { relative, resolve } from 'node:path';
-import { AI_LIMITS } from '../../src/ai/limits';
-import { getFunctionSchema, validateSchema } from '../../src/ai/schemas';
+import { AI_LIMITS } from '../../src/ai/limits.js';
+import { getFunctionSchema, validateSchema } from '../../src/ai/schemas.js';
 import {
   allowUnpricedModel,
   allowUnverifiedMinorPolicy,
@@ -40,12 +40,13 @@ import {
   providerOrder,
   type ModelEntry,
   type RealProviderId,
-} from './catalog';
-import { findServerChannel, type ServerChannel } from './channels';
-import { recordCost, spentTodayUsd, ledgerPath, ledgerDisplayPath } from './ledger';
-import { buildMessages, extractJson } from './prompt';
-import { PROVIDERS, PROVIDER_ENV, type ProviderId } from './providers';
-import { PROMPTS } from './prompts.generated';
+} from './catalog.js';
+import { findServerChannel, type ServerChannel } from './channels.js';
+import { recordCost, spentTodayUsd, ledgerPath, ledgerDisplayPath } from './ledger.js';
+import { buildMessages, extractJson } from './prompt.js';
+import { PROVIDERS, PROVIDER_ENV, type ProviderId } from './providers.js';
+import { ANTHROPIC_PROVIDER, GOOGLE_PROVIDER } from './providers-extra.js';
+import { PROMPTS } from './prompts.generated.js';
 import {
   configPath,
   isHosted,
@@ -54,8 +55,8 @@ import {
   resolveProvider,
   saveConfig,
   settingsWritable,
-} from './secrets';
-import { simulate } from './simulated';
+} from './secrets.js';
+import { simulate } from './simulated.js';
 
 /* =============================================================================
    Utilidades
@@ -751,17 +752,25 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
   }
 }
 
-/** Endereço oficial de cada provedor, usado como padrão quando a tela não define outro. */
-async function defaultBaseUrlFor(provider: RealProviderId): Promise<string> {
-  if (provider in PROVIDERS) {
-    return PROVIDERS[provider as keyof typeof PROVIDERS].defaultBaseUrl;
-  }
-  // Anthropic e Google vivem em `providers-extra`, importado dinamicamente para o `vite.config.ts`
-  // não arrastar o grafo do servidor inteiro para dentro da configuração do Vite.
-  const extra = await import('./providers-extra');
-  return provider === 'anthropic'
-    ? extra.ANTHROPIC_PROVIDER.defaultBaseUrl
-    : extra.GOOGLE_PROVIDER.defaultBaseUrl;
+/**
+ * Endereço oficial de cada provedor, num mapa só.
+ *
+ * Antes isto consultava apenas `PROVIDERS` (que tem os três do dialeto `chat/completions`), com um
+ * desvio assíncrono para Anthropic e Google. O resultado era um defeito visível: a tela de
+ * Configurações mostrava o campo de endereço **vazio** para Anthropic e Google — sem nem o padrão no
+ * placeholder —, então o usuário não tinha como saber qual era o endereço certo nem perceber que
+ * havia trocado. Fonte única resolve: se um adaptador novo entrar, ele entra aqui e aparece na tela.
+ */
+const DEFAULT_BASE_URL: Record<RealProviderId, string> = {
+  openai: PROVIDERS.openai.defaultBaseUrl,
+  deepseek: PROVIDERS.deepseek.defaultBaseUrl,
+  openrouter: PROVIDERS.openrouter.defaultBaseUrl,
+  anthropic: ANTHROPIC_PROVIDER.defaultBaseUrl,
+  google: GOOGLE_PROVIDER.defaultBaseUrl,
+};
+
+function defaultBaseUrlFor(provider: RealProviderId): string {
+  return DEFAULT_BASE_URL[provider];
 }
 
 async function callProvider(
@@ -782,7 +791,7 @@ async function callProvider(
   const resolved = resolveProvider(
     choice.provider,
     PROVIDER_ENV[choice.provider],
-    await defaultBaseUrlFor(choice.provider),
+    defaultBaseUrlFor(choice.provider),
   );
 
   if (resolved.apiKey.length === 0) {
@@ -818,9 +827,9 @@ async function callProvider(
   const providerId = choice.provider;
   const activeAdapter =
     providerId === 'anthropic'
-      ? (await import('./providers-extra')).ANTHROPIC_PROVIDER
+      ? (await import('./providers-extra.js')).ANTHROPIC_PROVIDER
       : providerId === 'google'
-        ? (await import('./providers-extra')).GOOGLE_PROVIDER
+        ? (await import('./providers-extra.js')).GOOGLE_PROVIDER
         : PROVIDERS[providerId];
 
   const controller = new AbortController();
@@ -1007,8 +1016,7 @@ function providerViews(): AiProviderSettingsView[] {
   const order = providerOrder();
 
   return order.map((provider) => {
-    const adapter = PROVIDERS[provider as keyof typeof PROVIDERS];
-    const defaultBaseUrl = adapter?.defaultBaseUrl ?? '';
+    const defaultBaseUrl = defaultBaseUrlFor(provider);
     const resolved = resolveProvider(provider, PROVIDER_ENV[provider], defaultBaseUrl);
     const entry = defaultModelFor('raciocinio', provider);
     const policy = entry?.minorPolicy ?? 'nao-verificado';
@@ -1113,7 +1121,7 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
   const typed = provider as RealProviderId;
   const entry = defaultModelFor('rapido', typed) ?? defaultModelFor('raciocinio', typed);
 
-  const resolved = resolveProvider(typed, PROVIDER_ENV[typed], await defaultBaseUrlFor(typed));
+  const resolved = resolveProvider(typed, PROVIDER_ENV[typed], defaultBaseUrlFor(typed));
   if (resolved.apiKey.length === 0) {
     return {
       provider: typed,
@@ -1149,9 +1157,9 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
   try {
     const adapter =
       typed === 'anthropic'
-        ? (await import('./providers-extra')).ANTHROPIC_PROVIDER
+        ? (await import('./providers-extra.js')).ANTHROPIC_PROVIDER
         : typed === 'google'
-          ? (await import('./providers-extra')).GOOGLE_PROVIDER
+          ? (await import('./providers-extra.js')).GOOGLE_PROVIDER
           : PROVIDERS[typed];
 
     const controller = new AbortController();

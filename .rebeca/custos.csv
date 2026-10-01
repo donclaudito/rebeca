@@ -7,3 +7,9 @@ data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min
 # 2026-01-15,Luna e o Jardim das Cores,Luna e as Borboletas Coloridas,imagem,<provedor>,<modelo>,imagem,24,1.20,,humano
 2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
 2026-09-30,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1198,0.000227,0.000,humano:teto-aprovado,929,269,criar-seo@v1
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-09-30,Luna e o Jardim das Cores,—,criar,openai,gpt-6-luna,tokens,1240,0.000254,0.000,humano:teto-aprovado,916,324,criar-seo@v1
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-10-01,Arquivo Curioso,arq-ceu-laranja,criar,openai,gpt-6-luna,tokens,1259,0.000257,0.000,humano:teto-aprovado,932,327,criar-seo@v1
+2026-10-01,Arquivo Curioso,—,criar,openai,gpt-6.1-sol,tokens,1902,0.011228,0.000,humano:teto-aprovado,974,928,identidade-personagem@v1

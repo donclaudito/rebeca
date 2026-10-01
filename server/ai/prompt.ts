@@ -15,7 +15,7 @@
  *    depois de tudo.
  */
 
-import type { LoadedPrompt } from './prompts.generated';
+import type { LoadedPrompt } from './prompts.generated.js';
 
 const DATA_OPEN = '<dados_do_canal>';
 const DATA_CLOSE = '</dados_do_canal>';

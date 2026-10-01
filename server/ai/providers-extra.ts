@@ -11,9 +11,9 @@
  * **não depender** do que não foi verificado: campos incertos são lidos com tolerância a ausência.
  */
 
-import { AiError } from '../../src/ai/contract';
-import type { JsonSchema } from '../../src/ai/schemas';
-import type { ProviderAdapter, ProviderResponse } from './providers';
+import { AiError } from '../../src/ai/contract.js';
+import type { JsonSchema } from '../../src/ai/schemas.js';
+import type { ProviderAdapter, ProviderResponse } from './providers.js';
 
 function providerError(detail: string, status = 502, retryable = true): AiError {
   return new AiError(

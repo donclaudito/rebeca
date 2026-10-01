@@ -15,8 +15,8 @@
  */
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { AiError, type AiErrorBody } from '../../src/ai/contract';
-import { handleGenerate, handleGetSettings, handleSaveSettings, handleStatus, handleTestProvider, redact } from './handler';
+import { AiError, type AiErrorBody } from '../../src/ai/contract.js';
+import { handleGenerate, handleGetSettings, handleSaveSettings, handleStatus, handleTestProvider, redact } from './handler.js';
 
 /**
  * Reexportado para o plugin de desenvolvimento conseguir higienizar o detalhe de um erro sem

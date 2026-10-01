@@ -28,7 +28,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { AiError, type AiTier } from '../../src/ai/contract';
+import { AiError, type AiTier } from '../../src/ai/contract.js';
 
 /* =============================================================================
    Forma da configuração

@@ -18,9 +18,9 @@
  *    passaria do teto por chamada.
  */
 
-import { AI_LIMITS } from '../../src/ai/limits';
-import type { AiTier } from '../../src/ai/contract';
-import type { RealProviderId } from './providers';
+import { AI_LIMITS } from '../../src/ai/limits.js';
+import type { AiTier } from '../../src/ai/contract.js';
+import type { RealProviderId } from './providers.js';
 
 export type { RealProviderId };
 

@@ -16,8 +16,8 @@
  * suficiente"), para que a simulação ensine o comportamento correto em vez de ensinar a inventar.
  */
 
-import type { AiFunctionId } from '../../src/ai/contract';
-import type { ProviderCall, ProviderResponse, ProviderAdapter } from './providers';
+import type { AiFunctionId } from '../../src/ai/contract.js';
+import type { ProviderCall, ProviderResponse, ProviderAdapter } from './providers.js';
 
 export interface SimulatedContext {
   readonly channelId: string;

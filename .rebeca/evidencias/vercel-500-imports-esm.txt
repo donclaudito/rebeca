@@ -1,0 +1,140 @@
+EVIDÊNCIA — HTTP 500 em /api/ai/* na Vercel: causa, correção e verificação
+Data: 2026-09-30 (sessão da correção)   Máquina: Windows · Node v26.7.0 · pnpm 11.25.0
+
+===============================================================================
+1. SINTOMA OBSERVADO EM PRODUÇÃO (antes da correção)
+===============================================================================
+Comando: node -e "fetch(...)" contra o deploy publicado
+
+  https://rebeca-odda.vercel.app/api/ai/status
+    status 500 | content-type text/plain | x-vercel-error FUNCTION_INVOCATION_FAILED
+    body: A server error has occurred
+
+  https://rebeca-odda.vercel.app/api/ai/generate   (GET, rota que responderia 405)
+    status 500 | x-vercel-error FUNCTION_INVOCATION_FAILED
+
+  https://rebeca-odda.vercel.app/api/inexistente
+    status 200 | text/html (fallback de SPA) — logo o rewrite de SPA NÃO é a causa
+
+O último ponto é o que separa as hipóteses: `GET /api/ai/generate` não tem corpo, não lê
+disco e não gasta nada — se ele falha com FUNCTION_INVOCATION_FAILED, a falha é no
+CARREGAMENTO DO MÓDULO, não dentro do manipulador.
+
+===============================================================================
+2. CAUSA-RAIZ (fonte primária: código do builder da Vercel)
+===============================================================================
+`@vercel/node` NÃO faz bundle por padrão. Ele traça o grafo com `@vercel/nft` e transpila
+cada `.ts` individualmente, renomeando para `.js` e preservando os specifiers de import:
+
+  vercel/vercel packages/node/src/build.ts
+    function renameTStoJS(path) { if (path.endsWith('.ts')) return path.slice(0,-3) + '.js'; ... }
+    if (tsCompiled.has(path)) { preparedFiles[renameTStoJS(path)] = entry; }
+    // Compile ES Modules into CommonJS
+    ... if (pkg.type === 'module' && path.endsWith('.js')) { // already ESM, do not transpile
+    const enableBundling = process.env.VERCEL_API_FUNCTION_BUNDLING === '1' && ...
+
+  vercel/vercel packages/node/src/typescript.ts
+    rewriteRelativeImportExtensions: true   // reescreve .ts -> .js; NÃO adiciona extensão
+
+Como o `package.json` tem `"type": "module"`, o output permanece ESM e vale a regra do loader
+ESM do Node: import relativo EXIGE extensão (nodejs.org/api/esm.html#mandatory-file-extensions).
+O import `'../../server/ai/http'` era copiado literalmente para `api/ai/status.js`, e em runtime
+o Node procurava `/var/task/server/ai/http` (sem extensão) → ERR_MODULE_NOT_FOUND → 500.
+
+O tracer NÃO perde os arquivos: `@vercel/nft` tem retry dedicado `.js` → `.ts`
+(node-file-trace.js, linhas 208-209 do pacote instalado):
+    if (this.ts && dep.endsWith('.js') && e1 instanceof NotFoundError) {
+      const depTS = dep.slice(0, -3) + '.ts';
+      resolved = await this.resolve(depTS, path, this, cjsResolve);
+    }
+
+===============================================================================
+3. REPRODUÇÃO LOCAL — ANTES x DEPOIS (experimento controlado)
+===============================================================================
+O mesmo TS foi compilado com `tsc` (ESM, layout preservado) e executado por `node`. As duas
+árvores são o MESMO JS emitido; a única diferença é a extensão nos imports relativos.
+
+  tsc -p .tmp-verify/tsconfig.emit.json      → after/api/ai/status.js  (imports com .js)
+  cópia de `after` com `.js` removido        → before/api/ai/status.js (imports sem extensão)
+  node .tmp-verify/run.mjs <arvore>          → invoca handler() como a Vercel invoca
+
+ANTES (equivalente ao que estava em produção):
+  FALHOU: ERR_MODULE_NOT_FOUND Cannot find module
+    'E:\pojeto rebeca\.tmp-verify\before\server\ai\http'
+    imported from 'E:\pojeto rebeca\.tmp-verify\before\api\ai\status.js'
+
+DEPOIS (correção aplicada):
+  STATUS 200 | application/json; charset=utf-8
+  BODY {"ready":true,"hasAnyKey":true,"simulated":false,"providers":[
+       {"provider":"openai","configured":true,"envVar":"OPENAI_API_KEY",...}
+
+Primeira reprodução, ainda mais direta (antes de qualquer edição):
+  node api/ai/status.ts
+  → Error [ERR_MODULE_NOT_FOUND]: Cannot find module 'E:\pojeto rebeca\server\ai\http'
+    imported from 'E:\pojeto rebeca\api\ai\status.ts'
+
+===============================================================================
+4. ESCOPO DA CORREÇÃO
+===============================================================================
+35 specifiers relativos passaram a ter extensão `.js` — em `api/ai/*.ts` (4 arquivos),
+`server/ai/*.ts` (8) e `src/ai/contract.ts` (1, import só de tipo). Inclui os 4 `import()`
+dinâmicos de `./providers-extra` em `server/ai/handler.ts`, que também exigem extensão em ESM.
+Nenhuma linha de lógica foi alterada — o diff é composto só por specifiers.
+
+===============================================================================
+5. VERIFICAÇÃO DEPOIS DA CORREÇÃO
+===============================================================================
+  pnpm exec tsc --noEmit          → exit 0, nenhum erro
+  pnpm exec vitest run            → 140/140 em 13 arquivos, exit 0, 82,51s
+                                    (log em .rebeca/evidencias/vitest-imports-esm.txt)
+  pnpm run build                  → exit 0
+                                    dist/index.html 1,58 kB · css 36,21 kB · js 478,64 kB
+
+  Vite/rolldown resolve `.js` → `.ts` (vite/dist/node/chunks/node.js, linhas 29087-29092:
+  isPossibleTsOutput + tryResolveRealFile(fileName + '.ts')), por isso dev e testes seguem
+  funcionando com os specifiers novos.
+
+===============================================================================
+5.1 COLD START EM CONDIÇÃO DE PRODUÇÃO (simulado localmente)
+===============================================================================
+O mesmo JS compilado foi executado com o ambiente da Vercel: `VERCEL=1`, `REBECA_ROOT`
+apontando para um diretório INEXISTENTE (sem `.rebeca/segredos/llm.json`, sem livro de
+custos), `package.json` com `"type": "module"` e cwd fora do projeto. Os handlers foram
+invocados como a Vercel invoca, com req/res falsos.
+
+  GET /api/ai/status   -> HTTP 200 | {"ready":true,"hasAnyKey":false,"simulated":true,...}
+  GET /api/ai/settings -> HTTP 200 | {"writable":false,"hosted":true,"configPath":null,
+                                      "providers":[{"provider":"openai",...}]}
+  PUT /api/ai/settings -> HTTP 403 | {"code":"nao-autorizado","message":"Este ambiente não
+                                      aceita gravar configuração de IA pela interface. ..."}
+
+  Escrita em disco durante as três chamadas: NENHUMA (o diretório de `REBECA_ROOT` não foi
+  criado). Não há efeito de módulo que escreva no carregamento nem nos caminhos de leitura —
+  a segunda hipótese para o 500 (FS somente-leitura) está descartada por teste, não por leitura.
+
+===============================================================================
+5.2 O TRACER AINDA ENCONTRA TODO O GRAFO (pipeline replicado)
+===============================================================================
+O risco de trocar o specifier por `.js` era o tracer `@vercel/nft` não achar mais
+`server/ai/http.ts` (que existe só como `.ts`). Pipeline do builder replicado:
+readFile entregando o TS JÁ COMPILADO, `ts: true, mixedModules: true,
+moduleSyncCatchall: true`, base = raiz do repositório, entrada = `api/ai/status.ts`.
+
+  arquivos locais tracados (16):
+     api\ai\status.ts · package.json ·
+     server\ai\{catalog,channels,handler,http,ledger,prompt,prompts.generated,
+                providers-extra,providers,secrets,simulated}.ts ·
+     src\ai\{contract,limits,schemas}.ts
+  OK: os 14 arquivos do grafo foram tracados (retry .js -> .ts funcionou)
+  arquivos emitidos deixados na árvore do projeto: 0
+
+===============================================================================
+6. NÃO VERIFICADO (declarado, não maquiado)
+===============================================================================
+1. A verificação acima é LOCAL. O runtime da Vercel não foi executado: depende do push para
+   `main` e do deploy. O que ainda falta medir é o HTTP 200 em
+   https://rebeca-odda.vercel.app/api/ai/status.
+2. O log de runtime da Vercel (stack trace do 500) não foi lido — não há credencial nesta
+   sessão. A conclusão vem do código do builder + da reprodução local + do sintoma
+   (FUNCTION_INVOCATION_FAILED até na rota que não faz nada).
+3. Os outros dois projetos/domínios da conta (há `rebeca-odda` e `rebeca`) não foram tocados.

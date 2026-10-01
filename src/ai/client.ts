@@ -50,13 +50,43 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   let body: unknown = null;
+  let parsed = false;
   try {
     body = await response.json();
+    parsed = true;
   } catch {
-    body = null;
+    parsed = false;
   }
 
   if (!response.ok) throw toAiError(response.status, body);
+
+  /*
+   * Resposta 200 que **não é JSON**.
+   *
+   * Acontece de verdade: se o servidor de desenvolvimento foi iniciado antes de as rotas de IA
+   * existirem, `/api/ai/...` não é atendido pelo middleware e cai no fallback de SPA do Vite, que
+   * devolve o `index.html` com status 200. Sem esta checagem, `body` virava `null`, a tela mostrava
+   * "não foi possível carregar" **sem dizer por quê** — e o usuário concluía que a IA não funciona.
+   * Foi exatamente o sintoma relatado: o painel sem modelos e o botão de teste sem resposta.
+   *
+   * A mensagem diz o que fazer, porque o diagnóstico não é adivinhável a partir da tela.
+   */
+  if (!parsed) {
+    const looksLikeHtml =
+      response.headers.get('content-type')?.includes('text/html') ?? false;
+    throw new AiError(
+      {
+        code: 'provedor',
+        message: looksLikeHtml
+          ? 'O endereço de IA respondeu com a página do app em vez de dados. Isso normalmente significa que o servidor está rodando uma versão anterior às rotas de IA — pare o servidor e rode `pnpm dev` de novo, então recarregue a página.'
+          : 'O servidor respondeu em um formato que o app não entende. Nada foi gerado.',
+        detail: `GET/POST ${path} devolveu ${response.status} sem JSON`,
+        retryable: true,
+      },
+      502,
+    );
+  }
+
   return body as T;
 }
 

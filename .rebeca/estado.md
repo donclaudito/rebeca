@@ -475,6 +475,109 @@ nenhuma, responde por simulação" passou a falhar. Pior: um teste futuro poderi
 **Continua não verificado:** os outros quatro provedores (só a OpenAI foi exercitada de verdade) e a
 função serverless em deploy real.
 
+## Correção — "testei e não funcionou, e não aparecem os modelos" (2026-10-01)
+
+Relato do dono do produto ao usar a tela de Configurações. **Cinco defeitos reais**, todos no
+front-end — o servidor estava correto o tempo todo (os endpoints responderam em todos os testes).
+
+| # | Gravidade | O que estava errado | Efeito para o usuário | O que ficou |
+|---|---|---|---|---|
+| 1 | **bloqueante** | O painel verificava **carregamento antes de erro**, e o rascunho do formulário só nasce quando a resposta chega. Requisição que falhava deixava o rascunho nulo **para sempre** | Tela presa num esqueleto de carregamento **infinito**: nenhum modelo, botão de teste inerte, nenhuma mensagem. É exatamente o que foi relatado | Erro primeiro, carregamento depois |
+| 2 | **alta** | O painel **descartava a mensagem de erro do servidor** e mostrava uma frase genérica | Mesmo quando a tela mostrava erro, não dizia o que fazer nem como diagnosticar | A mensagem exibida passa a ser a do servidor, com o que fazer |
+| 3 | média | Resposta `200` com HTML (fallback de SPA, quando o servidor de desenvolvimento é anterior às rotas de IA) virava `null` sem erro | Falha silenciosa: a tela caía no estado genérico sem pista | O cliente detecta resposta sem JSON e explica: *"o servidor está rodando uma versão anterior — pare e rode `pnpm dev` de novo"* |
+| 4 | média | O mapa de endereços padrão cobria só 3 dos 5 provedores (`PROVIDERS`) | Os campos de endereço de **Anthropic e Google apareciam vazios**, sem nem o padrão no placeholder | Fonte única `DEFAULT_BASE_URL` com os cinco; o campo sempre mostra o oficial |
+| 5 | baixa | Resposta de gravação em forma inesperada derrubava o manipulador com `TypeError` dentro do React Query | "Salvar" não dizia nem sucesso nem falha | Guarda contra forma inesperada; resposta estranha vira mensagem |
+
+**A causa provável do relato foi o defeito nº 1**, disparado pelo nº 3: o servidor de desenvolvimento
+de quem testou havia sido iniciado **antes** de as rotas de IA existirem, então `/api/ai/settings` não
+era atendido pelo middleware e caía no fallback de SPA — devolvendo HTML com status 200. O painel,
+então, ficava carregando para sempre.
+
+**O que fazer quando isso acontecer:** pare o servidor, rode `pnpm dev` de novo (as rotas são
+registradas na inicialização) e recarregue a página com Ctrl+Shift+R.
+
+**Teste que faltava, agora existente:** `src/features/configuracoes/__tests__/AiSettingsPanel.test.tsx`
+— **7 casos**, incluindo "os modelos aparecem nos seletores" e a regressão do carregamento infinito.
+Foi este teste que localizou o defeito nº 1: sem ele, a causa ficaria em conjectura.
+
+| Verificação | Resultado |
+|---|---|
+| Tipos | ✅ `pnpm exec tsc --noEmit` exit 0 |
+| Testes do painel | ✅ **7/7** |
+| Suíte completa | ✅ **140/140 em 13 arquivos** — `.rebeca/evidencias/vitest-ia.txt` |
+| Build de produção | ✅ exit 0 |
+| `GET /api/ai/settings` ao vivo | ✅ **15 modelos** no catálogo; endereço padrão preenchido nos **5** provedores |
+| `POST /api/ai/test` ao vivo | ✅ `ok=true`, `gpt-6-luna`, 3.261 ms, custo real US$ 0,0000048 |
+| Geração real ao vivo | ✅ `provider=openai`, `simulated=false`, 1 tentativa, US$ 0,0002536 |
+
+**Nota de método:** a suíte falhou uma vez em `revisao.test.tsx` **porque eu estava com um servidor de
+desenvolvimento rodando ao mesmo tempo**, disputando CPU — 168 s de suíte contra 105 s sem ele. A
+suíte limpa passa 140/140. O teto de `maxWorkers: 4` reduz a sensibilidade, mas não elimina a
+influência de outro processo pesado na mesma máquina.
+
+## Correção — HTTP 500 das funções serverless em produção (2026-10-01)
+
+**Sintoma medido hoje, não herdado:** `GET /api/ai/status` e `GET /api/ai/generate` devolviam **HTTP 500**
+com `x-vercel-error: FUNCTION_INVOCATION_FAILED`, enquanto `/api/inexistente` devolvia **200 com HTML**.
+O terceiro dado é o que separa as hipóteses: o rewrite de SPA **não** atropela `/api/*` (o filesystem tem
+precedência), a função é alcançada e é ela que quebra. E como `GET /api/ai/generate` — rota que só
+devolveria 405, sem corpo, sem disco e sem gasto — falhava igual, a falha estava no **carregamento do
+módulo**, não dentro do manipulador.
+
+**Causa-raiz (fonte primária — código do builder, não blog):** o `@vercel/node` **não faz bundle**. Ele
+traça o grafo com `@vercel/nft` e transpila **cada `.ts` individualmente**, renomeando para `.js` e
+preservando os specifiers de import (`vercel/vercel` `packages/node/src/build.ts`, `renameTStoJS`). Como o
+`package.json` tem `"type": "module"`, esse passe **deixa de converter ESM→CJS** (`if (pkg.type === 'module'
+&& path.endsWith('.js')) continue`), então vale a regra do loader ESM do Node: **import relativo exige
+extensão**. `'../../server/ai/http'` ia literal para `api/ai/status.js` → `ERR_MODULE_NOT_FOUND` no cold
+start → 500. O tracer não perde os arquivos: o `@vercel/nft` tem retry `.js` → `.ts`
+(`node-file-trace.js`, linhas 208-209 do pacote instalado).
+
+**Correção:** 35 specifiers relativos passaram a ter `.js` — `api/ai/*.ts` (4), `server/ai/*.ts` (8) e
+`src/ai/contract.ts` (1), incluindo os **4 `import()` dinâmicos** de `./providers-extra` em `handler.ts`,
+que também exigem extensão em ESM. **Nenhuma linha de lógica mudou**; o diff é só de specifiers.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Reprodução do defeito (JS compilado, imports sem extensão) | `tsc` + `node` invocando o handler | ❌ `ERR_MODULE_NOT_FOUND: Cannot find module '…\server\ai\http' imported from '…\api\ai\status.js'` |
+| Prova da correção (mesmo JS, imports com `.js`) | idem | ✅ `STATUS 200` com o JSON de status |
+| Primeira reprodução, direta | `node api/ai/status.ts` | ❌ `ERR_MODULE_NOT_FOUND` (mesma regra de ESM) |
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Suíte completa | `pnpm exec vitest run` | ✅ **140/140 em 13 arquivos**, exit 0, 82,51 s — `.rebeca/evidencias/vitest-imports-esm.txt` |
+| Build de produção | `pnpm run build` | ✅ exit 0 |
+| **Cold start em condição de produção** | JS compilado com `VERCEL=1`, sem chave, sem estado, cwd fora do projeto | ✅ `GET /api/ai/status` **200** · `GET /api/ai/settings` **200** (`writable:false`, `hosted:true`) · `PUT /api/ai/settings` **403** (recusa, não 500) · **nenhuma escrita em disco** |
+| Vite resolve `.js` → `.ts` (dev/testes) | leitura de `vite/dist/node/chunks/node.js:29087-29092` | ✅ `isPossibleTsOutput` + `tryResolveRealFile(fileName + '.ts')` |
+| Gerador de prompt não reintroduz o defeito | gerado sem `import` (conferido no `.tools/build_prompts.mjs`) | ✅ `prompts.generated.ts` não emite import algum |
+
+**Evidência completa:** `.rebeca/evidencias/vercel-500-imports-esm.txt` (sintoma, fonte, reprodução
+antes/depois, cold start e o que segue não verificado).
+
+**Duas armadilhas encontradas no caminho, registradas para quem vier depois:**
+
+1. **Meu próprio experimento poluiu a árvore.** Emitir `tsc` com a configuração **dentro** do repositório
+   deixou **74 arquivos `.js`** ao lado dos `.ts` em `api/`, `server/` e `src/` (não rastreados). Se
+   alguém tivesse rodado `git add -A`, o deploy levaria **JS obsoleto duplicando as funções** — o
+   `api/ai/status.js` solto ao lado do `status.ts` é conflito de rota esperando para acontecer. Removidos;
+   a lição é emitir com a configuração e o `outDir` **fora** do repositório, ou conferir
+   `git status --porcelain api server src` logo depois.
+2. **O nft isolado não parseia TypeScript** (`Unexpected token` em `import type`) — na Vercel quem
+   entrega o JS já compilado para o tracer é o passo de TypeScript do builder. Um harness que chame
+   `@vercel/nft` direto sobre `.ts` **não reproduz** o pipeline e dá falso negativo.
+
+**Não verificado (declarado, não maquiado):**
+
+1. **O runtime da Vercel não foi executado** — exige o push e o deploy. O que falta medir é o **HTTP 200**
+   em `https://rebeca-odda.vercel.app/api/ai/status`.
+2. **O log de runtime da Vercel** (stack trace do 500) não foi lido: não há credencial nesta sessão. A
+   conclusão vem do código do builder, da reprodução local e do sintoma.
+3. **Um segundo erro, ainda aberto e de outra natureza:** o dono relatou **504 em
+   `POST /api/ai/generate`** com o dev server em `localhost:5173`. O Vite **não tem timeout de
+   requisição** (os únicos 504 dele são de otimizador de dependências, e só para requisições de módulo
+   JS — que não é o caso de `/api/ai/*`), então a origem do 504 **não foi identificada** e o dev server
+   já estava fora do ar quando fui olhar. Fica como defeito aberto, com o livro de custos mostrando que
+   **as duas gerações foram concluídas no servidor** (e pagas) enquanto o navegador via 504 — ou seja, o
+   dinheiro foi gasto e o resultado não chegou à tela.
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |

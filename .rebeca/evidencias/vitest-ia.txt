@@ -11,62 +11,73 @@ Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
  RUN  v5.0.2 E:/pojeto rebeca
 
- ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7085ms
-   ✓ gate de aprovação humana (15)
-     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 361ms
-     ✓ não deixa aprovar o que não está em revisão (já publicado) 333ms
-     ✓ não deixa aprovar conteúdo de outro canal 336ms
-     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 548ms
-     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 555ms
-     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 573ms
-     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 501ms
-     ✓ o portão de publicação recusa o que não tem aprovação vigente 561ms
-     ✓ o portão de publicação não atravessa canal 345ms
-     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 622ms
-     ✓ recusa título fora do limite antes de gravar 428ms
-     ✓ recusa motivo de rejeição fora do limite do schema de IA 598ms
-     ✓ recusa data de agendamento que não é data 833ms
- ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 8777ms
-   ✓ barras laterais abrem e fecham (4)
-     ✓ as duas nascem abertas, com os dois controles no masthead 1907ms
-     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 3187ms
-     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 1891ms
-     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 1775ms
- ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 8954ms
+ ✓ src/features/configuracoes/__tests__/AiSettingsPanel.test.tsx (7 tests) 10098ms
+   ✓ painel de configuração de IA (7)
+     ✓ monta e mostra os provedores com o estado da chave 1641ms
+     ✓ OS MODELOS APARECEM nos seletores de nível 2242ms
+     ✓ o seletor mostra o endereço padrão de TODOS os provedores, inclusive Anthropic e Google 746ms
+     ✓ lista as funções com o modelo que atende cada uma 1016ms
+     ✓ quando o servidor devolve HTML, explica o que fazer em vez de carregar para sempre 1166ms
+     ✓ em ambiente publicado, avisa que não dá para gravar e não oferece os campos 609ms
+     ✓ salvar envia apenas o que mudou, e não apaga a chave quando o campo fica vazio 2642ms
+ ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 14886ms
    ✓ isolamento entre canais (4)
-     ✓ a camada de dados recusa conteúdo que pertence a outro canal 349ms
-     ✓ a fila de revisão nunca devolve conteúdo de outro canal 429ms
-     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 8070ms
- ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 16561ms
+     ✓ a camada de dados recusa conteúdo que pertence a outro canal 495ms
+     ✓ a fila de revisão nunca devolve conteúdo de outro canal 462ms
+     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 13691ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 15528ms
+   ✓ barras laterais abrem e fecham (4)
+     ✓ as duas nascem abertas, com os dois controles no masthead 4296ms
+     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 6850ms
+     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 1901ms
+     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 2391ms
+ ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 25130ms
    ✓ tela de revisão (4)
-     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 3611ms
-     ✓ aprova uma única vez mesmo com dois cliques seguidos 3593ms
-     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 8991ms
-     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 350ms
- ✓ src/ai/__tests__/handler.test.ts (35 tests) 796ms
- ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 4767ms
-   ✓ tela "Como funciona" (3)
-     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2883ms
-     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1118ms
-     ✓ continua dizendo que o passo da aprovação é humano 745ms
- ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 4537ms
+     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 8638ms
+     ✓ aprova uma única vez mesmo com dois cliques seguidos 4901ms
+     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 11179ms
+     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 336ms
+ ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7099ms
+   ✓ gate de aprovação humana (15)
+     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 372ms
+     ✓ não deixa aprovar o que não está em revisão (já publicado) 327ms
+     ✓ não deixa aprovar conteúdo de outro canal 332ms
+     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 549ms
+     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 556ms
+     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 581ms
+     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 518ms
+     ✓ o portão de publicação recusa o que não tem aprovação vigente 565ms
+     ✓ o portão de publicação não atravessa canal 332ms
+     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 629ms
+     ✓ recusa título fora do limite antes de gravar 416ms
+     ✓ recusa motivo de rejeição fora do limite do schema de IA 573ms
+     ✓ recusa data de agendamento que não é data 846ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 3790ms
    ✓ AiAction (7)
-     ✓ não chama a IA sozinho: só depois do clique 2277ms
-     ✓ mostra o resultado e a procedência quando a geração é real 434ms
-     ✓ NÃO mostra nome de fornecedor nem de modelo na interface comum 345ms
-     ✓ AVISA quando a resposta é simulação — não deixa passar por geração real 340ms
-     ✓ não aplica nada na tela sem clique no botão de aplicar 667ms
- ✓ src/ai/__tests__/settings.test.ts (27 tests) 622ms
- ✓ src/ai/__tests__/registry.test.ts (16 tests) 138ms
- ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 90ms
- ✓ src/data/__tests__/cycle.test.ts (8 tests) 119ms
- ✓ src/__tests__/headers.test.ts (8 tests) 35ms
+     ✓ não chama a IA sozinho: só depois do clique 1806ms
+     ✓ mostra o resultado e a procedência quando a geração é real 397ms
+     ✓ NÃO mostra nome de fornecedor nem de modelo na interface comum 318ms
+     ✓ AVISA quando a resposta é simulação — não deixa passar por geração real 319ms
+     ✓ não aplica nada na tela sem clique no botão de aplicar 394ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 4805ms
+   ✓ tela "Como funciona" (3)
+     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2820ms
+     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1102ms
+     ✓ continua dizendo que o passo da aprovação é humano 854ms
+ ✓ src/ai/__tests__/handler.test.ts (35 tests) 934ms
+ ✓ src/ai/__tests__/settings.test.ts (27 tests) 720ms
+ ✓ src/ai/__tests__/registry.test.ts (16 tests) 527ms
+ ✓ src/data/__tests__/cycle.test.ts (8 tests) 223ms
+ ✓ src/__tests__/headers.test.ts (8 tests) 52ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 2785ms
+   ✓ vazamento de credencial do provedor (2)
+     ✓ caminho REAL (adaptador OpenAI): resposta 401 que ecoa o Authorization não chega ao navegador 2371ms
 
- Test Files  12 passed (12)
-      Tests  133 passed (133)
-   Start at  20:42:15
-   Duration  67.05s (environment 46%, setup 22%, tests 21%, transform 5%, import 5%, worker 1%)
+ Test Files  13 passed (13)
+      Tests  140 passed (140)
+   Start at  21:16:26
+   Duration  105.38s (environment 55%, tests 24%, setup 10%, import 6%, transform 4%, worker 1%)
 
-    Isolate  12 workers spawned · ~10.56s startup each (spawn + environment, per file)
-             at least ~21.12s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  13 workers spawned · ~17.29s startup each (spawn + environment, per file)
+             at least ~38.91s faster with isolate: false — reuses workers across files instead of one per file
 

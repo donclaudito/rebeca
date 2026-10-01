@@ -19,7 +19,7 @@
  * **relativo**. Não use o alias `@/` em import de valor aqui — só `import type`.
  */
 
-import type { ChannelId, CycleStage } from '../data/types';
+import type { ChannelId, CycleStage } from '../data/types.js';
 
 /* =============================================================================
    Níveis de modelo

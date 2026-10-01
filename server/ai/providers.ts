@@ -18,8 +18,8 @@
  * `src/ai/schemas.ts`, é a que decide — o parâmetro do provedor é conveniência, nunca a garantia.
  */
 
-import { AiError } from '../../src/ai/contract';
-import type { JsonSchema } from '../../src/ai/schemas';
+import { AiError } from '../../src/ai/contract.js';
+import type { JsonSchema } from '../../src/ai/schemas.js';
 
 export type ProviderId = 'openai' | 'deepseek' | 'anthropic' | 'google' | 'openrouter' | 'simulado';
 

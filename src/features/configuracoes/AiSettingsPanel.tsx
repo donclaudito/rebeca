@@ -151,11 +151,11 @@ export function AiSettingsPanel() {
     setFeedback(null);
     save.mutate(patch, {
       onSuccess: (result) => {
-        setFeedback(
-          result.changed.length === 0
-            ? 'Nada mudou.'
-            : `Salvo: ${result.changed.join(' · ')}.`,
-        );
+        // Guarda contra resposta em forma inesperada: sem isto, um `changed` ausente derrubava o
+        // manipulador com TypeError dentro do React Query, e a tela não dizia nem "salvou" nem
+        // "falhou". Resposta estranha vira mensagem, não exceção silenciosa.
+        const changed = Array.isArray(result?.changed) ? result.changed : [];
+        setFeedback(changed.length === 0 ? 'Configuração salva.' : `Salvo: ${changed.join(' · ')}.`);
       },
       onError: (error) => setFeedback(error.message),
     });
@@ -163,23 +163,36 @@ export function AiSettingsPanel() {
 
   /* --- estados da consulta ------------------------------------------------- */
 
-  if (settings.isLoading || !draft) {
-    return (
-      <Card className="p-4">
-        <SectionHead step={5} title="Inteligência artificial" hint="chaves, endereços e escolha de modelo" />
-        <Skeleton className="h-[220px]" />
-      </Card>
-    );
-  }
-
-  if (settings.isError || !data) {
+  /*
+   * A ORDEM destas verificações é o conserto de um defeito que o usuário sentiu na pele.
+   *
+   * A versão anterior testava `isLoading || !draft` **antes** de `isError`. Como o rascunho só nasce
+   * quando a resposta chega, uma requisição que falha deixava `draft` nulo para sempre — e o painel
+   * ficava num esqueleto de carregamento **infinito**: sem modelos, sem botão de teste funcionando e
+   * sem nenhuma mensagem. Foi exatamente o relato "testei e não funcionou, e não aparecem os
+   * modelos". Erro primeiro; carregamento depois.
+   */
+  if (settings.isError) {
     return (
       <Card className="p-4">
         <SectionHead step={5} title="Inteligência artificial" hint="chaves, endereços e escolha de modelo" />
         <ErrorState
-          message="Não foi possível carregar a configuração de IA do servidor."
+          message={
+            settings.error instanceof Error && settings.error.message
+              ? settings.error.message
+              : 'Não foi possível carregar a configuração de IA do servidor.'
+          }
           onRetry={settings.refetch}
         />
+      </Card>
+    );
+  }
+
+  if (!data || !draft) {
+    return (
+      <Card className="p-4">
+        <SectionHead step={5} title="Inteligência artificial" hint="chaves, endereços e escolha de modelo" />
+        <Skeleton className="h-[220px]" />
       </Card>
     );
   }
