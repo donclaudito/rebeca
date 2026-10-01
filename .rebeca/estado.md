@@ -654,6 +654,48 @@ não tinha função nenhuma. O parâmetro aparecia em **três produtores e zero 
 o `docs/04-mapa-funcional.md` não descrevia o `?aberto=` — o contrato foi lido do código, não do
 mapa funcional, e vale acrescentá-lo lá quando o mapa for revisado.
 
+## Pipeline de mídia — D2 e D5 aprovadas, Fase 0 em construção (2026-10-01)
+
+Pergunta do dono ao ver o "Player · 6:42" na tela de Revisão: *"não aparece nada, está funcionando?"*.
+Resposta honesta: **não** — não existe um único arquivo de vídeo no repositório. O slot é um `ArtSlot`
+(`RevisaoPage.tsx:225`), espaço reservado cuja duração vem do dado de exemplo, e `docs/03:256` já
+declarava que "o produto **não** produz arte". A metade de **texto** da etapa Criar existe (15 prompts);
+a metade de **mídia** não existia — nem decisão, nem código.
+
+**Duas decisões do dono, tomadas nesta sessão:**
+
+| # | Decisão | Valor aprovado |
+|---|---|---|
+| ~~D2~~ | Provedores + teto por vídeo | **Stack A** (MiniMax-H3 768P + FLUX.2 klein + Azure S1 Neural + Suno Pro) · **US$ 12,00/min** — `ADR-005` passou a **aceito** |
+| ~~D5~~ | Limite mensal de gasto | **US$ 60,00/mês** (≈ 1 episódio de 7 min): *"validar qualidade antes de escalar"* |
+
+Ordem de grandeza dita sem enfeite: um episódio de 7 min na Stack A custa ≈ **US$ 60**, e vídeo é ~96%
+do custo (a voz do episódio inteiro custa centavos). O teto de US$ 12/min é o **limite que para o
+pipeline**, não o preço esperado. Os dois números vivem **em código** (`src/media/limits.ts`), no mesmo
+padrão da D12: mudar teto exige revisão, não variável de ambiente.
+
+**`ADR-010` (proposto)** decide o que faltava — *como a máquina é construída*, não *qual fornecedor*:
+duas fases (F0 simulada com custo zero / F1 provedor real), quatro interfaces de provedor com o mesmo
+contrato de retorno, **timeline como fonte da verdade** (a duração da fala medida manda na cena e na
+legenda), nome determinístico por hash, idempotência **antes** de gastar, Short como recorte do mesmo
+material, e custo por minuto medido com `ffprobe` — nunca com `tempo_min`.
+
+**Fase 0 em implementação:** provedores simulados gerando arquivos **de verdade** com o ffmpeg desta
+máquina (8.1.2, confirmado no PATH), render 1920×1080 → Short 1080×1920, legenda, manifesto com hash e
+a prova de rodar duas vezes sem linha nova de custo. A evidência entra aqui e no `ADR-010` quando
+fechar. **Nada foi gasto.**
+
+**O que a aprovação NÃO resolve** — e agora é o caminho crítico da Fase 1:
+
+1. **O Character Sheet da Luna não existe.** Não há arte de personagem no repositório inteiro
+   (`rebeca-branding`). Sem ele, cena real de personagem não começa: o invariante nº 3 (a Luna parecer
+   a mesma em todo episódio) é requisito funcional e, pelo `ADR-005`, também elegibilidade de
+   monetização.
+2. **D1 — onde roda o job longo.** Gerar vídeo dentro de request HTTP é proibido por desenho (é o mesmo
+   defeito que produziu o 504 que o dono viu no dev server). Falta decidir fila/worker.
+3. As **questões de advogado** listadas no `ADR-005` continuam abertas e são condição de operação, não
+   detalhe.
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |
@@ -678,10 +720,10 @@ orquestra ser considerada confiável para trabalho de produção.
 | # | Decisão | Bloqueia | Dono |
 |---|---|---|---|
 | D1 | Stack do front (React + Vite + TypeScript?) e do backend (Supabase puro vs. serviço Node separado?) | toda a F1 | humano |
-| D2 | Provedores de IA de vídeo/imagem/voz e teto de custo por vídeo (US$/min) | `rebeca-ia-video`, `rebeca-backend` | humano |
+| ~~D2~~ | ✅ **decidida em 2026-10-01** — **Stack A** (MiniMax-H3 768P + FLUX.2 klein + Azure S1 Neural + Suno Pro) com **teto de US$ 12,00 por minuto** de vídeo. É a única stack cujos modelos têm termo lido e permitido para público infantil; o Google segue **vedado** nas três vias. Ver `ADR-005` (aceito) e `ADR-010` | `rebeca-ia-video`, `rebeca-backend` | humano |
 | D3 | Modelo de acesso: só o dono, ou equipe com papéis (editor/revisor)? | `rebeca-supabase` (RLS), `rebeca-produto` | humano |
 | D4 | Canal piloto para o primeiro ciclo real (Luna?) e meta de publicação | `rebeca-produto`, `rebeca-analytics` | humano |
-| D5 | Limite mensal de gasto em geração e o que fazer ao atingir | `rebeca-backend`, `rebeca-seguranca` | humano |
+| ~~D5~~ | ✅ **decidida em 2026-10-01** — limite de gasto **mensal de US$ 60,00** (≈ 1 episódio de 7 min): *"validar qualidade antes de escalar"*. Os dois tetos vivem **em código** (`src/media/limits.ts`), não em variável de ambiente: mudar exige revisão | `rebeca-backend`, `rebeca-seguranca` | humano |
 | ~~D6~~ | ✅ **decidida em 2026-09-30** (GitHub privado + Vercel, ver `ADR-003`): *onde roda* está fechado. A **publicação efetiva** ainda depende do import do dono na Vercel — as duas coisas são separadas de propósito | `rebeca-powershell`, `rebeca-github` | humano |
 | D7 | **Nome do produto: "Rebeca" (pasta e PDF) ou "AI Media Studio" (protótipo da frente paralela)?** | todo o código, UI, SEO e comunicação | humano |
 | D8 | Ratificar em ADR a stack já presente no `package.json` (Vite + React 19 + React Query + react-router) ou trocar | `rebeca-arquiteto`, `rebeca-react` | humano |

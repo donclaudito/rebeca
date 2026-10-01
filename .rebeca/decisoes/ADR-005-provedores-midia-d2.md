@@ -1,10 +1,13 @@
 # ADR-005 — Provedores de mídia com IA e teto de custo por vídeo (D2)
 
 ## Status
-**proposto** — aguarda decisão humana. Nada aqui autoriza gerar mídia paga nem publicar.
+**ACEITO pelo dono do produto em 2026-10-01** — Stack A com teto de **US$ 12,00 por minuto** de vídeo
+(ver "Decisão aprovada" no fim). Continua valendo a ressalva: **nada aqui autoriza publicar** — a
+publicação segue exigindo aprovação humana registrada, e as questões de advogado listadas no fim
+**não** foram resolvidas por esta aprovação.
 
 ## Data
-2026-09-30
+2026-09-30 (proposto) · 2026-10-01 (aceito)
 
 ## Contexto
 
@@ -137,8 +140,8 @@ custa centavos. Otimizar voz é otimizar o arredondamento.
 - **Propôs:** `rebeca-ia-video` (dossiê e números) + `rebeca-lgpd` (memo de conformidade, v2 após
   refutação) + `rebeca-youtube` (spec da API) — com refutação adversarial de `rebeca-qa` e
   recomputação independente do orquestrador.
-- **Aprova (pendente):** humano, dono do produto — **obrigatório**, porque a decisão gasta dinheiro,
-  define escopo do produto e envolve conteúdo para menores.
+- **Aprovou:** humano, dono do produto, em **2026-10-01** — obrigatório, porque a decisão gasta
+  dinheiro, define escopo do produto e envolve conteúdo para menores.
 
 ### O que continua sendo decisão de advogado (não desta ADR)
 
@@ -149,3 +152,36 @@ custa centavos. Otimizar voz é otimizar o arredondamento.
 4. Quem cumpre os arts. 8º, 14 e 17 do ECA Digital na repartição software × canal.
 5. Se a camada Medir trata dado pessoal de criança (art. 14 da LGPD).
 6. Suficiência dos DPAs e papéis controlador/operador.
+
+---
+
+## Decisão aprovada (2026-10-01)
+
+O dono do produto **aprovou a proposta** e fixou os dois números que faltavam:
+
+| Item | Decisão aprovada |
+|---|---|
+| Provedores (D2) | **Stack A** — MiniMax-H3 768P + FLUX.2 klein + Azure S1 Neural + Suno Pro |
+| Teto de custo por vídeo (D2) | **US$ 12,00 por minuto** — revisável após 4 episódios com custo real medido |
+| Limite de gasto mensal (D5) | **US$ 60,00/mês** (≈ 1 episódio de 7 min), para validar qualidade antes de escalar |
+
+**O que esta aprovação autoriza:** gerar mídia **paga** com os provedores da Stack A, dentro dos dois
+tetos, para o canal piloto — com todo ativo lançado em `.rebeca/custos.csv`.
+
+**O que ela NÃO autoriza:** publicar (segue exigindo aprovação humana registrada — invariante nº 1);
+usar qualquer provedor fora da allow-list, inclusive o Google, que continua `PROIBIDO` para este canal
+nas três vias; nem tratar as questões de advogado como resolvidas — elas continuam abertas e são
+condição de operação, não detalhe.
+
+**Consequências operacionais que passam a valer como requisito** (não são preferência): rodapé de
+rótulo *deep synthesis* na mídia gerada pela MiniMax, `made for kids` declarado em toda publicação do
+canal infantil, aviso de certificação no upload, e variedade de enredo/correção factual tratadas como
+**critério de elegibilidade de monetização**.
+
+**Onde os limites vivem:** em código (`src/media/limits.ts`), não em variável de ambiente — mudar teto
+exige revisão, no mesmo padrão da D12 da camada de LLM. O pipeline **para** e escala para humano quando
+o custo por minuto do episódio ou o gasto do mês estoura.
+
+**Pendências que a aprovação NÃO resolve e que bloqueiam a Fase 1:** o **Character Sheet** da Luna
+(não existe arte de personagem no repositório — dívida do `rebeca-branding`) e a **D1** (onde roda o
+job longo, já que gerar vídeo fora do request HTTP é requisito). Ver `ADR-010`.
