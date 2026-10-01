@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Library, Plus, SearchX } from 'lucide-react';
+import { Library, Plus, SearchX, TriangleAlert } from 'lucide-react';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ContentCard } from '@/components/content/ContentCard';
+import { ContentDetail } from '@/components/content/ContentDetail';
 import {
   Button,
   Card,
@@ -71,13 +72,30 @@ export function ConteudoPage() {
     return map;
   }, [contents.data]);
 
-  /** Escreve um parâmetro preservando o outro (filtro e busca convivem na URL). */
-  function setParam(key: 'filtro' | 'busca', value: string | null) {
+  /** Escreve um parâmetro preservando os outros (filtro, busca e conteúdo aberto convivem na URL). */
+  function setParam(key: 'filtro' | 'busca' | 'aberto', value: string | null) {
     const next = new URLSearchParams(params);
     if (value === null || value === '') next.delete(key);
     else next.set(key, value);
     setParams(next, { replace: true });
   }
+
+  /*
+   * `?aberto=<id>` — o conteúdo clicado no cartão, no calendário ou no início.
+   *
+   * O parâmetro era produzido por três telas e **lido por nenhuma**: o clique levava para esta página
+   * sem abrir nada, e da biblioteca para a própria biblioteca. Do lado de quem usa, o cartão "parecia
+   * sem função". O contrato já existia; aqui ele é cumprido.
+   *
+   * A busca é sempre dentro da lista **deste canal** (`useContents(channelId)`), então um `id` de
+   * outro canal simplesmente não casa — e a tela diz isso em vez de mostrar dado alheio (invariante
+   * nº 2). E só depois dos dados chegarem: antes disso, "não encontrado" seria mentira — o mesmo
+   * defeito de ordem carregamento/erro que já apareceu nesta tela uma vez.
+   */
+  const abertoId = params.get('aberto');
+  const aberto =
+    abertoId === null ? null : ((contents.data ?? []).find((item) => item.id === abertoId) ?? null);
+  const abertoDesconhecido = abertoId !== null && contents.data !== undefined && aberto === null;
 
   return (
     <>
@@ -122,6 +140,26 @@ export function ConteudoPage() {
           >
             Limpar busca
           </button>
+        </p>
+      )}
+
+      {aberto && (
+        <ContentDetail item={aberto} channelId={channelId} onClose={() => setParam('aberto', null)} />
+      )}
+
+      {abertoDesconhecido && (
+        <p className="text-[12px] text-warn mb-3 flex items-start gap-1.5" role="status">
+          <TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            Este conteúdo não está neste canal — nada de outro canal é exibido aqui.{' '}
+            <button
+              type="button"
+              className="text-accent underline bg-transparent border-0 cursor-pointer p-0 text-[12px]"
+              onClick={() => setParam('aberto', null)}
+            >
+              Fechar
+            </button>
+          </span>
         </p>
       )}
 
@@ -175,7 +213,12 @@ export function ConteudoPage() {
           />
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
             {items.map((item) => (
-              <ContentCard key={item.id} item={item} channelId={channelId} />
+              <ContentCard
+                key={item.id}
+                item={item}
+                channelId={channelId}
+                destacado={aberto !== null && aberto.id === item.id}
+              />
             ))}
           </div>
         </section>

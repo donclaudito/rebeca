@@ -13,6 +13,8 @@ export function StatusPill({ status }: { status: ContentItem['status'] }) {
 interface ContentCardProps {
   item: ContentItem;
   channelId: ChannelId;
+  /** O conteúdo que está aberto (`?aberto=`): marcado, para o olho achar o que está em foco. */
+  destacado?: boolean;
 }
 
 /**
@@ -26,7 +28,7 @@ interface ContentCardProps {
  * O estado continua como `StatusPill` **com rótulo escrito**: é a única informação
  * que o YouTube não tem e que este produto não pode perder.
  */
-export function ContentCard({ item, channelId }: ContentCardProps) {
+export function ContentCard({ item, channelId, destacado = false }: ContentCardProps) {
   const chosen = item.thumbnails.find((thumb) => thumb.id === item.selectedThumbnailId);
   const target =
     item.status === 'revisao'
@@ -34,7 +36,10 @@ export function ContentCard({ item, channelId }: ContentCardProps) {
       : `/c/${channelId}/conteudo?aberto=${item.id}`;
 
   return (
-    <Card className="p-3 flex flex-col gap-3">
+    <Card
+      className={cn('p-3 flex flex-col gap-3', destacado && 'ring-2 ring-accent')}
+      aria-current={destacado ? 'true' : undefined}
+    >
       <Link to={target} className="ams-thumb block" aria-label={`Abrir ${item.title}`}>
         <ArtSlot
           label={chosen ? `Thumbnail: ${chosen.label}` : 'Thumbnail'}

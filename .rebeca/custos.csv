@@ -16,3 +16,9 @@ data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min
 2026-10-01,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1690,0.009572,0.000,humano:teto-aprovado,916,774,pesquisar-tendencia@v1
 2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
 2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,68,0.000040,0.000,humano:teto-aprovado,46,22,teste-de-conexao
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000028,0.000,humano:teto-aprovado,46,12,teste-de-conexao
+2026-10-01,Luna e o Jardim das Cores,luna-estrelas,medir,openai,gpt-6.1-sol,tokens,1333,0.005450,0.000,humano:teto-aprovado,985,348,medir-analise@v1
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1264,0.000249,0.000,humano:teto-aprovado,958,306,criar-seo@v1
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1724,0.008328,0.000,humano:teto-aprovado,1114,610,revisar-qualidade@v1
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1651,0.007150,0.000,humano:teto-aprovado,1170,481,revisar-infantil@v1

@@ -612,6 +612,48 @@ do servidor, o teste falha na hora.
    **as duas gerações foram concluídas no servidor** (e pagas) enquanto o navegador via 504 — ou seja, o
    dinheiro foi gasto e o resultado não chegou à tela.
 
+## Correção — "esta parte parece sem função": o conteúdo aberto (2026-10-01)
+
+Relato do dono ao olhar um cartão da biblioteca (`Luna ensina as cores do arco-íris`, agendado,
+thumbnail "Arco-íris inteiro / arte pendente", custo US$ 9,10).
+
+**O defeito era um contrato de um lado só.** Biblioteca, calendário e início montavam o link
+`/c/:canal/conteudo?aberto=<id>`; a tela de destino lia `filtro` e `busca` e **nunca** o `aberto`.
+Clicar no cartão navegava para uma página que parece a mesma e não abria nada — e, dentro da própria
+biblioteca, o cartão apontava para a rota em que o usuário já estava. Do lado de quem usa, o cartão
+não tinha função nenhuma. O parâmetro aparecia em **três produtores e zero consumidores**.
+
+**O que ficou:** a tela de Conteúdo cumpre o contrato.
+
+- Painel de leitura do conteúdo aberto (`src/components/content/ContentDetail.tsx`): thumbnail
+  escolhida, estado, formato, tema, agendamento, **custo real**, SEO preparado, opções de thumbnail
+  (marcando a escolhida e as sugeridas pela IA), aprovação vigente e o motivo da última rejeição.
+- **Não decide nada.** Aprovar, gerar nova versão e substituir continuam na tela de Revisão — há um
+  atalho para lá. O portão humano segue num lugar só (invariante nº 1).
+- O cartão do conteúdo aberto fica marcado (`aria-current` + anel de acento), então o clique tem
+  resposta visível mesmo quando o painel está fora da área visível da grade.
+- **Nenhum dado inventado:** sem métrica aparece sem métrica, custo zerado aparece como "custo não
+  lançado", e a aprovação é mostrada como **fato** (data), não como nome de quem aprovou — isso
+  depende da D3.
+- **Isolamento entre canais (invariante nº 2):** a busca pelo `id` acontece sempre dentro da lista do
+  canal; um `id` de outro canal não casa e a tela diz "não está neste canal" — há teste próprio para
+  isso, porque "abrir por id" é exatamente onde um vazamento entre canais nasceria.
+- "Não encontrado" só aparece **depois** dos dados chegarem: antes disso seria mentira — o mesmo
+  defeito de ordem carregamento/erro que já apareceu nesta tela uma vez.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Testes do conteúdo aberto | `pnpm exec vitest run src/features/conteudo` | ✅ **5/5** — abre, marca o cartão, recusa id de outro canal, fecha, e o cartão aponta com o parâmetro |
+| **Prova adversarial** | devolver `aberto` ao estado ignorado | ✅ **3 dos 5 ficam vermelhos** ("Conteúdo aberto" não é encontrado); restaurado |
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Suíte completa | `pnpm exec vitest run` | ✅ **155/155 em 15 arquivos** — `.rebeca/evidencias/vitest-conteudo-aberto.txt` |
+| Build de produção | `pnpm run build` | ✅ exit 0 |
+| Vazamento entre canais (regressão) | suíte | ✅ `src/data/__tests__/channel-scope.test.tsx` continua verde |
+
+**Não verificado:** a conferência **visual** do painel (não há navegador automatizado nesta sessão);
+o `docs/04-mapa-funcional.md` não descrevia o `?aberto=` — o contrato foi lido do código, não do
+mapa funcional, e vale acrescentá-lo lá quando o mapa for revisado.
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |
