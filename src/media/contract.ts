@@ -250,21 +250,30 @@ export interface MusicRequest extends MediaRequestBase {
 
 export interface ImageProvider {
   readonly id: string;
+  /**
+   * Este provedor **cobra**? O pipeline exige estimativa antes de gerar quando houver qualquer
+   * provedor pago no conjunto: sem estimativa o portão de entrada não tem o que comparar com o teto e
+   * o gasto acontece antes de qualquer verificação (achado de gravidade alta do `rebeca-qa`).
+   */
+  readonly simulated: boolean;
   render(input: ImageRequest): Promise<GeneratedAsset>;
 }
 
 export interface VideoProvider {
   readonly id: string;
+  readonly simulated: boolean;
   animate(input: VideoRequest): Promise<GeneratedAsset>;
 }
 
 export interface TtsProvider {
   readonly id: string;
+  readonly simulated: boolean;
   synthesize(input: TtsRequest): Promise<SpokenLine>;
 }
 
 export interface MusicProvider {
   readonly id: string;
+  readonly simulated: boolean;
   compose(input: MusicRequest): Promise<GeneratedAsset>;
 }
 

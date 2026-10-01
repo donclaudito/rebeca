@@ -64,7 +64,14 @@ export const SIMULATED_MODELS = {
   music: 'ffmpeg-tom-tremolo-1',
 } as const;
 
-/** Fala sintética é lida como fala: ~14,5 caracteres por segundo em pt-BR narrado. */
+/**
+ * Estimativa de ritmo da fala **sintética**, em caracteres por segundo.
+ *
+ * Premissa NOSSA, não fato de provedor: dá duração determinística ao áudio simulado e alimenta a
+ * estimativa de entrada do portão. O provedor real entrega a duração **medida** por `ffprobe`, e é
+ * essa medida que a timeline usa — este número não entra no caminho pago. (O valor estava sem
+ * procedência declarada; achado de gravidade baixa do `rebeca-qa`.)
+ */
 const CHARS_PER_SECOND = 14.5;
 const MIN_SPEECH_MS = 1_200;
 const SAMPLE_RATE = 48_000;
@@ -232,6 +239,7 @@ export function planImage(input: ImageRequest): AssetPlan {
 
 export const simulatedImageProvider: ImageProvider = {
   id: SIMULATED_PROVIDER_IDS.image,
+  simulated: true,
 
   async render(input: ImageRequest): Promise<GeneratedAsset> {
     assertFfmpegAvailable();
@@ -309,6 +317,7 @@ export function planClip(input: VideoRequest): AssetPlan {
 
 export const simulatedVideoProvider: VideoProvider = {
   id: SIMULATED_PROVIDER_IDS.video,
+  simulated: true,
 
   async animate(input: VideoRequest): Promise<GeneratedAsset> {
     assertFfmpegAvailable();
@@ -406,6 +415,7 @@ export function planVoice(input: TtsRequest): AssetPlan {
 
 export const simulatedTtsProvider: TtsProvider = {
   id: SIMULATED_PROVIDER_IDS.tts,
+  simulated: true,
 
   async synthesize(input: TtsRequest): Promise<SpokenLine> {
     assertFfmpegAvailable();
@@ -482,6 +492,7 @@ export function planMusic(input: MusicRequest): AssetPlan {
 
 export const simulatedMusicProvider: MusicProvider = {
   id: SIMULATED_PROVIDER_IDS.music,
+  simulated: true,
 
   async compose(input: MusicRequest): Promise<GeneratedAsset> {
     assertFfmpegAvailable();

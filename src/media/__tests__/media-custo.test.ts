@@ -167,7 +167,13 @@ describe('portão (b) — limite mensal (D5)', () => {
     expect(monthlySpendUsd('2026-11')).toBe(0);
   });
 
-  it('célula vazia de custo é "não verificado" e NÃO soma zero; célula ilegível para o pipeline', () => {
+  it('célula vazia de custo é "não verificado" e o portão RECUSA em vez de somar zero', () => {
+    /*
+     * Correção de um defeito real, encontrado pelo `rebeca-qa`: antes, célula vazia era **pulada**, e
+     * "não sei o custo" entrava na conta como "não gastou" — 59,00 pagos + 59,00 não verificados
+     * somavam 59 e o limite mensal **passava**. Este teste afirmava o comportamento errado (esperava
+     * 1,0, ignorando a linha vazia) enquanto o nome dizia "NÃO soma zero". Agora ele exige a recusa.
+     */
     costRow(1);
     // Linha como a camada de IA grava quando o modelo está fora da tabela de preços: custo vazio.
     // Escrita à mão de propósito — é a única forma de simular dado que `recordCost` não produz.
@@ -177,14 +183,27 @@ describe('portão (b) — limite mensal (D5)', () => {
       `${linhas}2026-10-02,Luna e o Jardim das Cores,ep-x,criar,openai,modelo-fora-da-tabela,tokens,10,,0.000,humano:teto-aprovado,5,5,teste@v1\n`,
       'utf8',
     );
-    expect(monthlySpendUsd(MES)).toBeCloseTo(1, 6);
 
-    writeFileSync(
-      ledgerFile,
-      `${linhas}2026-10-03,Luna e o Jardim das Cores,ep-x,criar,openai,modelo,tokens,10,abc,0.000,humano:teto-aprovado,5,5,teste@v1\n`,
-      'utf8',
-    );
-    expect(() => monthlySpendUsd(MES)).toThrowError(/ilegível/);
+    expect(() => monthlySpendUsd(MES)).toThrowError(/não verificado/i);
+  });
+
+  it('célula ilegível, negativa ou com separador pt-BR é recusada em vez de subcontar', () => {
+    costRow(1);
+    const linhas = readFileSync(ledgerFile, 'utf8');
+    // `-119` somaria com positivo e mascararia gasto; `59,5` e `1.234,56` fariam a conta mentir para
+    // baixo em silêncio. Os quatro deixariam o teto passar. Os que têm vírgula vão **entre aspas** no
+    // CSV: sem aspas, o parser os parte em duas colunas e a célula do custo vira um número válido.
+    for (const valor of ['abc', '-119.00', '"59,5"', '"1.234,56"']) {
+      writeFileSync(
+        ledgerFile,
+        `${linhas}2026-10-03,Luna e o Jardim das Cores,ep-x,criar,openai,modelo,tokens,10,${valor},0.000,humano:teto-aprovado,5,5,teste@v1\n`,
+        'utf8',
+      );
+      expect(
+        () => monthlySpendUsd(MES),
+        `custo "${valor}" deveria ser recusado, não somado`,
+      ).toThrowError(/ilegível/i);
+    }
   });
 
   it('sem livro durável o portão recusa em vez de fingir gasto zero', () => {

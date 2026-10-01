@@ -114,7 +114,7 @@ export function frameDurationMs(fps: number): number {
  * teto ou reduz o escopo. Erro genérico de pipeline não diz a ninguém o que fazer.
  */
 export class MediaBudgetError extends Error {
-  readonly code: 'teto-por-minuto' | 'teto-mensal' | 'custo-invalido';
+  readonly code: 'teto-por-minuto' | 'teto-mensal' | 'custo-invalido' | 'estimativa-obrigatoria';
 
   constructor(code: MediaBudgetError['code'], message: string) {
     super(message);

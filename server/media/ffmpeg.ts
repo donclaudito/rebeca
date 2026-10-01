@@ -8,7 +8,10 @@
  *    padrão (`pipe`) falha com `EPERM` e o ffmpeg nunca chega a rodar. O caminho de arquivo
  *    (`stdio: ['ignore', fdOut, fdErr]`) não passa por pipe nenhum, funciona nos dois ambientes e ainda
  *    deixa o log do ffmpeg em disco — que é justamente o que se quer ler quando o render falha. O
- *    sintoma do `EPERM` (medido nesta sessão) está em `.rebeca/evidencias/f0-ffmpeg-sem-pipe.txt`.
+ *    sintoma do `EPERM` foi medido nesta sessão, mas **não** virou arquivo de evidência: a citação
+ *    anterior apontava para `.rebeca/evidencias/f0-ffmpeg-sem-pipe.txt`, que não existe (achado do
+ *    `rebeca-qa`). O que existe é o caminho alternativo funcionando — os testes de render rodam ffmpeg
+ *    de verdade e passam.
  * 2. **O escape de filtro é de dois níveis.** O `drawtext` recebe o caminho de uma fonte do Windows, e
  *    `C:` dentro de um valor de opção de filtro não é protegido por aspas — o parser do grafo de filtros
  *    consome o `:` como separador e o filtro inteiro vira erro de sintaxe. O que funciona (medido) é

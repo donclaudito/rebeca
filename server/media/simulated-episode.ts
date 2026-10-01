@@ -37,7 +37,7 @@ import type {
   TtsRequest,
   VideoRequest,
 } from '../../src/media/contract.js';
-import { assertEpisodeWithinBudget, LONG_RENDER_SPEC, MEDIA_LIMITS } from '../../src/media/limits.js';
+import { assertEpisodeWithinBudget, LONG_RENDER_SPEC, MEDIA_LIMITS, MediaBudgetError } from '../../src/media/limits.js';
 import { assertSpecMatchesCode, loadChannelMediaSpec, type ChannelMediaSpec } from './channel-spec.js';
 import { assertFfmpegAvailable, probeMedia, type LoudnessMeasurement, type LoudnormAnalysis, type MediaProbe } from './ffmpeg.js';
 import { assertMonthlyBudgetForNow, episodeSpendUsd, ledgerPath, ledgerRowCount, recordAssetCost } from './ledger.js';
@@ -300,6 +300,25 @@ export async function runSimulatedEpisode(
   const estimateUsd = options.estimateUsd ?? 0;
 
   // --- PORTÕES DE ENTRADA (antes de gerar qualquer coisa) ---------------------
+  /*
+   * Com provedor **pago** no conjunto, a estimativa é obrigatória.
+   *
+   * Antes isto era `options.estimateUsd ?? 0`: um chamador sem estimativa fazia o portão comparar zero
+   * com o teto — passava — e o pipeline gerava tudo antes de o portão de saída (já com custo medido)
+   * disparar. O `rebeca-qa` reproduziu com provedor de US$ 50 por ativo: **21 arquivos e 7 linhas de
+   * custo (US$ 200) lançados antes de qualquer bloqueio**. Portão que só funciona depois de gastar não
+   * é portão. Os provedores simulados seguem com estimativa zero, que é a verdade deles.
+   */
+  const provedoresPagos = [providers.image, providers.video, providers.tts, providers.music].filter(
+    (provider) => !provider.simulated,
+  );
+  if (provedoresPagos.length > 0 && estimateUsd <= 0) {
+    throw new MediaBudgetError(
+      'estimativa-obrigatoria',
+      `Há provedor pago no pipeline (${provedoresPagos.map((provider) => provider.id).join(', ')}) e nenhuma estimativa de custo foi informada. Sem estimativa o teto não tem o que comparar ANTES de gerar: informe estimateUsd ou rode com os provedores simulados.`,
+    );
+  }
+
   assertEpisodeWithinBudget({ costUsd: estimateUsd, durationMs: estimatedMs, source: 'estimado' });
   assertMonthlyBudgetForNow(now, estimateUsd);
 

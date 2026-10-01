@@ -162,6 +162,15 @@ export function renderPath(
   // caminho relativo disfarçado de nome de arquivo.
   const safe = assertSafeSegment(fileName.replace(/\.[a-z0-9]+$/, ''), 'nome do arquivo de render');
   const ext = fileName.slice(safe.length + 1);
+  // Extensão conferida com a MESMA regra de `assetPath`: sem isso, um nome sem extensão devolvia
+  // caminho terminando em ponto (`.../v1/sem-extensao.`) — arquivo que o ffmpeg escreve e o humano não
+  // acha. Achado de gravidade baixa do `rebeca-qa`.
+  if (!EXT.test(ext)) {
+    throw new ChannelScopeError(
+      'segmento-invalido',
+      `Nome de arquivo de render sem extensão válida: "${fileName}".`,
+    );
+  }
   return join(renderDir(scopeChannelId, channelId, episodeId, version), `${safe}.${ext}`);
 }
 

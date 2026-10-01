@@ -743,7 +743,7 @@ não cobra e os 13 ativos entraram no livro com `custo_usd=0`.
 | **Idempotência** | ✅ duas execuções: livro **99 → 99** linhas de dado, **20 → 20** arquivos, segunda rodada "gerados 0 · reusados 13" |
 | Loudness | ✅ **−14,0 LUFS** medidos (alvo **declarado**, não verificado na doc da plataforma) |
 | Tetos aprovados em código | ✅ `src/media/limits.ts`: **US$ 12,00/min** e **US$ 60,00/mês**, com portão que **para** o pipeline e grava teto + aprovador no `meta.json` do episódio |
-| Portões provados por teste | ✅ custo **injetado** (nunca gasto real inventado): 12,01/min → `teto-por-minuto`; 59,99+0,02 → `teto-mensal`; célula vazia ≠ 0; sem livro durável → **recusa** |
+| Portões provados por teste | ✅ custo **injetado** (nunca gasto real inventado): 12,01/min → `teto-por-minuto`; 59,99+0,02 → `teto-mensal`; sem livro durável → **recusa**; provedor pago sem estimativa → **recusa antes de escrever** |
 | Tipos · suíte · build | ✅ `tsc` exit 0 · 210/210 · build exit 0 |
 
 **Por que "parcial", com todas as letras:** (a) o comando exato `pnpm exec vitest run src/media` **não
@@ -776,9 +776,75 @@ em leitura independente) e trouxe quatro achados que passam a valer:
    16:9/9:16. E o risco de negócio: o YouTube considera não monetizável conteúdo de IA massificado —
    variedade de enredo é elegibilidade, não capricho.
 
-**Revisão adversarial do pipeline (`rebeca-qa`) em execução** — ataques pedidos: duas rodadas do CLI
-com contagem do livro, formatos por `ffprobe`, tentativa de escrever asset de outro canal, livro
-corrompido, estimativa acima do teto e bloco de legenda depois do fim do vídeo.
+**Revisão adversarial do pipeline (`rebeca-qa`) — veredito: REFUTADO (parcial); achados corrigidos.**
+Relatório em `docs/qa/QA-010-pipeline-de-midia.md`. **O que passou:** formatos por `ffprobe`
+(1920×1080@30 e 1080×1920, 811 quadros, 27,033 s), legenda dentro da duração, loudness −14,0 LUFS,
+idempotência em duas rodadas (113 → 113 linhas de dado), hashes determinísticos, isolamento de canal
+(`ChannelScopeError` em 5/5, incluindo `..`, `/`, `C:` e maiúsculas), duração do custo/minuto vinda do
+arquivo renderizado (não de `tempo_min`) e nenhum número inventado.
+
+**O que caiu — e era o que mais importava:** o teto de gasto não era confiável. (1) Célula **vazia** de
+`custo_usd` era pulada, então "não sei o custo" entrava como "não gastou" — o QA somou 59,00 pagos +
+59,00 não verificados e o limite **passou**; pior, o teste do autor **afirmava o comportamento errado**
+enquanto o nome dizia o contrário, e **eu repeti essa afirmação falsa aqui no estado**. (2) O portão
+pré-gasto usava `estimateUsd ?? 0`: com provedor pago e sem estimativa, o pipeline **gerou tudo** (21
+arquivos, US$ 200 na reprodução do QA) antes de o portão de saída disparar.
+
+**Corrigido e provado por mutação:** célula vazia, valor negativo ou com separador pt-BR agora
+**lançam**; provedor que cobra passa a **declarar** `simulated: false` no contrato, e sem estimativa o
+pipeline **recusa antes de escrever qualquer arquivo** — os dois testes que faltavam existem
+(`media-custo` e o primeiro teste de pipeline em `media-render`), e desfazer cada correção deixa o teste
+correspondente **vermelho**. Também corrigidos: `renderPath` sem validação de extensão, citação de
+arquivo de evidência que não existia, `CHARS_PER_SECOND` sem procedência e a contradição de status no
+`ADR-010`. Suíte: **215/215 em 22 arquivos**; `tsc` e build exit 0.
+
+## App publicado é privado — decisão tomada, camada de código entregue (2026-10-01)
+
+Pedido literal do dono: *"fazer ele privado"*, na sequência de ter lido o aviso da tela de
+Configurações (a chave não pode ser colada no ambiente publicado e **"hoje quem alcançar o endereço
+consome a chave"**). Decisão e alternativas descartadas em **`ADR-011-app-privado.md`**.
+
+**O que foi medido antes de decidir (não herdado):** `https://rebeca-odda.vercel.app/api/ai/status`
+respondeu **HTTP 200 sem credencial nenhuma** — o app está de fato aberto a qualquer visitante. O
+`ADR-007` só barra a **escrita** de segredo; o **uso** das rotas (inclusive `POST /generate`, que
+gasta) continuava livre.
+
+**A decisão é em três camadas, com estados diferentes — e a diferença é declarada, não maquiada:**
+
+| # | Camada | Estado |
+|---|---|---|
+| 1 | **Vercel Authentication + escopo All Deployments** (fecha a porta de verdade; cobre app e `/api/*`) | ⏳ **ação do dono** — 1 clique por projeto; o agente não tem credencial da Vercel nesta sessão |
+| 2 | **`X-Robots-Tag` + `public/robots.txt` + `<meta name="robots">`** (não indexar, não arquivar) | ✅ **implementado e verificado** |
+| 3 | **Autenticação das rotas de IA** (identidade e trilha; é a F1, `D3`) | ⏳ aberta |
+
+**Fato de fonte (com data, porque preço e plano mudam):** *Vercel Authentication*, *Standard
+Protection* e *All Deployments* constam como **"Included" no plano Hobby**; *Password Protection*
+**não existe no Hobby** (US$ 20/mês por projeto no Pro). Deployment Protection "requires
+authentication for **all** requests, including those to Routing Middleware" e *All Deployments*
+protege "all URLs, including production domains". Fonte:
+<https://vercel.com/docs/deployment-protection> e
+<https://vercel.com/docs/deployment-protection/usage-and-pricing>, ambos `last_updated: 2026-09-15`,
+lidos em 2026-10-01. **É por isso que a camada 1 é a recomendada: é gratuita e não exige código.**
+
+| Verificação (camada 2) | Comando | Resultado |
+|---|---|---|
+| Cabeçalhos, robots e meta | `pnpm exec vitest run src/__tests__/headers.test.ts` | ✅ **11/11** (eram 8; 3 casos novos) |
+| **Prova adversarial** | remover as três camadas de propósito e rodar a mesma suíte | ✅ **3 reprovados exatamente** (`expected '' to contain 'noindex'`, `robots.txt` ausente, meta ausente) e arquivos restaurados **byte a byte idênticos** — `.rebeca/evidencias/adversarial-noindex.txt` |
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Sem colisão com o CSP | o `ADR-008` continua verde (o hash do script inline não mudou) | ✅ o mesmo arquivo de teste cobre os dois |
+
+**Não verificado (declarado):** a camada 1 **não foi ligada** — o agente não tem credencial da Vercel
+(o CLI existe na máquina mas não está autenticado e não roda sob o sandbox desta sessão). Enquanto o
+dono não ligar, o app **continua público**; a camada 2 só reduz descoberta, e o próprio `robots.txt`
+diz isso com todas as letras. **Também não verificado:** que exista um único projeto na Vercel — o
+`ADR-003` registra **dois** (`rebeca-odda` e `rebeca`), e a proteção vale por projeto, então ligar em
+um só deixa o outro aberto.
+
+**Ordem recomendada ao dono:** ligar a proteção de deploy **primeiro** (ela vale para os deploys
+existentes no ato) e só depois publicar as mudanças de código.
+
+**Nada foi commitado nem publicado** — a árvore tem trabalho não commitado, e o commit aqui exige a
+pasta quieta e a passagem pelo `rebeca-qa`.
 
 ## Verificação da F0 (o que foi realmente checado)
 
@@ -805,7 +871,7 @@ orquestra ser considerada confiável para trabalho de produção.
 |---|---|---|---|
 | D1 | Stack do front (React + Vite + TypeScript?) e do backend (Supabase puro vs. serviço Node separado?) | toda a F1 | humano |
 | ~~D2~~ | ✅ **decidida em 2026-10-01** — **Stack A** (MiniMax-H3 768P + FLUX.2 klein + Azure S1 Neural + Suno Pro) com **teto de US$ 12,00 por minuto** de vídeo. É a única stack cujos modelos têm termo lido e permitido para público infantil; o Google segue **vedado** nas três vias. Ver `ADR-005` (aceito) e `ADR-010` | `rebeca-ia-video`, `rebeca-backend` | humano |
-| D3 | Modelo de acesso: só o dono, ou equipe com papéis (editor/revisor)? | `rebeca-supabase` (RLS), `rebeca-produto` | humano |
+| D3 | Modelo de acesso: só o dono, ou equipe com papéis (editor/revisor)? — **o `ADR-011` não a responde**: ele só fecha a exposição pública (proteção de deploy + noindex). A autenticação de verdade, com identidade e papéis, segue na F1 | `rebeca-supabase` (RLS), `rebeca-produto` | humano |
 | D4 | Canal piloto para o primeiro ciclo real (Luna?) e meta de publicação | `rebeca-produto`, `rebeca-analytics` | humano |
 | ~~D5~~ | ✅ **decidida em 2026-10-01** — limite de gasto **mensal de US$ 60,00** (≈ 1 episódio de 7 min): *"validar qualidade antes de escalar"*. Os dois tetos vivem **em código** (`src/media/limits.ts`), não em variável de ambiente: mudar exige revisão | `rebeca-backend`, `rebeca-seguranca` | humano |
 | ~~D6~~ | ✅ **decidida em 2026-09-30** (GitHub privado + Vercel, ver `ADR-003`): *onde roda* está fechado. A **publicação efetiva** ainda depende do import do dono na Vercel — as duas coisas são separadas de propósito | `rebeca-powershell`, `rebeca-github` | humano |

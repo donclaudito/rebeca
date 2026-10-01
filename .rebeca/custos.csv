@@ -115,3 +115,11 @@ data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min
 2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.199,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
 2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.180,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
 2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.009,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2318,0.015868,0.000,humano:teto-aprovado,914,1404,criar-thumbnail@v1
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,63,0.000034,0.000,humano:teto-aprovado,46,17,teste-de-conexao
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2407,0.016758,0.000,humano:teto-aprovado,914,1493,criar-thumbnail@v1

@@ -173,13 +173,47 @@ export function ledgerRowCount(): number {
 }
 
 /**
+ * Custo de uma célula do livro, com as regras do contrato deste módulo.
+ *
+ * **O defeito que isto corrige (achado de gravidade alta do `rebeca-qa`):** a célula vazia era pulada
+ * (`continue`), ou seja, "não sei o custo" entrava na conta como "não gastou" — e o portão liberava
+ * gasto sobre um total que não conhecia. Reprodução do QA: 59,00 pagos + 59,00 com célula vazia
+ * somavam 59 e o limite **passava**. O comentário prometia o contrário do que o código fazia, e o teste
+ * do próprio autor afirmava o comportamento errado.
+ *
+ * Agora as três situações são distintas e **nenhuma é silenciosa**:
+ * - **vazio** = custo não verificado → lança ("não sei" não é "não gastou");
+ * - **fora do formato de número puro** (`-119`, `1.234,56`, `59,5`, `abc`) → lança: negativo mascararia
+ *   gasto e separador de milhar do pt-BR faria a conta mentir para baixo;
+ * - **número puro** → soma.
+ */
+const CUSTO_NUMERO_PURO = /^\d+(?:\.\d+)?(?:[eE]-?\d+)?$/;
+
+function costFromCell(raw: string, context: string): number {
+  if (raw === '') {
+    throw new MediaBudgetError(
+      'custo-invalido',
+      `Custo não verificado (célula vazia) ${context}. "Não sei" não é "não gastou": o teto não pode ser aplicado sobre gasto desconhecido. Preencha o custo da linha ou remova a linha.`,
+    );
+  }
+  if (!CUSTO_NUMERO_PURO.test(raw)) {
+    throw new MediaBudgetError(
+      'custo-invalido',
+      `Custo ilegível no livro ("${raw}") ${context}. O teto não pode ser aplicado com valor fora do formato de número puro (sem sinal e sem separador de milhar).`,
+    );
+  }
+  return Number.parseFloat(raw);
+}
+
+/**
  * Gasto somado de um mês.
  *
  * Regras de leitura, todas deliberadas:
- * - célula **vazia** em `custo_usd` = custo não verificado (modelo fora da tabela de preços). Não soma
- *   zero: somar zero trataria "não sei" como "não gastou";
- * - célula **não numérica** = livro corrompido. **Lança**, em vez de ignorar em silêncio: este número
- *   alimenta o portão que impede gasto acima do limite, e um portão que engole erro não é portão;
+ * - célula **vazia** em `custo_usd` = custo não verificado (modelo fora da tabela de preços): **lança**.
+ *   Não soma zero — somar zero trataria "não sei" como "não gastou", que é como o gasto escapa do teto;
+ * - célula **não numérica** (ou negativa, ou com separador pt-BR) = livro corrompido: **lança**, em vez
+ *   de ignorar em silêncio. Este número alimenta o portão que impede gasto acima do limite, e um portão
+ *   que engole erro não é portão;
  * - `canal` é filtro opcional; sem ele, soma o mês inteiro (o D5 é limite de **carteira**, não de canal —
  *   US$ 60/mês cobre o projeto, não cada canal separadamente).
  */
@@ -205,15 +239,7 @@ export function monthlySpendUsd(month: string, channelName?: string): number {
     if ((row[dataIndex] ?? '').trim().slice(0, 7) !== month) continue;
     if (channelName !== undefined && channelIndex !== -1 && (row[channelIndex] ?? '').trim() !== channelName) continue;
     const raw = (row[costIndex] ?? '').trim();
-    if (raw === '') continue;
-    const value = Number.parseFloat(raw);
-    if (!Number.isFinite(value)) {
-      throw new MediaBudgetError(
-        'custo-invalido',
-        `Custo ilegível no livro ("${raw}") na linha: ${row.join(',')}. O limite mensal não pode ser aplicado com o livro corrompido.`,
-      );
-    }
-    total += value;
+    total += costFromCell(raw, `na linha: ${row.join(',')}`);
   }
   return total;
 }
@@ -244,15 +270,7 @@ export function episodeSpendUsd(episodeId: string, channelName?: string): number
     if ((row[contentIndex] ?? '').trim() !== episodeId) continue;
     if (channelName !== undefined && channelIndex !== -1 && (row[channelIndex] ?? '').trim() !== channelName) continue;
     const raw = (row[costIndex] ?? '').trim();
-    if (raw === '') continue;
-    const value = Number.parseFloat(raw);
-    if (!Number.isFinite(value)) {
-      throw new MediaBudgetError(
-        'custo-invalido',
-        `Custo ilegível no livro ("${raw}") na linha: ${row.join(',')}. O teto por minuto não pode ser aplicado com o livro corrompido.`,
-      );
-    }
-    total += value;
+    total += costFromCell(raw, `na linha: ${row.join(',')}`);
   }
   return total;
 }

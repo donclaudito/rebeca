@@ -1,12 +1,11 @@
 # ADR-010 — Pipeline de mídia: a máquina que transforma roteiro em vídeo
 
 ## Status
-**proposto** — o desenho está fechado; a **Fase 0 está em implementação** (esqueleto com provedores
-simulados, custo zero) e a evidência dela é anexada a este ADR quando fechar. A **D2 foi aprovada em
-2026-10-01** (`ADR-005` aceito: Stack A, teto de **US$ 12,00/min**) e a **D5** ficou em
-**US$ 60,00/mês** — com isso a Fase 1 deixou de depender de escolha de provedor. Ela depende agora de
-duas coisas concretas: o **Character Sheet** da Luna (arte, `rebeca-branding`) e a **D1** (onde roda o
-job longo).
+**proposto** — a **Fase 0 foi entregue e verificada** (esqueleto com provedores simulados, custo zero) e
+passou por **revisão adversarial** (`docs/qa/QA-010-pipeline-de-midia.md`): veredito **refutado em parte**
+— a máquina foi aprovada como base da Fase 1, mas os **dois achados de gravidade alta no teto de gasto**
+foram corrigidos depois da revisão e provados por mutação. A **D2 foi aprovada em 2026-10-01**
+(`ADR-005` aceito: Stack A, teto de **US$ 12,00/min**) e a **D5** ficou em **US$ 60,00/mês**.
 
 ## Data
 2026-10-01
@@ -20,7 +19,8 @@ metade de texto da etapa "Criar" existe (15 prompts, `criar-roteiro`, `criar-cen
 `identidade-personagem`, com custo real lançado); a metade de **mídia** não existe.
 
 O `ADR-005` já decidiu **quais** provedores podem gerar a mídia e por quanto (allow-list por canal,
-Stack A a US$ 8,55/min, teto proposto de US$ 12/min) — e está aguardando aprovação humana. O que
+Stack A a US$ 8,55/min, teto de US$ 12/min) — **e foi aprovado pelo dono do produto em 2026-10-01**
+(ver "Decisão aprovada" no `ADR-005`). O que
 **não** existia era a decisão de **como a máquina é construída**: contratos, ordem das etapas,
 idempotência, onde o custo entra, como o Short nasce do longo e como o resultado não vira lixo caro
 quando um provedor cai. Este ADR decide isso.

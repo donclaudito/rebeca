@@ -14,7 +14,7 @@
  * verdade e não pode sujar a árvore de ativos nem o livro de custos do projeto.
  */
 
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -84,6 +84,46 @@ function listarArquivos(): string[] {
 }
 
 describe('render de verdade com ffmpeg local', () => {
+  it.skipIf(!HAS_FFMPEG)(
+    'recusa gerar com provedor PAGO e sem estimativa — antes de escrever qualquer arquivo',
+    async () => {
+      /*
+       * Achado de gravidade alta do `rebeca-qa`: o portão de entrada usava `estimateUsd ?? 0`, então um
+       * chamador sem estimativa fazia o portão comparar ZERO com o teto — passava — e o pipeline gerava
+       * tudo antes de o portão de saída (com custo medido) disparar. Na reprodução do QA, com provedor
+       * de US$ 50 por ativo: 21 arquivos e US$ 200 lançados antes de qualquer bloqueio.
+       *
+       * Este é o teste que faltava: o de `limits.ts` é unitário e não cobre o caminho do pipeline.
+       */
+      const { runSimulatedEpisode } = await import('../../../server/media/simulated-episode.js');
+      const { SIMULATED_PROVIDERS } = await import('../../../server/media/providers/simulated.js');
+      const { MediaBudgetError } = await import('../limits.js');
+
+      const comProvedorPago = {
+        ...SIMULATED_PROVIDERS,
+        image: { ...SIMULATED_PROVIDERS.image, id: 'provedor-pago-fake', simulated: false },
+      };
+
+      const linhasAntes = ledgerRowCount();
+      let capturado: unknown = null;
+      try {
+        await runSimulatedEpisode(EPISODIO_DE_TESTE, {
+          now: new Date('2026-10-01T12:00:00.000Z'),
+          providers: comProvedorPago,
+        });
+      } catch (error) {
+        capturado = error;
+      }
+
+      expect(capturado).toBeInstanceOf(MediaBudgetError);
+      expect((capturado as { code?: string }).code).toBe('estimativa-obrigatoria');
+      // O ponto do achado: **nada** foi gerado nem cobrado antes de recusar.
+      expect(ledgerRowCount()).toBe(linhasAntes);
+      expect(existsSync(join(tempDir, 'assets', 'luna', 'luna-ep-teste'))).toBe(false);
+    },
+    TIMEOUT,
+  );
+
   it.skipIf(!HAS_FFMPEG)(
     'gera longo 16:9, Short 9:16, legenda e manifesto — e a segunda execução não cria nada',
     async () => {
