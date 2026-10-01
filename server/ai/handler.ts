@@ -48,6 +48,7 @@ import { PROVIDERS, PROVIDER_ENV, type ProviderId } from './providers.js';
 import { ANTHROPIC_PROVIDER, GOOGLE_PROVIDER } from './providers-extra.js';
 import { PROMPTS } from './prompts.generated.js';
 import {
+  assertPlausibleKey,
   configPath,
   isHosted,
   loadConfig,
@@ -1121,8 +1122,43 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
   const typed = provider as RealProviderId;
   const entry = defaultModelFor('rapido', typed) ?? defaultModelFor('raciocinio', typed);
 
+  /*
+   * Chave **digitada na tela e ainda não salva**.
+   *
+   * O painel promete o fluxo colar → testar → salvar, e habilita o botão assim que o campo tem algo.
+   * Sem aceitar essa chave aqui, o botão testava apenas o que já estava gravado: o dono colava a chave,
+   * clicava em "Testar conexão" e recebia "não há chave cadastrada para este provedor" — com a chave
+   * na frente dele. Foi exatamente o relatado ("colei a API e nada").
+   *
+   * Três cuidados, nessa ordem:
+   *   1. **Onde**: só é aceita onde a configuração é gravável. Em ambiente publicado esta rota é
+   *      pública, e aceitar credencial de visitante seria o mesmo furo que o `PUT /api/ai/settings` já
+   *      recusa — aqui a recusa é 403, não silêncio.
+   *   2. **Validação**: passa pela mesma checagem de plausibilidade do salvamento, para não gastar uma
+   *      chamada paga com valor colado pela metade.
+   *   3. **Descarte**: a chave do corpo é usada nesta chamada e **nunca gravada**; o resultado devolve
+   *      provedor, modelo, latência e custo — nunca a credencial.
+   */
+  const typedKey = typeof record['apiKey'] === 'string' ? record['apiKey'].trim() : '';
+  if (typedKey.length > 0) {
+    if (!settingsWritable()) {
+      throw new AiError(
+        {
+          code: 'nao-autorizado',
+          message:
+            'Este ambiente não aceita chave vinda do navegador. Configure o segredo no servidor (variável de ambiente) e teste de novo.',
+          retryable: false,
+        },
+        403,
+      );
+    }
+    assertPlausibleKey(typedKey);
+  }
+
   const resolved = resolveProvider(typed, PROVIDER_ENV[typed], defaultBaseUrlFor(typed));
-  if (resolved.apiKey.length === 0) {
+  // A chave digitada tem precedência sobre a salva: é ela que o usuário está perguntando se funciona.
+  const apiKey = typedKey.length > 0 ? typedKey : resolved.apiKey;
+  if (apiKey.length === 0) {
     return {
       provider: typed,
       ok: false,
@@ -1173,7 +1209,7 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
         maxOutputTokens,
         jsonSchema: null,
         signal: controller.signal,
-        apiKey: resolved.apiKey,
+        apiKey,
         baseUrl: resolved.baseUrl,
       });
     } finally {

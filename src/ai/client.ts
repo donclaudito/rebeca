@@ -126,11 +126,20 @@ export function saveSettings(patch: AiSettingsPatch): Promise<AiSettingsSaveResu
   });
 }
 
-/** Testa a conexão de um provedor com uma chamada mínima real. */
-export function testProvider(provider: string): Promise<ProviderTestResult> {
+/**
+ * Testa a conexão de um provedor com uma chamada mínima real.
+ *
+ * `apiKey` é a chave **digitada na tela e ainda não salva**. O painel promete o fluxo colar → testar
+ * → salvar e habilita o botão assim que o campo tem algo; sem enviar a chave, o botão testava só o
+ * que já estava gravado e quem colava uma chave nova recebia "não há chave cadastrada" — com a chave
+ * na frente. O servidor usa esse valor e o descarta: não grava nada (e recusa chave vinda do
+ * navegador em ambiente publicado).
+ */
+export function testProvider(provider: string, apiKey?: string): Promise<ProviderTestResult> {
+  const body = apiKey && apiKey.length > 0 ? { provider, apiKey } : { provider };
   return requestJson<ProviderTestResult>('/test', {
     method: 'POST',
-    body: JSON.stringify({ provider }),
+    body: JSON.stringify(body),
   });
 }
 

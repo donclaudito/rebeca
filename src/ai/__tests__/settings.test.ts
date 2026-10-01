@@ -16,10 +16,10 @@
  * escreve em `.rebeca/segredos/`, e nenhuma chave real existe no ambiente.
  */
 
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assertSafeProviderUrl,
   configPath,
@@ -307,6 +307,60 @@ describe('teste de conexão', () => {
     const result = await handleTestProvider({ provider: 'openai' });
     expect(result.ok).toBe(false);
     expect(result.message).toMatch(/teto diário|durar/i);
+  });
+
+  it('usa a chave DIGITADA na tela e não grava nada', async () => {
+    /*
+     * Relato do dono, literal: "colei a API e nada" — a tela respondia "não há chave cadastrada para
+     * este provedor" com a chave na frente dele. Causa: o botão mandava só `{ provider }` e o servidor
+     * resolvia a credencial do que já estava salvo. O fluxo prometido pelo painel é colar → testar →
+     * salvar, então a chave digitada tem de ser a testada — e continuar sem ser gravada.
+     */
+    let authorizationVisto = '';
+    const fetchStub = vi.fn(async (_url: string, init: RequestInit) => {
+      authorizationVisto = String((init.headers as Record<string, string>)['authorization'] ?? '');
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          choices: [{ message: { content: 'ok' } }],
+          usage: { prompt_tokens: 5, completion_tokens: 1 },
+        }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchStub);
+
+    const digitada = 'chave-colada-na-tela-0000000000';
+    const result = await handleTestProvider({ provider: 'openai', apiKey: digitada });
+
+    expect(fetchStub).toHaveBeenCalledTimes(1);
+    expect(authorizationVisto).toBe(`Bearer ${digitada}`);
+    expect(result.ok).toBe(true);
+    // Usada e descartada: testar não pode salvar a chave — isso é ato do botão "Salvar".
+    expect(existsSync(settingsFile)).toBe(false);
+    expect(loadConfig().providers['openai']).toBeUndefined();
+  });
+
+  it('em ambiente publicado, recusa a chave vinda do navegador em vez de testá-la', async () => {
+    // A rota é pública: aceitar credencial de visitante ali seria o mesmo furo que o PUT já recusa.
+    process.env['VERCEL'] = '1';
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(
+      handleTestProvider({ provider: 'openai', apiKey: 'chave-colada-na-tela-0000000000' }),
+    ).rejects.toMatchObject({ code: 'nao-autorizado', status: 403 });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('recusa chave digitada implausível ANTES de gastar a chamada', async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await expect(handleTestProvider({ provider: 'openai', apiKey: 'abc' })).rejects.toMatchObject({
+      code: 'entrada-invalida',
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

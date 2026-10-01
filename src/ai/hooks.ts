@@ -62,7 +62,9 @@ export function useSaveAiSettings() {
 export function useTestProvider() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (provider: string) => testProvider(provider),
+    // `apiKey` é a chave digitada e ainda não salva: o teste é sobre ela, não sobre a que está gravada.
+    mutationFn: ({ provider, apiKey }: { provider: string; apiKey?: string }) =>
+      testProvider(provider, apiKey),
     onSuccess: () => {
       // O teste grava custo real no livro — o painel de gasto precisa refletir isso.
       void queryClient.invalidateQueries({ queryKey: aiKeys.settings() });

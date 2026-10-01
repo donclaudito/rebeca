@@ -362,9 +362,15 @@ export function AiSettingsPanel() {
                     onClick={() => {
                       setTestingProvider(provider.provider);
                       setFeedback(null);
-                      test.mutate(provider.provider, {
-                        onSettled: () => setTestingProvider(null),
-                      });
+                      // A chave **digitada** vai junto: testar só a salva devolvia "não há chave
+                      // cadastrada" para quem tinha acabado de colar uma (relato: "colei a API e nada").
+                      test.mutate(
+                        {
+                          provider: provider.provider,
+                          apiKey: (draft.keys[provider.provider] ?? '').trim() || undefined,
+                        },
+                        { onSettled: () => setTestingProvider(null) },
+                      );
                     }}
                   >
                     <Plug size={14} aria-hidden="true" />

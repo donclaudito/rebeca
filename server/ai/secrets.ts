@@ -356,7 +356,7 @@ function writeAtomically(config: AiUserConfig): void {
    ============================================================================= */
 
 /** Chave plausível: corta digitação errada e valor colado pela metade antes de virar chamada paga. */
-function assertPlausibleKey(key: string): void {
+export function assertPlausibleKey(key: string): void {
   if (key.length < 12) {
     throw new AiError(
       { code: 'entrada-invalida', message: 'A chave parece curta demais. Confira se colou o valor completo.', retryable: false },

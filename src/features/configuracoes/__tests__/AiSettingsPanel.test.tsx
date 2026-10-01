@@ -236,4 +236,31 @@ describe('painel de configuração de IA', () => {
     const providers = body['providers'] as Record<string, Record<string, unknown>> | undefined;
     expect(providers?.['openai']?.apiKey).toBeUndefined();
   });
+
+  it('testar conexão envia a chave DIGITADA, e não só a que já está salva', async () => {
+    /*
+     * Relato do dono, literal: "colei a API e nada". Com a chave no campo, o servidor respondia "não
+     * há chave cadastrada para este provedor" — porque o teste mandava apenas `{ provider }` e a
+     * credencial era resolvida só do que já estava gravado. O fluxo prometido pelo painel é
+     * colar → testar → salvar; a asserção aqui é sobre o corpo enviado.
+     */
+    const fetchMock = stubSettings(settingsView());
+    renderPanel();
+
+    const campos = (await screen.findAllByLabelText('Chave de API')) as HTMLInputElement[];
+    const anthropic = campos[1];
+    expect(anthropic).toBeDefined();
+    await userEvent.setup().type(anthropic as HTMLInputElement, 'chave-colada-na-tela-0001');
+
+    const botoes = screen.getAllByRole('button', { name: /Testar conexão/i });
+    await userEvent.setup().click(botoes[1] as HTMLElement);
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.some((call) => String(call[0]).includes('/test'))).toBe(true);
+    });
+
+    const testCall = fetchMock.mock.calls.find((call) => String(call[0]).includes('/test'));
+    const body = JSON.parse(String((testCall?.[1] as RequestInit).body)) as Record<string, unknown>;
+    expect(body).toEqual({ provider: 'anthropic', apiKey: 'chave-colada-na-tela-0001' });
+  });
 });
