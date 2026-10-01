@@ -696,6 +696,90 @@ fechar. **Nada foi gasto.**
 3. As **questões de advogado** listadas no `ADR-005` continuam abertas e são condição de operação, não
    detalhe.
 
+## Revisão — a tela mentia, e a thumbnail não tinha como ser gerada (2026-10-01)
+
+Dois relatos do dono na mesma tela, dois defeitos reais (commits `fbd840b` e `818c393`).
+
+**1. "não parece que funciona".** O cartão "O que a IA fez aqui" listava, com **checkmarks verdes**,
+*"Roteiro, cenas, narração e montagem prontos"* e *"N opções de thumbnail geradas"*. **Nada disso
+existia:** zero arquivos de vídeo no repositório, nenhuma narração, e a arte das thumbnails é
+placeholder (`docs/03:256` já dizia que o produto não produz arte). O subtítulo ainda mandava
+**"Assista"**. Corrigido: o subtítulo não promete player; o espaço do vídeo diz *"Prévia do vídeo ·
+6:42 planejados / nenhum vídeo foi gerado ainda"*; e o cartão virou **"O que existe neste conteúdo"** —
+o que existe (SEO), o que falta (arte, vídeo, narração) e sobre o que a decisão vale. O `ArtSlot`
+ganhou um parâmetro `note`, porque "arte pendente" é verdade para arte e **mentira para vídeo**.
+
+**2. "não dá opção de gerar".** A função de IA `criar-thumbnail` estava registrada no contrato desde a
+camada de LLM e **nenhuma tela a chamava** — era uma das 5 lacunas já registradas. Agora existe o
+botão: a IA propõe 3–4 conceitos (rótulo, o que a arte deve mostrar, texto na arte) usando o contexto
+de marca do canal (personagem oficial + paleta; o estilo vai composto do que o Brand Kit tem, sem
+inventar). Aplicar passa por `api.proposeThumbnails`, que substitui as opções, **limpa a escolha
+anterior** e **derruba a aprovação** de conteúdo já aprovado — mesmo caminho de `selectThumbnail` e
+`saveTitle`. **O que a IA devolve é conceito, não imagem**: a arte continua pendente, e a tela diz isso.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Testes da tela de Revisão | `pnpm exec vitest run src/features/revisao` | ✅ **7** (eram 4): honestidade, player, e o fluxo pedir → aplicar |
+| Testes da gravação | `src/data/__tests__/propor-thumbnails.test.ts` | ✅ **5/5** — substitui, limpa escolha, derruba aprovação, recusa outro canal, recusa lista vazia |
+| **Prova adversarial (honestidade)** | repor *"Roteiro, cenas, narração e montagem prontos"* | ✅ teste fica **vermelho** e aponta o texto; restaurado |
+| **Prova adversarial (player)** | repor o rótulo antigo do slot | ✅ teste fica **vermelho**; restaurado |
+| Suíte completa | `pnpm exec vitest run` | ✅ **210/210 em 22 arquivos** — `.rebeca/evidencias/vitest-thumbnail-e-fase0.txt` |
+| Build de produção | `pnpm run build` | ✅ exit 0 |
+
+**Lição registrada:** ao restaurar uma mutação de teste, meu próprio script corrigiu a **ocorrência
+errada** (o comentário em vez da linha renderizada) e a frase falsa voltou para a tela. **O teste que
+eu tinha acabado de escrever pegou** — ficou vermelho na hora e apontou o texto. Teste que não morde
+não protege nada.
+
+## Pipeline de mídia — Fase 0 entregue (status **parcial** declarado)
+
+20 arquivos novos (`src/media/`, `server/media/`, `.tools/render-episodio.mjs`,
+`.rebeca/canais/luna/spec-midia.json`) + 6 arquivos de teste (47 testes). Nada foi gasto: ffmpeg local
+não cobra e os 13 ativos entraram no livro com `custo_usd=0`.
+
+| Verificação | Resultado observado |
+|---|---|
+| Render real (não é mock de texto) | ✅ longo **1920,1080,30/1** e Short **1080,1920,30/1**, 811 quadros, 27,033 s, mais `.srt` da mesma timeline (desvio fala↔legenda **12 ms**) |
+| **Idempotência** | ✅ duas execuções: livro **99 → 99** linhas de dado, **20 → 20** arquivos, segunda rodada "gerados 0 · reusados 13" |
+| Loudness | ✅ **−14,0 LUFS** medidos (alvo **declarado**, não verificado na doc da plataforma) |
+| Tetos aprovados em código | ✅ `src/media/limits.ts`: **US$ 12,00/min** e **US$ 60,00/mês**, com portão que **para** o pipeline e grava teto + aprovador no `meta.json` do episódio |
+| Portões provados por teste | ✅ custo **injetado** (nunca gasto real inventado): 12,01/min → `teto-por-minuto`; 59,99+0,02 → `teto-mensal`; célula vazia ≠ 0; sem livro durável → **recusa** |
+| Tipos · suíte · build | ✅ `tsc` exit 0 · 210/210 · build exit 0 |
+
+**Por que "parcial", com todas as letras:** (a) o comando exato `pnpm exec vitest run src/media` **não
+roda neste sandbox** (o Vite falha com `spawn EPERM`) — rodou com config node-only equivalente
+(47/47); (b) a suíte tinha 1 vermelho que era **meu** (o teste de thumbnail acima), agora corrigido.
+
+**O que a Fase 1 ainda exige** (nada disso está pronto): provedor real atrás das mesmas interfaces
+(MiniMax/Luma), upscale 768P→1080p e conformação de fps no render, **rodapé de rótulo *deep synthesis*
+obrigatório** quando o provedor for MiniMax, **Character Sheet** (a referência hoje é sintética),
+seleção do trecho de gancho para o Short (hoje o Short é o episódio inteiro quando ele é curto) e o
+job longo fora do request HTTP (**D1**).
+
+## Verificação independente dos preços — contraprova do `ADR-005` (2026-10-01)
+
+Dossiê em **`.rebeca/pesquisa/provedores-midia-e-voz-2026-10-01.md`**. A coleta **confirmou a Stack A**
+(voz Azure a **US$ 0,0135/min**, lida na Azure Retail Prices API oficial, com vozes prebuilt liberadas
+comercialmente; vídeo MiniMax H3 a **US$ 0,08/s**; Google vedado para público menor de 18, reconfirmado
+em leitura independente) e trouxe quatro achados que passam a valer:
+
+1. **Kling é mais barato (≈ US$ 3,78/min) e continua BLOQUEADO.** A coleta leu preços e `llms.txt`, mas
+   **não** releu os dois documentos contratuais que se contradizem sobre uso comercial — o bloqueio do
+   `ADR-005` permanece. Deixar o preço justificar o fornecedor é exatamente o que aquele ADR recusa.
+2. **`libx264` é GPL.** Hoje **não** há obrigação de distribuição (o Rebeca executa o binário num
+   servidor, não distribui), mas a obrigação nasceria se o render fosse embarcado. Registrado no
+   `ADR-010` como decisão consciente.
+3. **Udio e MusicGen estão fora por licença** (Udio veda uso comercial e distribuição em YouTube;
+   MusicGen tem pesos CC-BY-NC). **Suno** só dá direito comercial para download feito **durante
+   assinatura ativa** — regra operacional do pipeline.
+4. **Portas fechadas:** Sora desligado em 2026-09-24; `gpt-image-1` em fim de vida (2026-10-23) e sem
+   16:9/9:16. E o risco de negócio: o YouTube considera não monetizável conteúdo de IA massificado —
+   variedade de enredo é elegibilidade, não capricho.
+
+**Revisão adversarial do pipeline (`rebeca-qa`) em execução** — ataques pedidos: duas rodadas do CLI
+com contagem do livro, formatos por `ffprobe`, tentativa de escrever asset de outro canal, livro
+corrompido, estimativa acima do teto e bloco de legenda depois do fim do vídeo.
+
 ## Verificação da F0 (o que foi realmente checado)
 
 | Verificação | Comando | Resultado |

@@ -185,3 +185,28 @@ o custo por minuto do episódio ou o gasto do mês estoura.
 **Pendências que a aprovação NÃO resolve e que bloqueiam a Fase 1:** o **Character Sheet** da Luna
 (não existe arte de personagem no repositório — dívida do `rebeca-branding`) e a **D1** (onde roda o
 job longo, já que gerar vídeo fora do request HTTP é requisito). Ver `ADR-010`.
+
+---
+
+## Verificação independente dos preços (2026-10-01)
+
+Coleta própria, em fonte primária, registrada em
+**`.rebeca/pesquisa/provedores-midia-e-voz-2026-10-01.md`**. Resultado:
+
+**Confirmado:** a vedação do Google a público menor de 18 (releitura independente, agora também para
+TTS); a **voz da Stack A** — Azure S1 Neural, **US$ 15,00/1M caracteres = US$ 0,0135 por minuto
+narrado**, lido na Azure Retail Prices API, com vozes prebuilt liberadas comercialmente; e o **vídeo
+da Stack A** — MiniMax H3 768P a **US$ 0,08/s** (≈ US$ 7,20/min final com o retrabalho de 1,5×). Pika,
+Cartesia e ElevenLabs permanecem fora pelos mesmos motivos.
+
+**Divergência registrada — Kling:** a coleta mede **US$ 0,042/s ≈ US$ 3,78/min final**, com 16:9 e
+9:16 documentados, first/last frame e "Elements" para consistência de personagem. Seria o mais barato
+tecnicamente adequado. **O bloqueio deste ADR permanece** e não foi refutado: a coleta independente
+leu preços e `llms.txt`, **não** releu os dois documentos contratuais que se contradizem sobre uso
+comercial (um deles exigindo rotular o output com a marca "Kling AI"). Trocar para Kling sem essa
+leitura seria deixar o preço justificar o fornecedor — exatamente o que este ADR recusa.
+
+**Regras operacionais que passam a valer:** a trilha da Suno só tem licença comercial se o **download
+for feito durante assinatura paga** (não é retroativa) → o pipeline tem de guardar o arquivo baixado
+enquanto a assinatura está ativa; **Udio** está fora (veda uso comercial **e** distribuição em
+YouTube) e **MusicGen** está fora (pesos CC-BY-NC). O `ADR-010` registra o ponto do `libx264` (GPL).

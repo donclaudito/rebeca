@@ -74,6 +74,16 @@ documentação oficial — o repositório não inventa número de plataforma. Qu
 a MiniMax, o **rodapé de rótulo de *deep synthesis*** exigido pelo `ADR-005` é requisito de render,
 verificado no arquivo final — não uma recomendação.
 
+> **Nota de licença (registrada em 2026-10-01, verificação independente):** o encoder escolhido,
+> **`libx264`, é GPL**, e a própria FFmpeg diz que *"if those parts get used the GPL applies to all of
+> FFmpeg"*, recomendando *"make sure your program is not using any GPL libraries (notably libx264)"*
+> para quem quer ficar só em LGPL. **Hoje não há obrigação de distribuição** porque o Rebeca *executa*
+> um binário ffmpeg em servidor (SaaS) — não distribui o binário nem o liga ao produto. A obrigação
+> nasceria no dia em que o render for embarcado no aplicativo do usuário. Fica como decisão
+> consciente: se um dia o render for distribuído, trocar para um encoder compatível ou passar a
+> cumprir a GPL. Fonte: `ffmpeg.org/legal.html`, em
+> `.rebeca/pesquisa/provedores-midia-e-voz-2026-10-01.md`.
+
 **7. Job longo, checkpoint e cancelamento.** Cada etapa grava seu artefato e seu checkpoint no
 manifesto; retomar parte do último passo concluído. **Gerar vídeo dentro do request HTTP é proibido**
 por desenho — a Fase 0 roda por CLI justamente para que, quando a fila existir (D1), o mesmo pipeline
