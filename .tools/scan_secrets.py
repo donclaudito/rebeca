@@ -45,6 +45,12 @@ PATTERNS: list[tuple[str, str]] = [
     # `(?<![A-Za-z0-9])` impede casar prosa do tipo "disk-..." com 32+ alfanuméricos.
     # Cobre OpenAI e DeepSeek — o formato `sk-` + 32+ alfanuméricos é o mesmo nos dois.
     ("openai-key", r"(?<![A-Za-z0-9])sk-[A-Za-z0-9]{32,}\b"),
+    # Chaves de PROJETO e de CONTA DE SERVIÇO da OpenAI: `sk-proj-…`, `sk-svcacct-…`,
+    # `sk-admin-…`. O padrão acima NÃO as cobre, porque há hífens logo depois de `sk-` e
+    # `[A-Za-z0-9]{32,}` para no terceiro caractere. É a mesma classe de furo do `sk-ant-`:
+    # uma chave real desse formato passaria com o CI dizendo "limpo". Descoberto em 2026-10-01,
+    # quando uma chave `sk-proj-…` de verdade apareceu numa sessão.
+    ("openai-project-key", r"\bsk-(?:proj|svcacct|admin)-[A-Za-z0-9_\-]{20,}\b"),
     # Claude/Anthropic: `sk-ant-api...`, enviado como bearer no cabeçalho Authorization
     # (fonte: platform.claude.com/docs/en/manage-claude/authentication, lido em 2026-09-30).
     # NÃO casa com o padrão acima: `sk-ant-api03-…` tem hífens logo depois de `sk-`, e
