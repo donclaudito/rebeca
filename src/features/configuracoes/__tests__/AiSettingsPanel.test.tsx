@@ -174,6 +174,46 @@ describe('painel de configuração de IA', () => {
     expect(campoChave).toBeDisabled();
   });
 
+  it('em app publicado, o campo explica por que está desativado em vez de convidar a colar', async () => {
+    /*
+     * Relato do dono, literal: "os provedores não aceitam colar as api". O comportamento estava
+     * certo — campo `disabled`, porque rota pública que aceita credencial de visitante é
+     * vulnerabilidade — mas a tela convidava a uma ação impossível: o campo vazio dizia "cole a chave
+     * aqui" e o motivo ficava num parágrafo pequeno acima. Este teste exige as duas coisas: o motivo
+     * junto dos campos e o caminho que de fato funciona, escrito na tela.
+     */
+    stubSettings(settingsView({ writable: false, hosted: true, configPath: null }));
+    renderPanel();
+
+    expect(await screen.findByText(/não pode ser colada aqui/i)).toBeInTheDocument();
+    // O caminho que funciona: o app local, onde o mesmo painel é editável.
+    expect(screen.getByText('pnpm dev')).toBeInTheDocument();
+    expect(screen.getByText('localhost:5173')).toBeInTheDocument();
+
+    const campos = screen.getAllByLabelText('Chave de API') as HTMLInputElement[];
+    expect(campos.length).toBeGreaterThan(0);
+    for (const campo of campos) {
+      expect(campo).toBeDisabled();
+      // O campo não pode convidar a uma ação que a tela não permite.
+      expect(campo.placeholder).toMatch(/não editável/i);
+      expect(campo.placeholder).not.toMatch(/cole a chave/i);
+    }
+  });
+
+  it('em ambiente local, o campo convida a colar a chave e não mostra o aviso de somente leitura', async () => {
+    // A outra face da moeda: o conserto do aviso não pode matar o caminho editável.
+    stubSettings(settingsView());
+    renderPanel();
+
+    expect(await screen.findByText('OpenAI')).toBeInTheDocument();
+    expect(screen.queryByText(/não pode ser colada aqui/i)).not.toBeInTheDocument();
+
+    const campos = screen.getAllByLabelText('Chave de API') as HTMLInputElement[];
+    const semChave = campos[1]; // Anthropic, sem chave neste cenário
+    expect(semChave).toBeEnabled();
+    expect(semChave?.placeholder).toBe('cole a chave aqui');
+  });
+
   it('salvar envia apenas o que mudou, e não apaga a chave quando o campo fica vazio', async () => {
     const fetchMock = stubSettings(settingsView());
     renderPanel();

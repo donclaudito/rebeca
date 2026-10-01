@@ -211,10 +211,9 @@ export function AiSettingsPanel() {
       <p className="text-[11.5px] text-ink-3 leading-relaxed">
         {readOnly ? (
           <>
-            Este app está <strong>publicado</strong>, então a configuração de IA não é editável por
-            aqui — uma página pública que aceita chave de API de qualquer visitante seria uma
-            vulnerabilidade. Neste ambiente, configure as chaves no gerenciador de segredos do
-            servidor (variáveis de ambiente: {data.providers.map((p) => p.envVar).join(', ')}).
+            As chaves ficam no servidor; o navegador recebe apenas a máscara, nunca o valor. Neste
+            ambiente a tela é <strong>somente leitura</strong> — o motivo e o caminho que funciona
+            estão logo abaixo, junto dos campos.
           </>
         ) : (
           <>
@@ -237,6 +236,39 @@ export function AiSettingsPanel() {
       {/* --- fornecedores: chave e endereço ---------------------------------- */}
       <div className="mt-4">
         <p className="text-[11px] font-semibold text-ink-2 mb-2">Provedores — chave e endereço</p>
+
+        {/*
+         * O aviso fica AQUI, colado nos campos, e não só no parágrafo de cima.
+         *
+         * Defeito real, relatado pelo dono: com o app publicado ele tentou colar a chave, o campo não
+         * aceitava (está `disabled` de propósito, porque rota pública que aceita credencial de
+         * visitante é vulnerabilidade) e a conclusão foi "os provedores não aceitam colar a API". O
+         * comportamento estava certo; a explicação estava longe e o campo ainda dizia "cole a chave
+         * aqui" — convite para uma ação impossível. Aqui a tela diz o motivo, onde ele está olhando,
+         * e o que fazer em vez disso.
+         */}
+        {readOnly && (
+          <div
+            role="note"
+            className="mb-3 flex items-start gap-2 rounded-md border border-[color:var(--ams-warn)] bg-[color:var(--ams-warn-soft)] px-3 py-2"
+          >
+            <ShieldAlert size={14} className="mt-0.5 shrink-0 text-warn" aria-hidden="true" />
+            <p className="text-[11.5px] leading-relaxed text-warn">
+              <strong>A chave não pode ser colada aqui.</strong> Este app está <strong>publicado</strong>,
+              e uma página pública que aceita chave de API de qualquer visitante seria uma
+              vulnerabilidade — por isso os campos abaixo ficam desativados de propósito. Para colar a
+              chave e testar a conexão agora, rode o app na sua máquina (
+              <code className="ams-num">pnpm dev</code>) e abra{' '}
+              <code className="ams-num">localhost:5173</code>: o mesmo painel é editável lá. Em
+              produção, o segredo entra pelo <strong>gerenciador de segredos</strong> do servidor
+              (variáveis de ambiente:{' '}
+              <span className="ams-num">{data.providers.map((p) => p.envVar).join(', ')}</span>) — e só
+              depois que as rotas de IA tiverem autenticação, porque hoje quem alcançar o endereço
+              consome a chave.
+            </p>
+          </div>
+        )}
+
         <ul className="flex flex-col gap-3">
           {data.providers.map((provider) => {
             const markedForRemoval = draft.removals[provider.provider] === true;
@@ -292,13 +324,15 @@ export function AiSettingsPanel() {
                       })
                     }
                     placeholder={
-                      markedForRemoval
-                        ? 'será removida ao salvar'
-                        : provider.configured
-                          ? `${provider.keyMask} (salva${provider.keySource === 'ambiente' ? ' no ambiente' : ''}) — deixe vazio para manter`
-                          : 'cole a chave aqui'
+                      readOnly
+                        ? 'não editável neste app publicado'
+                        : markedForRemoval
+                          ? 'será removida ao salvar'
+                          : provider.configured
+                            ? `${provider.keyMask} (salva${provider.keySource === 'ambiente' ? ' no ambiente' : ''}) — deixe vazio para manter`
+                            : 'cole a chave aqui'
                     }
-                    className="flex-1 min-w-[240px] min-h-[38px] px-3 rounded-md bg-sunken border border-line text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60"
+                    className="flex-1 min-w-[240px] min-h-[38px] px-3 rounded-md bg-sunken border border-line text-[13px] text-ink outline-none focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   {provider.configured && !markedForRemoval && !readOnly && (
                     <Button
