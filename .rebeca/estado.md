@@ -564,12 +564,46 @@ antes/depois, cold start e o que segue não verificado).
    entrega o JS já compilado para o tracer é o passo de TypeScript do builder. Um harness que chame
    `@vercel/nft` direto sobre `.ts` **não reproduz** o pipeline e dá falso negativo.
 
+**Verificado em produção (mesma sessão, depois do push):**
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| O 500 acabou | `node -e "fetch('https://rebeca-odda.vercel.app/api/ai/status')"` | ✅ **HTTP 200**, `x-vercel-error: null`, corpo `{"ready":true,"hasAnyKey":false,"simulated":true,…}` |
+| Configuração de IA responde | idem para `/api/ai/settings` | ✅ **HTTP 200**, `{"writable":false,"hosted":true,"configPath":null,…}` |
+| Commit publicado | `git push origin main` | ✅ `e12e11a..2c9a717 main -> main` |
+
+`hasAnyKey:false` em produção é o correto: a chave vive só na máquina local (`.rebeca/segredos/llm.json`,
+não rastreado), então o app publicado roda em **simulação** — e diz isso na tela.
+
+**Revisão adversarial (`rebeca-qa`) — veredito: NÃO CONSEGUI REFUTAR; aprovado para produção.** Ele
+reproduziu o defeito de forma mínima e independente, refez a varredura por conta própria (BFS a partir dos
+4 entrypoints: **19 arquivos, 35 specifiers, 0 sem extensão, 0 apontando para arquivo inexistente**),
+conferiu que o gerador de prompt não reintroduz o defeito, que **nenhum** efeito de módulo toca disco no
+topo do arquivo, e que `routeAiRequest` envolve tudo em try/catch — o que **corrobora** o diagnóstico:
+como não há erro de runtime possível nos dois GETs, o throw só podia ser no carregamento.
+
+**Achado do QA que virou trabalho (gravidade média, agora fechado):** nada impedia a reintrodução do
+defeito. `pnpm build` e a suíte passavam com specifier sem extensão, porque `moduleResolution: "bundler"`
+e o Vite aceitam os dois formatos — o defeito voltaria em silêncio e só apareceria no ar. Criado
+`src/__tests__/serverless-imports.test.ts`: percorre o grafo real a partir dos 4 entrypoints, segue todo
+import relativo (inclusive `import type` e `import()` dinâmico) e exige extensão `.js` + arquivo existente.
+**Provado adversarialmente**: com um specifier quebrado de propósito (`server/ai/http.ts` → `'./handler'`),
+o teste falha apontando `server/ai/http.ts:19 → './handler'`; restaurado, passa. Suíte: **144/144 em 14
+arquivos** (era 140/13) — `.rebeca/evidencias/vitest-guarda-imports.txt`.
+
+**Achado do QA que fica registrado, sem mudança (gravidade baixa):** `src/ai/client.ts` e `src/ai/hooks.ts`
+seguem com import sem extensão — são do navegador, o Vite resolve, e **nenhum** arquivo de `api/`/`server/`
+os alcança hoje. Não causam 500. A guarda nova cobre o risco futuro: se algum dia um deles entrar no grafo
+do servidor, o teste falha na hora.
+
 **Não verificado (declarado, não maquiado):**
 
-1. **O runtime da Vercel não foi executado** — exige o push e o deploy. O que falta medir é o **HTTP 200**
-   em `https://rebeca-odda.vercel.app/api/ai/status`.
-2. **O log de runtime da Vercel** (stack trace do 500) não foi lido: não há credencial nesta sessão. A
-   conclusão vem do código do builder, da reprodução local e do sintoma.
+1. ~~O runtime da Vercel não foi executado~~ — **executado e verificado nesta sessão** (HTTP 200 nas duas
+   rotas, ver a tabela acima). O que o navegador do dono ainda vai mostrar é o app publicado em
+   **simulação**, porque não há chave configurada no servidor — comportamento correto e visível na tela.
+2. **O log de runtime da Vercel** (stack trace do 500 antigo) não foi lido: não há credencial nesta
+   sessão. A conclusão veio do código do builder, da reprodução local e do sintoma — e o fato de o 500
+   ter desaparecido exatamente com a correção que a hipótese previa é confirmação empírica.
 3. **Um segundo erro, ainda aberto e de outra natureza:** o dono relatou **504 em
    `POST /api/ai/generate`** com o dev server em `localhost:5173`. O Vite **não tem timeout de
    requisição** (os únicos 504 dele são de otimizador de dependências, e só para requisições de módulo
