@@ -871,6 +871,41 @@ cobrando o preço outra vez). Medido de novo ao fim: `pnpm exec tsc --noEmit` �
 enquanto duas sessões escreverem na mesma árvore, "o build está quebrado" tem prazo de validade de
 minutos — medir de novo antes de publicar, nunca publicar com base em medição alheia.
 
+**Publicado e verificado em produção (2026-10-01, commit `aeaac92`):**
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| O push | `git push origin main` | ✅ `2a7ae79..aeaac92` (o commit ficou só com os arquivos desta entrega; o trabalho em andamento da frente de mídia **não** entrou) |
+| **`/robots.txt` no ar** | `fetch https://rebeca-odda.vercel.app/robots.txt` | ✅ **200** com `Disallow: /` (antes o caminho devolvia o HTML da SPA) |
+| **`X-Robots-Tag` no ar** | cabeçalhos de `/` e de `/robots.txt` | ✅ `noindex, nofollow, noarchive, nosnippet` |
+| Meta no documento servido | corpo de `/` | ✅ presente |
+| **A camada 1 está ligada?** | `GET /api/ai/status` **sem credencial** | ❌ **200** — segue público, exatamente como o ADR declara |
+
+**Armadilha de EOL encontrada ao verificar (registrada, não maquiada).** O repositório guarda os `.md`
+de prompt e o `prompts.generated.ts` com **CRLF no blob** e o gerador compara o **arquivo inteiro**
+(`current !== generated`). Consequência medida: num checkout **Windows com `core.autocrlf=true`** o
+`pnpm run build` **falha** em "prompts fora de sincronia"; no **Linux** (Vercel/CI) o checkout normaliza
+para LF e o build passa — por isso o deploy subiu. **Correção sugerida e NÃO aplicada:** `.gitattributes`
+com `eol=lf` para `.md`/`.ts` e um `git add --renormalize .` — não apliquei porque mexe em arquivos de
+outra sessão e isso é decisão, não pressa. **Lição de método:** verificar "a árvore builda?" numa árvore
+que outra sessão está escrevendo mede a outra sessão; o que vale é reconstruir **a árvore exata do push**
+(`HEAD` + os arquivos da entrega) e buildar essa — foi o que fechei aqui (`.rebeca/evidencias/app-privado-verificacao.txt`).
+
+**Camada 1 — o dono informou que ligou; a medição NÃO confirma (2026-10-01).** Depois de o dono
+responder "já liguei a proteção de deploy", a verificação foi repetida **4 vezes ao longo de ~80 s**:
+`GET https://rebeca-odda.vercel.app/api/ai/status` → **200** com o JSON completo, `x-vercel-mitigated`
+**ausente**, nenhum `www-authenticate` e nenhum redirecionamento para login. `/` e `/robots.txt` também
+respondem 200. Ou seja: **a URL de produção continua aberta**, apesar do relato. Registrar a divergência
+é o ponto — o projeto não aceita aprovação por afirmação, e aqui a diferença entre "liguei" e "está
+ligado" é a porta.
+
+**Hipótese principal (o erro seria de escopo, não de intenção):** na Vercel, **Standard Protection**
+"protects all deployments **except** production domains" — é o escopo padrão da tela e protege só
+preview. O escopo que fecha a produção é **All Deployments**. Quem liga o toggle e vê "protegido"
+conclui que protegeu tudo. **Como distinguir:** se o preview pedir login e a produção não, o escopo é
+Standard Protection. **Não verificado:** se a proteção foi ligada no **outro** projeto (`rebeca`, ver
+`ADR-003`) — os aliases de preview testados deram 404 e o slug do time não é conhecido nesta sessão.
+
 **Nada foi commitado no momento em que este parágrafo foi escrito** — o commit exige a pasta quieta e a
 passagem pelo `rebeca-qa`, que foi feita (acima).
 

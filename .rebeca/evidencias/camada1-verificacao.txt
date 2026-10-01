@@ -1,0 +1,33 @@
+CAMADA 1 (Vercel Authentication / All Deployments) - VERIFICACAO EM PRODUCAO
+Data: 2026-10-01 | Metodo: fetch sem credencial, redirect manual, cache no-store
+
+CONTEXTO: o dono informou "ja liguei a protecao de deploy".
+ESPERADO se a camada 1 estivesse ativa: /api/ai/status deixar de devolver 200
+(401/403, redirecionamento para login, ou cabecalho x-vercel-mitigated).
+
+OBSERVADO - 4 rodadas ao longo de ~80 segundos:
+  rodada 1 | /api/ai/status => 200 | x-vercel-mitigated: -
+  rodada 2 | /api/ai/status => 200 | x-vercel-mitigated: -
+  rodada 3 | /api/ai/status => 200 | x-vercel-mitigated: -
+  rodada 4 | /api/ai/status => 200 | x-vercel-mitigated: -
+
+  /api/ai/status => 200 | location: - | www-authenticate: - | x-robots-tag: noindex, nofollow, noarchive, nosnippet
+     corpo comeca com: {"ready":true,"hasAnyKey":false,"simulated":true,"providers":[...]}
+  /              => 200 | location: - | x-robots-tag presente (app servido normalmente)
+  /robots.txt    => 200 | contem "Disallow: /"   <- camada 2 CONFIRMADA no ar
+
+Aliases de preview testados (404 - slug do time nao conhecido):
+  rebeca-odda-git-main.vercel.app => 404
+  rebeca-odda-git-main-donclaudito.vercel.app => 404
+  rebeca-odda-donclaudito.vercel.app => 404
+  rebeca.vercel.app => 200, mas NAO e este app (HTML em ingles, sem x-robots-tag)
+
+CONCLUSAO: a URL de producao continua publica. Hipoteses, em ordem:
+  1. o escopo esta em "Standard Protection", que por definicao da Vercel protege
+     "all deployments EXCEPT production domains" - o escopo que fecha a producao e "All Deployments";
+  2. a protecao foi ligada em outro projeto Vercel (o ADR-003 registra dois recebendo o repositorio).
+  Fonte do comportamento de escopo: https://vercel.com/docs/deployment-protection (last_updated 2026-09-15).
+
+VERIFICACAO QUE FECHA (rodar depois de ajustar):
+  node -e "fetch('https://rebeca-odda.vercel.app/api/ai/status').then(r=>console.log(r.status))"
+  -> qualquer coisa diferente de 200 significa protegido.
