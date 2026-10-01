@@ -38,6 +38,12 @@ assets/raw/
 render/
 out/
 
+# --- Assets gerados pelo pipeline de mídia (`ADR-010`) ---
+# Só os contêineres pesados estavam cobertos acima; os PNG sintéticos, o `.srt` e o `meta.json` de
+# cada episódio passariam para o Git. Nada disso é fonte — tudo é regenerável pelo pipeline, e o
+# lugar de asset é o Storage (mesma regra da linha acima).
+.rebeca/assets/
+
 .DS_Store
 Thumbs.db
 desktop.ini

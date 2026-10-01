@@ -1,0 +1,65 @@
+{
+  "canal": "luna",
+  "nome": "Luna e o Jardim das Cores",
+  "aprovadoPor": "humano:dono-do-produto",
+  "aprovadoEm": "2026-10-01",
+  "referencia": "ADR-005 (D2 e D5 aceitos em 2026-10-01) + src/media/limits.ts. Formato em código; este arquivo declara o canal e é conferido contra o código pelo pipeline.",
+
+  "proporcoes": { "longo": "16:9", "short": "9:16" },
+  "fps": 30,
+
+  "longo": {
+    "largura": 1920,
+    "altura": 1080,
+    "codec": "libx264",
+    "crf": 18,
+    "preset": "medium",
+    "pixelFormat": "yuv420p",
+    "audioCodec": "aac",
+    "audioBitrate": "192k",
+    "movflags": ["+faststart"]
+  },
+
+  "short": {
+    "largura": 1080,
+    "altura": 1920,
+    "recorte": "crop=ih*9/16:ih,scale=1080:1920",
+    "origem": "recorte vertical do MESMO material do longo — não é um segundo render",
+    "codec": "libx264",
+    "crf": 18,
+    "preset": "veryfast",
+    "audioCodec": "aac",
+    "audioBitrate": "192k"
+  },
+
+  "loudness": {
+    "integratedLufs": -14.0,
+    "truePeakDb": -1.5,
+    "lra": 11.0,
+    "trilhaGanho": 0.25,
+    "verificado": false,
+    "nota": "NÃO VERIFICADO: o valor EXIGIDO pela plataforma não foi conferido na documentação oficial nesta sessão. -14 LUFS / -1.5 dBTP / LRA 11 entram apenas como ALVO DECLARADO. Conferir na doc oficial do YouTube (ajuda sobre loudness/normalização) antes de tratar como requisito cumprido. O pipeline mede o loudness do arquivo renderizado e reporta o desvio; ele NÃO afirma conformidade."
+  },
+
+  "duracao": {
+    "longoAlvoSeg": 420,
+    "shortMaxSeg": 45,
+    "verificado": false,
+    "nota": "NÃO VERIFICADO: a duração exigida/ideal de Short e o alvo de longo não foram conferidos em fonte oficial nem em dado do canal. 420 s (7 min) é ordem de grandeza usada no ADR-005 para a conta de custo; 45 s é o teto do Short. Substituir por medição real do canal (rebeca-analytics) antes de virar regra."
+  },
+
+  "custos": {
+    "tetoPorMinutoUsd": 12.0,
+    "limiteMensalUsd": 60.0,
+    "fonte": "ADR-005 — decisão do dono do produto, 2026-10-01",
+    "revisavelAposEpisodios": 4
+  },
+
+  "naoVerificado": [
+    "loudness exigido pela plataforma (integrated LUFS / true peak / LRA) — alvo declarado, falta conferir na doc oficial",
+    "duração alvo do vídeo longo e duração máxima/ideal do Short — falta fonte oficial e medição do canal",
+    "bitrate de áudio e preset de codificação recomendados pela plataforma — escolha técnica nossa, não exigência verificada",
+    "exigência de rótulo 'deep synthesis' da MiniMax para o rodapé obrigatório da Fase 1 (ADR-005) — a redação exata do rótulo não foi lida em fonte primária",
+    "Character Sheet oficial da Luna: NÃO EXISTE arte de personagem no repositório (dívida do rebeca-branding). A Fase 0 usa referência sintética e marca isso no manifesto"
+  ]
+}
