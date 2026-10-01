@@ -21,6 +21,7 @@ import type {
   ModuleState,
   PortfolioRow,
   Recommendation,
+  ThumbnailOption,
   WeeklySlot,
 } from './types';
 import { channels, contents, todayIso } from './mock/db';
@@ -367,6 +368,42 @@ export const api = {
     if (!has) throw new Error('Essa opção de thumbnail não pertence a este conteúdo.');
     // `patchArtifact`, não `patchContent`: trocar a thumbnail depois de aprovado invalida a aprovação.
     return patchArtifact(channelId, contentId, { selectedThumbnailId: thumbnailId });
+  },
+
+  /**
+   * Aplica as opções de thumbnail **propostas pela IA** (`criar-thumbnail`).
+   *
+   * Esta é a porta que faltava: a função de IA existia no servidor desde a camada de LLM, mas nenhuma
+   * tela a chamava — o dono do produto olhou a etapa "Escolha a thumbnail" e a conclusão foi "não dá
+   * opção de gerar". Aqui entram os conceitos propostos (rótulo + o que a arte deve mostrar), **não a
+   * arte**: gerar imagem é do pipeline de mídia (`ADR-010`), que ainda não existe.
+   *
+   * Passa por `patchArtifact` pelo mesmo motivo de `selectThumbnail` e `saveTitle`: trocar a thumbnail
+   * de um conteúdo já aprovado **derruba a aprovação** e devolve o conteúdo para revisão — o que iria
+   * ao ar deixou de ser o que o humano aprovou. E a escolha anterior é **limpa**: manter um
+   * `selectedThumbnailId` apontando para uma opção que não existe mais seria estado mentiroso.
+   */
+  async proposeThumbnails(
+    channelId: ChannelId,
+    contentId: string,
+    options: readonly ThumbnailOption[],
+  ): Promise<ContentItem> {
+    await delay(180);
+    if (options.length === 0) throw new Error('A IA não devolveu nenhuma opção para aplicar.');
+
+    // Teto de 4 (o mesmo do schema da função) e corte de tamanho: a tela e o registro não guardam
+    // texto sem limite vindo de fora.
+    const sane = options.slice(0, 4).map((option) => ({
+      id: option.id.trim().slice(0, 40),
+      label: option.label.trim().slice(0, 60),
+      alt: option.alt.trim().slice(0, 300),
+      suggested: option.suggested,
+    }));
+
+    return patchArtifact(channelId, contentId, {
+      thumbnails: sane,
+      selectedThumbnailId: null,
+    });
   },
 
   async saveTitle(channelId: ChannelId, contentId: string, title: string): Promise<ContentItem> {

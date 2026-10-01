@@ -158,6 +158,13 @@ interface ArtSlotProps {
   label: string;
   /** O que a arte mostra — vira `aria-label`. */
   alt: string;
+  /**
+   * A segunda linha do slot. Por padrão "arte pendente", que é a verdade para thumbnail e avatar.
+   * Existe como parâmetro porque nem todo slot espera **arte**: o player espera **vídeo**, e chamar de
+   * "arte pendente" o que falta ali é impreciso — o dono do produto leu "Player · 6:42 / arte pendente"
+   * e a conclusão natural foi "não funciona". O slot tem de dizer o que falta nele.
+   */
+  note?: string;
   ratio?: '16x9' | '9x16' | '1x1';
   className?: string;
 }
@@ -166,13 +173,13 @@ interface ArtSlotProps {
  * Placeholder honesto: a arte 3D e a personagem são do `rebeca-branding` (docs/03 §8).
  * O slot reserva a proporção correta para a arte entrar sem mexer no layout.
  */
-export function ArtSlot({ label, alt, ratio = '16x9', className }: ArtSlotProps) {
+export function ArtSlot({ label, alt, note = 'arte pendente', ratio = '16x9', className }: ArtSlotProps) {
   return (
     <div className={cn('ams-art', `ams-art--${ratio}`, className)} role="img" aria-label={alt}>
       <span>
         {label}
         <br />
-        <span className="normal-case font-normal tracking-normal">arte pendente</span>
+        <span className="normal-case font-normal tracking-normal">{note}</span>
       </span>
     </div>
   );

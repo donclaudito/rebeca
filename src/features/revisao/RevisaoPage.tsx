@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   BadgeCheck,
   Ban,
-  CalendarClock,
   Info,
   RefreshCw,
   Save,
@@ -27,7 +26,7 @@ import { StatusPill } from '@/components/content/ContentCard';
 import { AiAction } from '@/components/ai/AiAction';
 import { useChannelId } from '@/app/useChannel';
 import { api, isApprovalValid, qk } from '@/data/client';
-import { useChannel, useContent } from '@/data/hooks';
+import { useBrandKit, useChannel, useCharacters, useContent } from '@/data/hooks';
 import { formatDayMonthTime } from '@/lib/date';
 import { formatDuration, formatUsd } from '@/lib/format';
 import type { ContentItem, ThumbnailOption } from '@/data/types';
@@ -50,6 +49,19 @@ export function RevisaoPage() {
   // O canal diz se este conteúdo é dirigido a crianças — é o que libera (ou não) o gate pedagógico.
   const channel = useChannel(channelId).data;
   const idadeAlvo = ageRangeFrom(channel);
+  /*
+   * Contexto de marca para a proposta de thumbnail: personagem oficial e paleta do canal.
+   *
+   * Isto não é enfeite: `criar-thumbnail` recebe `personagemPrincipal`, `paleta` e `estilo`, e sem
+   * eles a proposta sairia genérica. O `estilo` é o único que o Brand Kit ainda **não** carrega (a
+   * arte é dívida do `rebeca-branding`), então ele é composto do que existe — tom e tipografia — e o
+   * campo é preenchido com o que é verdade, em vez de inventar um estilo que ninguém definiu.
+   */
+  const brandKit = useBrandKit(channelId).data;
+  const characters = useCharacters(channelId).data;
+  const protagonista = characters?.find(
+    (character) => character.status === 'oficial' && /protagon/i.test(character.role),
+  );
 
   const [title, setTitle] = useState('');
   const [selectedThumb, setSelectedThumb] = useState<string | null>(null);
@@ -112,6 +124,27 @@ export function RevisaoPage() {
         updated.status === 'revisao'
           ? 'Título salvo. A aprovação anterior caiu — revise e aprove de novo antes de publicar.'
           : 'Título salvo.',
+      );
+      await invalidate();
+    },
+    onError: (error: Error) => setFeedback(error.message),
+  });
+
+  /**
+   * Aplica as opções de thumbnail propostas pela IA.
+   *
+   * A chamada de IA é do `AiAction`; o que passa por aqui é só a **gravação** do que o humano aceitou
+   * ao clicar em "Usar estas opções" — a IA nunca escreve no conteúdo sozinha (invariante nº 1).
+   */
+  const proporThumbs = useMutation({
+    mutationFn: (options: readonly ThumbnailOption[]) =>
+      api.proposeThumbnails(channelId, contentId, options),
+    onSuccess: async (updated: ContentItem) => {
+      setSelectedThumb(null);
+      setFeedback(
+        updated.status === 'revisao'
+          ? 'Opções propostas aplicadas. A escolha anterior foi limpa e a aprovação caiu — escolha uma e aprove de novo.'
+          : 'Opções propostas aplicadas. Escolha uma para liberar a aprovação.',
       );
       await invalidate();
     },
@@ -200,7 +233,7 @@ export function RevisaoPage() {
     <>
       <PageHeader
         title="Revisão"
-        subtitle="Assista, escolha a thumbnail, ajuste o título se quiser. Depois, uma das três decisões."
+        subtitle="Escolha a thumbnail, ajuste o título se quiser. Depois, uma das três decisões — a prévia do vídeo aparece aqui quando o vídeo existir."
         actions={
           <Link to={`/c/${channelId}/conteudo`} className="ams-btn">
             <ArrowLeft size={15} aria-hidden="true" />
@@ -223,8 +256,9 @@ export function RevisaoPage() {
 
             <div className="ams-card ams-card--sunken p-0 overflow-hidden">
               <ArtSlot
-                label={`Player · ${formatDuration(item.durationSec)}`}
-                alt={`Prévia do vídeo ${item.title}, duração ${formatDuration(item.durationSec)}`}
+                label={`Prévia do vídeo · ${formatDuration(item.durationSec)} planejados`}
+                alt={`Espaço da prévia do vídeo ${item.title}; a duração de ${formatDuration(item.durationSec)} é a planejada`}
+                note="nenhum vídeo foi gerado ainda"
                 className="!rounded-none !border-0"
               />
             </div>
@@ -246,7 +280,8 @@ export function RevisaoPage() {
             />
             {options.length === 0 ? (
               <p className="text-[12px] text-ink-3">
-                Este conteúdo ainda não tem opções de thumbnail — elas aparecem quando a geração terminar.
+                Este conteúdo ainda não tem opções de thumbnail — o botão abaixo pede os conceitos à
+                IA. A arte em si depende do pipeline de mídia.
               </p>
             ) : (
               <ul className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3" role="radiogroup" aria-label="Opções de thumbnail">
@@ -291,6 +326,47 @@ export function RevisaoPage() {
                 })}
               </ul>
             )}
+
+            {/*
+              O ponto de entrada que faltava. `criar-thumbnail` está registrada no contrato desde a
+              camada de LLM e **nenhuma tela a chamava** — por isso a etapa "Escolha a thumbnail" só
+              oferecia opções que já existissem, sem forma de pedir novas. O dono do produto notou:
+              "não dá opção de gerar".
+            */}
+            <AiAction
+              className="mt-3"
+              functionId="criar-thumbnail"
+              channelId={channelId}
+              contentId={item.id}
+              input={() => ({
+                tema: item.theme,
+                titulo: item.title,
+                personagemPrincipal: protagonista?.name ?? '',
+                paleta: (brandKit?.palette ?? []).map((cor) => cor.hex),
+                // O Brand Kit ainda não carrega estilo de ilustração (dívida do `rebeca-branding`):
+                // vai o que existe — tom e tipografia — em vez de um estilo inventado.
+                estilo:
+                  [brandKit?.tone, ...(brandKit?.fonts ?? []).map((fonte) => fonte.family)]
+                    .filter((parte) => Boolean(parte))
+                    .join(' · ') || 'estilo visual ainda não definido no Brand Kit',
+              })}
+              label="Gerar opções de thumbnail com a IA"
+              hint="Propõe de 3 a 4 conceitos: o rótulo, o que a arte deve mostrar e o texto que entra nela. Não gera imagem — os quadros seguem como espaço reservado até o pipeline de mídia existir."
+              onApply={(data) => {
+                const proposta = data as { opcoes?: unknown };
+                if (!Array.isArray(proposta.opcoes)) return;
+                const opcoes: ThumbnailOption[] = proposta.opcoes.flatMap((bruta) => {
+                  const candidata = bruta as Record<string, unknown>;
+                  const { id, label, alt } = candidata;
+                  if (typeof id !== 'string' || typeof label !== 'string' || typeof alt !== 'string') {
+                    return [];
+                  }
+                  return [{ id, label, alt, suggested: candidata['sugestao'] === true }];
+                });
+                if (opcoes.length > 0) proporThumbs.mutate(opcoes);
+              }}
+              applyLabel="Usar estas opções"
+            />
           </Card>
 
           {/* Título e descrição --------------------------------------------- */}
@@ -541,23 +617,34 @@ export function RevisaoPage() {
           </Card>
 
           <Card className="p-4">
-            <SectionHead title="O que a IA fez aqui" hint="por trás, sem aparecer para você" />
+            <SectionHead
+              title="O que existe neste conteúdo"
+              hint="o estado real — sem afirmar o que ainda não foi gerado"
+            />
+            {/*
+              Este bloco listava, com três checkmarks verdes, "Roteiro, cenas, narração e montagem
+              prontos" e "{n} opções de thumbnail geradas". **Nada disso existia**: não há um único
+              arquivo de vídeo no repositório, não há narração e a arte das thumbnails é placeholder.
+              O dono do produto olhou a tela e concluiu "não parece que funciona" — com razão: a tela
+              afirmava trabalho que nunca aconteceu. Agora ela lista o que **existe** e o que falta.
+            */}
             <ul className="flex flex-col gap-2 text-[12px] text-ink-2">
-              <li className="flex items-center gap-2">
-                <BadgeCheck size={14} className="text-ok shrink-0" aria-hidden="true" />
-                Roteiro, cenas, narração e montagem prontos
-              </li>
-              <li className="flex items-center gap-2">
-                <BadgeCheck size={14} className="text-ok shrink-0" aria-hidden="true" />
-                {options.length} opções de thumbnail geradas
-              </li>
               <li className="flex items-center gap-2">
                 <BadgeCheck size={14} className="text-ok shrink-0" aria-hidden="true" />
                 Título, descrição e tags preparados
               </li>
               <li className="flex items-center gap-2">
-                <CalendarClock size={14} className="text-info shrink-0" aria-hidden="true" />
-                Aguardando somente a sua decisão
+                <TriangleAlert size={14} className="text-warn shrink-0" aria-hidden="true" />
+                {options.length} {options.length === 1 ? 'opção' : 'opções'} de thumbnail no plano — a
+                arte ainda não existe
+              </li>
+              <li className="flex items-center gap-2">
+                <TriangleAlert size={14} className="text-warn shrink-0" aria-hidden="true" />
+                Nenhum vídeo, narração ou montagem gerados ainda
+              </li>
+              <li className="flex items-center gap-2">
+                <Info size={14} className="text-info shrink-0" aria-hidden="true" />
+                A sua decisão vale sobre o que já existe; a mídia entra quando o pipeline gerar
               </li>
             </ul>
             {item.rejectedReason && (
