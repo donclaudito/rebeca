@@ -37,6 +37,7 @@ import type {
   MediaProviderSet,
   MediaStage,
   MusicRequest,
+  ProviderIdentity,
   SceneSpec,
   SpokenLine,
   TtsRequest,
@@ -46,7 +47,7 @@ import { assertEpisodeWithinBudget, LONG_RENDER_SPEC, MEDIA_LIMITS, MediaBudgetE
 import { assertProviderAllowed } from './allow-list.js';
 import { assertSpecMatchesCode, loadChannelMediaSpec, type ChannelMediaSpec } from './channel-spec.js';
 import { assertFfmpegAvailable, probeMedia, type LoudnessMeasurement, type LoudnormAnalysis, type MediaProbe } from './ffmpeg.js';
-import { assertMonthlyBudgetForNow, episodeSpendUsd, ledgerPath, ledgerRowCount, recordAssetCost } from './ledger.js';
+import { assertMonthlyBudgetForNow, episodeSpendUsd, ledgerPath, ledgerRowCount, readLedger, recordAssetCost } from './ledger.js';
 import {
   emptyManifest,
   findReusable,
@@ -57,7 +58,16 @@ import {
   type EpisodeManifest,
 } from './manifest.js';
 import { assetsRelativePath, repoRelativePath } from './paths.js';
-import { estimateSpeechMs, planClip, planImage, planMusic, planVoice, SIMULATED_PROVIDERS } from './providers/simulated.js';
+import {
+  declaredUnitPriceUsd,
+  imageProviderNotice,
+  planImageFor,
+  pngSize,
+  resolveImageProvider,
+  type ImageProviderNotice,
+  type ImageSize,
+} from './providers/image-provider.js';
+import { estimateSpeechMs, planClip, planMusic, planVoice, SIMULATED_PROVIDERS } from './providers/simulated.js';
 import {
   assembleVoiceTrack,
   renderEpisode,
@@ -137,6 +147,20 @@ export const EPISODIO_SINTETICO: EpisodeSpec = {
 export interface RunEpisodeOptions {
   /** Ponto de troca de provedor — na Fase 1 entra aqui o adapter real, sem mudar mais nada. */
   readonly providers?: MediaProviderSet;
+  /**
+   * Seleção do provedor de imagem **por configuração** (Fase 2).
+   *
+   * - `'simulado'` (**padrão**): o ffmpeg local desenha a cena. Custo zero, prova de máquina.
+   * - `'auto'`: usa o adapter real quando há chave configurada e cai no simulado quando não há — dizendo
+   *   qual dos dois valeu em `EpisodeRunResult.imageProvider`. O portão de allow-list do canal continua
+   *   valendo nos dois casos.
+   *
+   * O padrão é `'simulado'` **de propósito**: selecionar provedor pago por acidente de ambiente faria uma
+   * máquina de desenvolvimento com chave começar a gastar dinheiro ao rodar a suíte de testes ou a CLI.
+   * Gastar é decisão explícita (invariante nº 4) — `'auto'` é o jeito de pedir isso, e `providers` continua
+   * sendo a sobreposição total usada por teste e pela CLI.
+   */
+  readonly imageProvider?: 'simulado' | 'auto';
   readonly fps?: number;
   /** Injetado nos testes para fixar data do livro e do manifesto. */
   readonly now?: Date;
@@ -160,6 +184,14 @@ export interface EpisodeAssetView {
   readonly model: string;
   readonly reused: boolean;
   readonly simulated: boolean;
+  /**
+   * Resolução **medida do arquivo em disco** (cabeçalho PNG), só para ativos de imagem.
+   *
+   * Existe porque a resolução *pedida* não é a resolução *entregue*: a doc da MiniMax declara que `16:9`
+   * devolve 1280x720 nativo, enquanto o render do episódio é 1920x1080. Mostrar o número medido — em vez de
+   * repetir o que foi pedido — é o que permite ao humano ver que o vídeo amplia a arte. `null` = não medido.
+   */
+  readonly imageSize: ImageSize | null;
 }
 
 export interface EpisodeRunResult {
@@ -190,6 +222,12 @@ export interface EpisodeRunResult {
   };
   readonly created: number;
   readonly reused: number;
+  /**
+   * Qual arte foi usada nas cenas, com o motivo em pt-BR — a resposta **diz** se é arte de provedor ou
+   * prova de máquina. `true` no campo `simulated` sem a frase ao lado não impediu, nas duas vezes em que
+   * este projeto errou nisso, que o humano achasse que estava vendo arte do canal.
+   */
+  readonly imageProvider: ImageProviderNotice;
   readonly cost: {
     readonly totalUsd: number;
     readonly durationMs: number;
@@ -199,7 +237,14 @@ export interface EpisodeRunResult {
     readonly monthlyLimitUsd: number;
     readonly approvedBy: string;
     readonly approvedAt: string;
-    readonly simulated: true;
+    /**
+     * A execução inteira saiu de geradores locais sem custo?
+     *
+     * Era `true` **fixo no tipo** — verdade enquanto só existia a Fase 0, e mentira a partir do momento em
+     * que uma cena passa a vir da MiniMax. Agora é calculado: falso se **qualquer** ativo do episódio vier
+     * de provedor real.
+     */
+    readonly simulated: boolean;
     readonly ledgerPath: string | null;
     readonly ledgerRows: number;
   };
@@ -220,6 +265,120 @@ function fileBytes(path: string): number {
   } catch {
     return 0;
   }
+}
+
+/** Resolução medida do arquivo, só para ativos de imagem. `null` para áudio/vídeo/texto e para não-PNG. */
+function imageSizeOf(kind: MediaAsset['kind'], path: string): ImageSize | null {
+  return kind === 'imagem' ? pngSize(path) : null;
+}
+
+/**
+ * O que o **livro** já registrou para este ativo — `null` quando não há linha. (achado 6 do `QA-015`)
+ *
+ * Existe para a idempotência **não depender do manifesto**. O arquivo em disco impede pagar de novo, mas
+ * era o manifesto que impedia relançar linha no livro: apagado o `meta.json`, a reexecução chamava o
+ * provedor (que devolvia `costUsd: 0`) e registrava tudo outra vez, com `reused = 0`. O livro é a memória
+ * de gasto do projeto e não pode ser reescrito por um manifesto perdido.
+ *
+ * O casamento é pelo mesmo `(episódio, etapa, hash8)` que `recordAssetCost` grava — o `hash8` vive dentro
+ * de `prompt_id`, no formato `etapa:promptVersion#hash8#duração#simulado|real`. O `episódio` entra na chave
+ * de propósito: o mesmo hash em outro episódio é outro ativo, e somar os dois seria inventar custo.
+ *
+ * ## A chave é `(episódio, etapa, modelo, hash8)` — e o `modelo` não é enfeite
+ *
+ * O casamento é pelo que `recordAssetCost` grava: `hash8` dentro de `prompt_id`
+ * (`etapa:promptVersion#hash8#duração#simulado|real`). O `episódio` entra de propósito (o mesmo hash em
+ * outro episódio é outro ativo; somar os dois seria inventar custo).
+ *
+ * O `modelo` entrou porque a chave de três campos **não é única** — medido, não suposto, ao rodar a suíte
+ * depois da primeira versão desta função: `renderEpisode` calcula **um** hash para os três arquivos do
+ * render (`longo`, `short` e a legenda saem do mesmo `hash8` de entrada, `render.ts:293`). Com a chave de
+ * três campos, a linha gravada para o `longo` fazia o `short` ser lido como "já registrado": o episódio
+ * reportava 9 gerados onde havia 10 e o `short` nunca entrava no livro. `RENDER_MODEL.long`/`.short`/
+ * `.captions` são distintos, e é isso que separa os três.
+ *
+ * **Quando não dá para afirmar, devolve `null`** — e aí o pipeline registra de novo. O erro cai para o lado
+ * de duplicar uma linha (visível, corrigível) e nunca para o lado de perder gasto (invisível, e é a
+ * pergunta central do negócio). Célula de custo ilegível também dá `null`, e não zero: `episodeSpendUsd` já
+ * teria lançado sobre essa mesma célula antes de chegar aqui.
+ */
+function ledgerCostUsd(episodeId: string, stage: MediaStage, model: string, hash8: string): number | null {
+  const { header, rows } = readLedger();
+  const conteudo = header.indexOf('conteudo');
+  const etapa = header.indexOf('etapa');
+  const modelo = header.indexOf('modelo');
+  const promptId = header.indexOf('prompt_id');
+  const custo = header.indexOf('custo_usd');
+  if (conteudo === -1 || etapa === -1 || modelo === -1 || promptId === -1 || custo === -1) return null;
+
+  let total: number | null = null;
+  for (const row of rows) {
+    if ((row[conteudo] ?? '').trim() !== episodeId) continue;
+    if ((row[etapa] ?? '').trim() !== stage) continue;
+    if ((row[modelo] ?? '').trim() !== model) continue;
+    if (!(row[promptId] ?? '').includes(`#${hash8}#`)) continue;
+    const valor = Number.parseFloat((row[custo] ?? '').trim());
+    if (!Number.isFinite(valor)) return null;
+    total = (total ?? 0) + valor;
+  }
+  return total;
+}
+
+/**
+ * Escolhe o conjunto de provedores **e** registra de onde veio a escolha.
+ *
+ * A regra de precedência é explícita porque as duas formas de configurar podem ser passadas juntas:
+ * `providers` (sobreposição total, usada por teste e CLI) **vence**; `imageProvider: 'auto'` só vale quando
+ * não há conjunto informado. Sem isso, "quem ganha" dependeria da ordem em que o código foi escrito.
+ */
+function providersForEpisode(options: RunEpisodeOptions): { providers: MediaProviderSet; origem: string } {
+  if (options.providers !== undefined) {
+    return { providers: options.providers, origem: 'conjunto de provedores informado pelo chamador' };
+  }
+  if (options.imageProvider === 'auto') {
+    const escolha = resolveImageProvider();
+    return {
+      providers: { ...SIMULATED_PROVIDERS, image: escolha.provider },
+      origem: escolha.origem,
+    };
+  }
+  return {
+    providers: SIMULATED_PROVIDERS,
+    origem:
+      'provedores simulados (padrão do pipeline): ffmpeg local, custo zero — prova de máquina. Use ' +
+      "imageProvider: 'auto' para a arte real quando houver chave.",
+  };
+}
+
+/**
+ * Estimativa de gasto da execução, somando **só o que os provedores declaram** — ou zero.
+ *
+ * Zero aqui não é "de graça": é "não dá para estimar", e o portão de entrada reage a isso exigindo uma
+ * estimativa explícita. A regra é **tudo ou nada** de propósito: somar as etapas que declaram preço e
+ * ignorar as que não declaram produziria um número *menor* que o gasto real, e um teto aplicado sobre um
+ * número menor é um teto que libera o que deveria barrar.
+ *
+ * Contagem por etapa: uma imagem por cena, um clipe por cena, uma fala por cena e **uma** trilha para o
+ * episódio. Na Fase 2 só a imagem é paga, e este número é o que permite o episódio rodar com arte real sem
+ * que o chamador tenha de inventar a estimativa na mão.
+ */
+function estimateEpisodeUsd(providers: MediaProviderSet, sceneCount: number): number {
+  const etapas: ReadonlyArray<{ provider: ProviderIdentity & { readonly simulated: boolean }; ativos: number }> = [
+    { provider: providers.image, ativos: sceneCount },
+    { provider: providers.video, ativos: sceneCount },
+    { provider: providers.tts, ativos: sceneCount },
+    { provider: providers.music, ativos: 1 },
+  ];
+
+  let total = 0;
+  for (const etapa of etapas) {
+    if (etapa.provider.simulated) continue;
+    const preco = declaredUnitPriceUsd(etapa.provider);
+    // Provedor pago sem preço declarado ⇒ não há estimativa honesta. Zero ⇒ o portão exige a do chamador.
+    if (preco === null) return 0;
+    total += preco * etapa.ativos;
+  }
+  return total;
 }
 
 /** Reconstrói o `GeneratedAsset` a partir do que já está no manifesto (caminho de reuso). */
@@ -288,12 +447,17 @@ export async function runSimulatedEpisode(
   spec: EpisodeSpec = EPISODIO_SINTETICO,
   options: RunEpisodeOptions = {},
 ): Promise<EpisodeRunResult> {
-  const providers = options.providers ?? SIMULATED_PROVIDERS;
   const now = options.now ?? new Date();
   const fps = options.fps ?? LONG_RENDER_SPEC.fps;
   // Na Fase 0 o pipeline roda no canal do próprio episódio. Divergir daqui é o cenário de vazamento que os
   // testes provocam — e que `paths.episodeDir` recusa.
   const scope = spec.channelId;
+
+  // A troca de provedor acontece **aqui**, por configuração, e em nenhum outro ponto do pipeline: daqui
+  // para baixo nada pergunta qual é o fornecedor (invariante nº 7). `origem` entra no relatório.
+  const escolha = providersForEpisode(options);
+  const providers = escolha.providers;
+  const imageProvider = imageProviderNotice(providers.image);
 
   // --- PORTÃO DE FORNECEDOR (antes de tudo, inclusive do ffmpeg) --------------
   /*
@@ -338,7 +502,14 @@ export async function runSimulatedEpisode(
 
   const scenes = sortScenes(spec.scenes);
   const estimatedMs = scenes.reduce((total, scene) => total + estimateSpeechMs(scene.narration), 0);
-  const estimateUsd = options.estimateUsd ?? 0;
+  /*
+   * A estimativa vem do chamador quando ele informa, e do **preço declarado pelos provedores** quando não.
+   *
+   * A estimativa automática é o que permite a arte real rodar sem alguém digitar um número na mão — e ela
+   * desaparece (volta a `0`) se qualquer provedor pago não declarar preço, o que mantém o portão abaixo
+   * exigindo estimativa explícita nesse caso. Zero nunca é "de graça": é "não sei".
+   */
+  const estimateUsd = options.estimateUsd ?? estimateEpisodeUsd(providers, scenes.length);
 
   // --- PORTÕES DE ENTRADA (antes de gerar qualquer coisa) ---------------------
   /*
@@ -349,6 +520,11 @@ export async function runSimulatedEpisode(
    * disparar. O `rebeca-qa` reproduziu com provedor de US$ 50 por ativo: **21 arquivos e 7 linhas de
    * custo (US$ 200) lançados antes de qualquer bloqueio**. Portão que só funciona depois de gastar não
    * é portão. Os provedores simulados seguem com estimativa zero, que é a verdade deles.
+   *
+   * Na Fase 2 a estimativa passa a ser calculada a partir do preço **declarado** pelo provedor pago (a
+   * imagem da MiniMax declara US$ 0,0035). O que continua exigindo estimativa explícita é o caso em que o
+   * preço **não** é declarado: aí a soma volta a zero e este portão dispara, em vez de liberar a geração
+   * sobre um número que ninguém conhece.
    */
   const provedoresPagos = [providers.image, providers.video, providers.tts, providers.music].filter(
     (provider) => !provider.simulated,
@@ -356,7 +532,10 @@ export async function runSimulatedEpisode(
   if (provedoresPagos.length > 0 && estimateUsd <= 0) {
     throw new MediaBudgetError(
       'estimativa-obrigatoria',
-      `Há provedor pago no pipeline (${provedoresPagos.map((provider) => provider.id).join(', ')}) e nenhuma estimativa de custo foi informada. Sem estimativa o teto não tem o que comparar ANTES de gerar: informe estimateUsd ou rode com os provedores simulados.`,
+      `Há provedor pago no pipeline (${provedoresPagos.map((provider) => provider.id).join(', ')}) e nenhuma ` +
+        'estimativa de custo pôde ser calculada — nenhuma foi informada, ou algum provedor pago não declara ' +
+        'preço por ativo (o que é "não verificado", não "de graça"). Sem estimativa o teto não tem o que ' +
+        'comparar ANTES de gerar: informe estimateUsd ou rode com os provedores simulados.',
     );
   }
 
@@ -379,10 +558,11 @@ export async function runSimulatedEpisode(
     if (info.reusedEntry !== undefined) {
       reused += 1;
       entries.push(info.reusedEntry);
+      const reusedPath = resolveStoredPath(info.reusedEntry);
       views.push({
         stage: info.reusedEntry.stage,
         key: info.reusedEntry.key,
-        path: resolveStoredPath(info.reusedEntry),
+        path: reusedPath,
         hash: info.reusedEntry.hash,
         durationMs: info.reusedEntry.durationMs,
         costUsd: info.reusedEntry.costUsd,
@@ -390,11 +570,43 @@ export async function runSimulatedEpisode(
         model: info.reusedEntry.model,
         reused: true,
         simulated: info.reusedEntry.simulated,
+        // Medido do disco mesmo no reuso: o manifesto guarda bytes, não pixels, e a resolução real do
+        // arquivo é justamente o que não pode ser presumido a partir do pedido.
+        imageSize: imageSizeOf(info.reusedEntry.kind, reusedPath),
       });
       return asset;
     }
 
-    const entry = buildEntry(asset, sha256, {
+    /*
+     * ---------------------------------------------------------------- achado 6 do `QA-015`
+     *                                                     + achado NOVO do `QA-016` (ALTA, dinheiro)
+     *
+     * O caminho acima (`reusedEntry`) só existe quando o **manifesto** conhece o ativo. Perdido o
+     * `meta.json` — e com os arquivos no disco — o pipeline chamava o provedor de novo; o provedor não
+     * gastava nada (o arquivo estava lá), mas o livro ganhava linha nova e o relatório dizia "gerado de
+     * novo" onde não houve geração nem gasto.
+     *
+     * A primeira correção consultava o livro e, achando linha, **nunca** registrava de novo. Isso estava
+     * errado num caso que o `QA-016` reproduziu: com o **arquivo apagado** e o livro intacto, o provedor é
+     * chamado outra vez e **cobra outra vez** — e o livro, achando a linha antiga, omitia a segunda
+     * cobrança. O episódio seguia relatando o custo de UMA imagem depois de ter pago duas.
+     *
+     * A regra agora separa as duas situações pelo único fato que importa para o livro:
+     *
+     * - **O provedor cobrou agora (`costUsd > 0`)?** Houve geração paga de verdade: o livro **registra**,
+     *   sempre, e o ativo conta como gerado. É o invariante nº 4 — nenhuma consulta ao livro pode
+     *   dispensá-lo.
+     * - **O provedor não cobrou (`costUsd === 0`)?** O arquivo já existia: se o livro tem linha para este
+     *   `(episódio, etapa, modelo, hash8)`, o ativo **já foi pago antes** — não gera linha nova, conta
+     *   como reuso, e a entrada reconstruída do manifesto recebe o custo que o LIVRO registra (não o `0`
+     *   que o provedor devolveu, senão o manifesto diria que a arte foi de graça).
+     *
+     * O contrato da primeira versão continua valendo e é ele que decide o empate: o erro cai para o lado
+     * de duplicar uma linha (visível, corrigível) e nunca para o lado de perder gasto (invisível).
+     */
+    const gastouAgora = asset.costUsd > 0;
+    const jaNoLivro = gastouAgora ? null : ledgerCostUsd(spec.episodeId, info.stage, asset.model, asset.hash);
+    const entry = buildEntry(jaNoLivro === null ? asset : { ...asset, costUsd: jaNoLivro }, sha256, {
       channelId: spec.channelId,
       episodeId: spec.episodeId,
       stage: info.stage,
@@ -404,6 +616,7 @@ export async function runSimulatedEpisode(
       now,
     });
     entries.push(entry);
+
     views.push({
       stage: entry.stage,
       key: entry.key,
@@ -413,9 +626,15 @@ export async function runSimulatedEpisode(
       costUsd: entry.costUsd,
       providerId: entry.providerId,
       model: entry.model,
-      reused: false,
+      reused: jaNoLivro !== null,
       simulated: entry.simulated,
+      imageSize: imageSizeOf(entry.kind, asset.path),
     });
+
+    if (jaNoLivro !== null) {
+      reused += 1;
+      return { ...asset, costUsd: jaNoLivro };
+    }
     created += 1;
 
     // O custo entra no livro **aqui**, onde se sabe que houve geração. Ativo reusado não gera linha:
@@ -461,7 +680,16 @@ export async function runSimulatedEpisode(
       height: LONG_RENDER_SPEC.height,
       seed: scene.seed,
     };
-    const imagePlan = planImage(imageRequest);
+    /*
+     * O plano vem **do provedor que vai gerar** — não de `planImage` (o do ffmpeg).
+     *
+     * Antes da Fase 2 esta linha era `planImage(imageRequest)`. Enquanto só existia um provedor de imagem,
+     * funcionava; no dia em que entrasse a MiniMax, o hash e o nome do arquivo continuariam sendo os do
+     * simulado, e a arte real nasceria com nome de prova de máquina — a reexecução então reusaria o PNG do
+     * ffmpeg achando que era a imagem paga. `planImageFor` pergunta ao provedor: o real traz o próprio
+     * `plan`, o simulado usa o dele. Nenhum `if` de fornecedor aqui.
+     */
+    const imagePlan = planImageFor(providers.image, imageRequest);
     const imageEntry = findReusable(manifest, 'imagem', scene.id, imagePlan.hash);
     if (imageEntry !== undefined) {
       imageByScene.set(
@@ -652,6 +880,32 @@ export async function runSimulatedEpisode(
     ];
 
     for (const entry of renderEntries) {
+      /*
+       * Mesma razão do `register` (achado 6 do `QA-015`): com o manifesto perdido, o render é refeito e
+       * este laço relançaria as três linhas de `render`/`legenda` no livro. O render não tem custo de
+       * provedor, mas "linha nova no livro a cada reexecução sem manifesto" é a mesma mentira de
+       * idempotência — e é ela que faz o operador ler "isto foi gerado de novo" onde nada foi produzido.
+       */
+      const jaNoLivro =
+        entry.costUsd > 0 ? null : ledgerCostUsd(spec.episodeId, entry.stage, entry.model, entry.hash);
+      if (jaNoLivro !== null) {
+        reused += 1;
+        views.push({
+          stage: entry.stage,
+          key: entry.key,
+          path: resolveStoredPath(entry),
+          hash: entry.hash,
+          durationMs: entry.durationMs,
+          costUsd: jaNoLivro,
+          providerId: entry.providerId,
+          model: entry.model,
+          reused: true,
+          simulated: entry.simulated,
+          imageSize: null,
+        });
+        continue;
+      }
+
       views.push({
         stage: entry.stage,
         key: entry.key,
@@ -663,6 +917,8 @@ export async function runSimulatedEpisode(
         model: entry.model,
         reused: false,
         simulated: entry.simulated,
+        // Render e legenda não são imagem: nada a medir em pixel.
+        imageSize: null,
       });
       created += 1;
       recordAssetCost({
@@ -709,6 +965,7 @@ export async function runSimulatedEpisode(
         model: entry.model,
         reused: true,
         simulated: entry.simulated,
+        imageSize: null,
       });
       reused += 1;
     }
@@ -744,6 +1001,7 @@ export async function runSimulatedEpisode(
     },
     created,
     reused,
+    imageProvider,
     cost: {
       totalUsd,
       durationMs: longProbe.durationMs,
@@ -753,7 +1011,8 @@ export async function runSimulatedEpisode(
       monthlyLimitUsd: MEDIA_LIMITS.monthlyUsd,
       approvedBy: MEDIA_LIMITS.approvedBy,
       approvedAt: MEDIA_LIMITS.approvedAt,
-      simulated: true,
+      // Calculado, não fixo: `false` no instante em que qualquer ativo do episódio vier de provedor real.
+      simulated: views.every((view) => view.simulated),
       ledgerPath: ledgerPath(),
       ledgerRows: ledgerRowCount(),
     },

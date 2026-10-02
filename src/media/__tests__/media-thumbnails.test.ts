@@ -22,6 +22,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { deflateSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GeneratedAsset, ThumbnailProvider, ThumbnailRequest } from '../contract.js';
 import { assertProviderAllowed, loadAllowList, ProviderNotAllowedError } from '../../../server/media/allow-list.js';
@@ -342,10 +343,68 @@ describe('geração das opções de thumbnail', () => {
 });
 
 describe('adapter real da MiniMax', () => {
+  /*
+   * Fixture corrigida em 2026-10-02 (achado 1/8 do QA-015, correção do autor da Fase 2).
+   *
+   * Era `Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00])` — **9 bytes**: assinatura PNG mais
+   * um byte. Passava na validação antiga (que comparava 3 dos 8 bytes da assinatura) e é exatamente o tipo
+   * de arquivo que a validação nova recusa: sem `IDAT` não há um único pixel, e o `zoompan` do passo do
+   * clipe trava sobre ele (medido pelo QA: não terminou em 180 s). O teste media "grava a imagem e cobra o
+   * preço real" sobre um arquivo que não é imagem — agora usa um PNG de verdade.
+   */
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n += 1) {
+      let c = n;
+      for (let k = 0; k < 8; k += 1) c = (c & 1) === 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes: Buffer): number {
+    let c = 0xffffffff;
+    for (const byte of bytes) c = (CRC_TABLE[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+
+  function chunk(type: string, data: Buffer): Buffer {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length, 0);
+    const tipo = Buffer.from(type, 'latin1');
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(Buffer.concat([tipo, data])), 0);
+    return Buffer.concat([length, tipo, data, crc]);
+  }
+
+  /** PNG 1280x720 de cor sólida, **decodificável** — IHDR + IDAT + IEND, com CRC. */
+  function pngDeVerdade(): Buffer {
+    const ihdr = Buffer.alloc(13);
+    ihdr.writeUInt32BE(1280, 0);
+    ihdr.writeUInt32BE(720, 4);
+    ihdr[8] = 8;
+    ihdr[9] = 2;
+    const linha = Buffer.alloc(1 + 1280 * 3);
+    for (let x = 0; x < 1280; x += 1) {
+      linha[1 + x * 3] = 30;
+      linha[2 + x * 3] = 41;
+      linha[3 + x * 3] = 59;
+    }
+    const cru = Buffer.concat(Array.from({ length: 720 }, () => linha));
+    return Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk('IHDR', ihdr),
+      chunk('IDAT', deflateSync(cru)),
+      chunk('IEND', Buffer.alloc(0)),
+    ]);
+  }
+
+  const PNG_DE_VERDADE = pngDeVerdade();
+
   function respostaMiniMax(overrides: Record<string, unknown> = {}) {
     return {
       id: 'trace-1',
-      data: { image_base64: [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]).toString('base64')] },
+      data: { image_base64: [PNG_DE_VERDADE.toString('base64')] },
       metadata: { success_count: 1, failed_count: 0 },
       base_resp: { status_code: 0, status_msg: 'success' },
       ...overrides,

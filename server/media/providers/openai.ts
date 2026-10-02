@@ -25,8 +25,8 @@
  * referência, e a arte do personagem ainda não existe no canal.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type {
   AssetPlan,
@@ -35,7 +35,8 @@ import type {
   ThumbnailRequest,
 } from '../../../src/media/contract.js';
 import { assetFingerprint } from '../hash.js';
-import { assetPath, ensureParentDir, repoRoot } from '../paths.js';
+import { assetPath, repoRoot } from '../paths.js';
+import { createImageIntegrity } from './image-integrity.js';
 
 export const OPENAI_PROVIDER_ID = 'openai';
 export const OPENAI_THUMBNAIL_MODEL = 'gpt-image-2.5-sunburst';
@@ -53,8 +54,6 @@ export const TETO_POR_IMAGEM_USD = 0.2;
 const PRECO_SAIDA_POR_TOKEN = 30.0 / 1_000_000;
 const PRECO_ENTRADA_TEXTO_POR_TOKEN = 5.0 / 1_000_000;
 
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-
 export class OpenAiImageError extends Error {
   readonly code: string;
 
@@ -64,6 +63,23 @@ export class OpenAiImageError extends Error {
     this.code = code;
   }
 }
+
+/**
+ * Integridade do ativo — a **mesma** implementação que a MiniMax usa (`image-integrity.ts`).
+ *
+ * Até 2026-10-02 este adapter não tinha nenhuma: gravava com `writeFileSync` **antes** de conferir a
+ * assinatura (`QA-015`, achado 1) e tratava `existsSync(path)` como "ativo pronto" — um arquivo de
+ * **zero byte** com o nome certo virava arte aprovada para reuso, e a retentativa devolvia sucesso com
+ * custo zero (`QA-016`, dois achados de gravidade ALTA, no caminho pago que está em uso).
+ *
+ * `formatos: 'png'` é deliberado e preserva a checagem que existia: a resposta do `gpt-image` é PNG, e o
+ * ativo nasce com extensão `.png` no nome — aceitar JPEG aqui seria aceitar um arquivo que o manifesto
+ * chama de PNG.
+ */
+const { isUsableImage, writeValidatedImage } = createImageIntegrity({
+  criarErro: (mensagem) => new OpenAiImageError('resposta-invalida', mensagem),
+  formatos: 'png',
+});
 
 /**
  * A chave vem do **mesmo arquivo da camada de IA** — uma fonte só de segredo por ambiente.
@@ -156,7 +172,15 @@ export const openAiThumbnailProvider: ThumbnailProvider = {
     }
 
     const { hash, path } = planOpenAiThumbnail(input);
-    if (existsSync(path)) {
+    /*
+     * IDEMPOTÊNCIA ANTES DO GASTO — e só sobre um ativo que **abre**.
+     *
+     * Era `if (existsSync(path))`: qualquer coisa com o nome certo (inclusive um arquivo de **zero byte**
+     * deixado por uma escrita interrompida) contava como pronto, e a retentativa devolvia sucesso com
+     * custo zero sobre ela. Mesmo defeito que o `QA-015` achou na MiniMax e que sobreviveu aqui até o
+     * `QA-016` — a diferença é que este é o caminho pago em uso.
+     */
+    if (isUsableImage(path)) {
       return {
         path,
         providerId: OPENAI_PROVIDER_ID,
@@ -166,6 +190,7 @@ export const openAiThumbnailProvider: ThumbnailProvider = {
         simulated: false,
       };
     }
+    rmSync(path, { force: true });
 
     let response: Response;
     try {
@@ -231,16 +256,11 @@ export const openAiThumbnailProvider: ThumbnailProvider = {
     }
 
     const bytes = Buffer.from(b64, 'base64');
-    ensureParentDir(path);
-    writeFileSync(path, bytes);
 
-    if (!readFileSync(path).subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-      throw new OpenAiImageError(
-        'resposta-invalida',
-        `O arquivo gravado em "${path}" não é um PNG (assinatura ausente). Melhor falhar aqui do que entregar ` +
-          'arquivo corrompido ao humano.',
-      );
-    }
+    // Grava **validando**: os bytes vão para um arquivo de passagem, passam pelas duas camadas
+    // (estrutura PNG em JS puro + decodificação real pelo ffmpeg, quando ele existe) e só então são
+    // promovidos ao destino. Falha não deixa ativo no disco — antes o lixo ficava e virava "ativo pronto".
+    writeValidatedImage(path, bytes, `thumbnail opção ${input.optionId}`);
 
     const custo = custoReal(parsed);
     return {

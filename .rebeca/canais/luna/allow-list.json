@@ -91,6 +91,19 @@
     },
     {
       "fornecedor": "minimax",
+      "modelo": "image-01",
+      "finalidade": "imagem",
+      "status": "PERMITIDO",
+      "fundamento": "MESMO fornecedor, MESMO modelo e MESMOS documentos já lidos em 2026-10-01 para a finalidade 'thumbnail' — nenhuma cláusula sobre público-alvo ou sobre gerar imagem que represente menor. A leitura não muda com o uso da imagem: o que muda é só o tamanho de saída e o destino (cena de episódio em vez de thumbnail). O ADR-012 já decidiu nessa direção, com estas palavras: escolher o image-01 'estende uma entrada já aprovada de vídeo para imagem em vez de abrir fornecedor novo'. Esta entrada existe porque o portão do ADR-013 é chaveado por (fornecedor, modelo, finalidade) e recusava a Fase 2 inteira: sem ela, a única finalidade 'imagem' aprovada no canal era o ffmpeg simulado.",
+      "fonteUrl": "https://platform.minimax.io/docs/api-reference/image-generation-t2i",
+      "fontePreco": "https://platform.minimax.io/docs/guides/pricing-paygo",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-02",
+      "ressalva": "Ressalva herdada da entrada de thumbnail, e ela vale aqui igual: os trechos de ToS/Privacy foram obtidos com extrator de terceiro sobre a página oficial (renderizada por JS). Reler no navegador antes de tratar como requisito contratual. E o ADR-005 exige rotular o uso de deep synthesis no conteúdo gerado quando o provedor for MiniMax."
+    },
+    {
+      "fornecedor": "minimax",
       "modelo": "MiniMax-H3-768P",
       "finalidade": "video",
       "status": "PERMITIDO",

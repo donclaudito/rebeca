@@ -635,21 +635,62 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         canalNome: str({ minLength: 2, maxLength: 120 }),
         personagensExistentes: arr(str({ maxLength: 80 }), { maxItems: 20 }),
         paleta: arr(str({ maxLength: 40 }), { maxItems: 8 }),
+        /*
+         * Sempre presente, mesmo vazio: o `obj()` põe toda propriedade em `required` (o modo `strict`
+         * da OpenAI recusa o contrário), então "não há estilo definido" é texto vazio, não ausência de
+         * chave. A tela mandava o campo só quando havia tom de Brand Kit — quando não havia, a
+         * requisição voltava como schema inválido.
+         */
         estiloVisual: str({ maxLength: 300 }),
+        /*
+         * O refino, em duas partes — e é assim que o PDF o descreve ("gostei desse, mas quero as
+         * orelhas maiores e sem coleira"):
+         *
+         * - `ajuste`: o que o humano quer mudar. Vazio = criação do zero.
+         * - `personagemBase`: **no máximo uma** ficha de origem. Lista vazia = não há base.
+         *
+         * Sem a ficha de origem em mãos, a IA não refina: ela recomeça — e recomeçar joga fora tudo o
+         * que o humano já tinha aceitado.
+         */
+        ajuste: str({ maxLength: 400 }),
+        personagemBase: arr(
+          obj({
+            nome: str({ maxLength: 60 }),
+            papel: str({ maxLength: 120 }),
+            descricaoVisual: str({ maxLength: 900 }),
+            tracos: arr(str({ maxLength: 80 }), { maxItems: 12 }),
+            promptImagem: str({ maxLength: 1200 }),
+            negativePrompt: str({ maxLength: 600 }),
+            seed: int({ minimum: 0, maximum: 2147483647 }),
+            notasConsistencia: str({ maxLength: 800 }),
+          }),
+          { maxItems: 1 },
+        ),
       }
     ),
-    output: obj(
-      {
-        nome: str({ minLength: 1, maxLength: 60 }),
-        papel: str({ minLength: 3, maxLength: 120 }),
-        descricaoVisual: str({ minLength: 20, maxLength: 900 }),
-        tracos: arr(str({ maxLength: 80 }), { maxItems: 12 }),
-        promptImagem: str({ minLength: 20, maxLength: 1200 }),
-        negativePrompt: str({ maxLength: 600 }),
-        seed: int({ minimum: 0, maximum: 2147483647 }),
-        notasConsistencia: str({ minLength: 10, maxLength: 800 }),
-      }
-    ),
+    /*
+     * A saída deixou de ser **uma** ficha e passou a ser **opções**.
+     *
+     * Antes: um objeto único. O PDF pede *"o sistema gera opções. Eu escolho uma"* — com saída única
+     * não havia o que escolher, e a tela não tinha como oferecer escolha nenhuma. Mínimo de 2 e teto de
+     * 3 é o mesmo intervalo do texto de produto ("duas ou três opções distintas"); com uma só, a
+     * "escolha" seria decorativa.
+     */
+    output: obj({
+      opcoes: arr(
+        obj({
+          nome: str({ minLength: 1, maxLength: 60 }),
+          papel: str({ minLength: 3, maxLength: 120 }),
+          descricaoVisual: str({ minLength: 20, maxLength: 900 }),
+          tracos: arr(str({ maxLength: 80 }), { minItems: 1, maxItems: 12 }),
+          promptImagem: str({ minLength: 20, maxLength: 1200 }),
+          negativePrompt: str({ maxLength: 600 }),
+          seed: int({ minimum: 0, maximum: 2147483647 }),
+          notasConsistencia: str({ minLength: 10, maxLength: 800 }),
+        }),
+        { minItems: 2, maxItems: 3 },
+      ),
+    }),
   },
 
   'monetizacao-veredito': {

@@ -2044,3 +2044,91 @@ sendo o de raciocínio (`gpt-6.1-sol`). Trocar `criar-cena` para `gpt-6-luna` �
 `criar-roteiro` — derrubaria o custo do lote de US$ 0,0124 para a casa dos milésimos; **não foi feito**,
 é decisão do dono.
 
+## Fases 1 e 2 da adaptação ao PDF — o personagem e as imagens (2026-10-02)
+
+O dono pediu para adaptar o app ao `ideabeba.pdf` (texto extraído em `.rebeca/fontes/ideabeba-extraido.txt`)
+e escolheu começar pelo **personagem**. Planos em `.rebeca/planos/fase-{1-personagem,2-imagens,3-video}.md`.
+As duas primeiras foram executadas por agentes com **conjunto de arquivos disjunto** — a mitigação da D9
+que esta sessão aprendeu pagando.
+
+### Fase 1 — o ciclo do personagem (status: concluído)
+
+O PDF pede quatro batidas: *"o sistema gera opções. Eu escolho uma… 'gostei desse, mas quero as orelhas
+maiores'… ela gera novamente… quando eu aprovar, ele vira oficial."* Existia só a metade: a tela gerava
+**uma** ficha e **não gravava nada**.
+
+| Camada | Arquivo |
+|---|---|
+| As quatro batidas na tela | `src/features/identidade/IdentidadePage.tsx` |
+| `saveCharacterDraft` + `approveCharacter` (única porta para oficial) | `src/data/client.ts` |
+| `CharacterSheet`, `CharacterProposal`, status `substituido`, `derivedFromId` | `src/data/types.ts` |
+| Saída passa a **2–3 opções**; entrada ganha `ajuste` e `personagemBase` | `src/ai/schemas.ts` + `src/ai/contract.ts` (promptVersion 2, teto 1600→2400) |
+| Prompt v2 (v1 apagada — o gerador recusa duas versões ativas) | `.rebeca/prompts/identidade-personagem@v2.md` |
+| Decisão e alternativas descartadas | `.rebeca/decisoes/ADR-015-ciclo-do-personagem.md` |
+
+**Decisão central (ADR-015):** refinar **não edita** a ficha — cria versão nova (`sheetVersion+1`), e a
+anterior só perde a oficialidade quando a nova é aprovada, virando `substituido`. Duas oficiais com o
+mesmo nome tornariam *"qual é a identidade canônica?"* uma pergunta sem resposta, e episódio já gerado
+usou a ficha antiga. Descartados: rebaixar para `em_aprovacao` (estado mentiroso) e apagar (perde
+rastreabilidade).
+
+### Fase 2 — o provedor de imagem real (status: **parcial**, e o motivo importa)
+
+`ImageProvider` real (MiniMax `image-01`) **ao lado** do simulado, atrás da mesma interface. O cliente
+HTTP foi **extraído e compartilhado** entre thumbnail e cena em vez de duplicado; o plano da imagem passa
+a vir do provedor (sem `if` de fornecedor no pipeline); a resolução real é **medida do arquivo** (IHDR)
+em vez de repetida do pedido; e o padrão continua simulado porque escolher provedor pago por padrão faria
+`pnpm exec vitest run` **gastar dinheiro**.
+
+**Allow-list — a segunda reconciliação pendente foi fechada, a primeira não.** Autorizado pelo dono nesta
+sessão: `minimax / image-01 / imagem` = PERMITIDO (o portão do `ADR-013` chaveia por finalidade, e sem
+essa entrada a Fase 2 inteira era recusada). **Continua pendente** a de vídeo: `MiniMax-H3-768P` está
+gravado com finalidade `video` enquanto a etapa se chama `animacao` — é o portão nº 1 da Fase 3.
+
+**Por que parcial, com todas as letras:** o plano exigia *"uma geração real medida"* e **não existe chave
+da MiniMax nesta máquina** (`REBECA_MINIMAX_API_KEY` ausente; `.rebeca/segredos/` só tem `llm.json`, com
+anthropic/deepseek/google/openai). O agente **declarou** em vez de fabricar o número. Preço, latência,
+tamanho e resolução reais entregues seguem `NÃO VERIFICADOS na prática`.
+
+| Verificação (independente, feita pelo orquestrador) | Resultado |
+|---|---|
+| `pnpm exec tsc --noEmit` na árvore inteira | ✅ **exit 0** |
+| `node .tools/build_prompts.mjs --check` | ✅ prompts em sincronia |
+| Arquivos das duas entregas no disco; v1 do prompt apagada | ✅ 7/7 conferidos |
+| `ADR-015` sem colisão de número | ✅ único |
+| `.rebeca/custos.csv` intocado pelas duas | ✅ última gravação 15:49:06 |
+
+**Defeito que a prova adversarial do próprio autor encontrou (Fase 1):** o teste de troca de canal
+**passava verde** com a mutação, porque o mecanismo real de isolamento é `src/app/AppShell.tsx:30`
+(`key={channelId}` remonta a subárvore) — o `useEffect` que ele havia escrito era código decorativo.
+Removeu o efeito, corrigiu o teste e reaplicou a mutação onde ela morde. **Guarda que nunca dispara é
+legenda.**
+
+**Incidente declarado (Fase 1), e vale como aviso:** a primeira mutação usou `Get-Content`/`Set-Content`
+do PowerShell 5.1, que lê e grava em ANSI; corrompeu `src/data/client.ts` com BOM + mojibake e abortou
+antes de restaurar. Foi reparado byte a byte (sha256 igual ao pré-mutação) e o método trocado para
+`System.IO` UTF-8 sem BOM. **Eu mesmo quase repeti isso agora**: o tail deste arquivo aparece como
+mojibake ao ser lido com `Get-Content` — é artefato de leitura, não corrupção, mas o caminho de ida e
+volta é o que corrompe.
+
+### Não verificado nas duas fases
+
+1. **Nenhuma chamada paga de IA ou de mídia** em nenhuma das duas — só provedor simulado e dublê de rede.
+2. **A arte do Character Sheet continua ausente.** As fichas existem; a prancha ilustrada não. E
+   `server/media/manifest.ts:53` **ainda fixa `characterSheet: 'ausente'`**, mesmo com a Luna `oficial`.
+3. **A camada de mídia ainda não consome a ficha** (a Revisão passa só `name/role/sheetVersion`), e o
+   `negativePrompt` do storyboard **não chega ao provedor de imagem** (`ImageRequest` não tem o campo).
+4. **Nenhuma das duas tocou a tela de Revisão** para mostrar arte real × prova de máquina.
+5. **Versões `substituido` não têm caminho de descarte** — a lista cresce a cada refino aprovado.
+6. **Revisão adversarial do `rebeca-qa` não foi executada** sobre nenhuma das duas; a prova por mutação
+   foi feita pelos próprios autores.
+7. **O shim do runner** (`node_modules/.cache/dsh-vitest-sandbox-shim.cjs`, troca só `net use` por
+   resposta vazia) está declarado na evidência. `tsc`, que não usa shim, dá exit 0 como corroboração.
+
+### Fase 3 — o vídeo: **bloqueada**, e não por código
+
+Três portões, nenhum técnico: (1) a entrada `animacao` da allow-list; (2) a **D1** — onde roda o job
+longo, aberta desde o 504; (3) autorização de gasto — **~US$ 39 por episódio** contra teto de
+**US$ 60/mês**, ou seja **um episódio por mês**. Nenhum agente pode abrir os três. Ver
+`.rebeca/planos/fase-3-video.md`.
+

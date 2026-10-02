@@ -1,0 +1,570 @@
+================================================================================
+EVIDENCIA — FASE 1: O PERSONAGEM (opcoes -> escolha -> refino -> aprovacao)
+Plano: .rebeca/planos/fase-1-personagem.md
+Data: 2026-10-02   Janela das medicoes: 16:04 - 16:29 (horario local)
+Ambiente: Windows, Node v26.7.0, pnpm, vitest 5.0.2, Vite 8.3.1, PowerShell 5.1
+Entrega: NAO foi commitada (a arvore tem dois escritores ativos — D9).
+================================================================================
+
+COMO LER ESTE ARQUIVO
+---------------------
+Cada bloco traz o comando exato e a saida observada (copiada, nao resumida quando importa).
+Onde a medicao tem prazo de validade (a arvore tem dois escritores), o horario esta no bloco,
+como manda .rebeca/estado.md.
+
+--------------------------------------------------------------------------------
+0. LIMITE DE AMBIENTE E O SHIM DO RUNNER (declarado, nao escondido)
+--------------------------------------------------------------------------------
+Neste sandbox o vitest NAO carrega sem ajuda:
+
+  $ pnpm exec vitest run src/ai/__tests__/registry.test.ts
+  Error: Build failed with 2 errors: [UNLOADABLE_DEPENDENCY] ...
+  [plugin externalize-deps] Error: spawn EPERM
+      at optimizeSafeRealPathSync (vite/dist/node/chunks/node.js:2458:2)
+
+Causa medida em node_modules/vite/dist/node/chunks/node.js:2449-2468: no Windows o Vite chama
+   exec("net use", { windowsHide: true }, cb)
+UMA vez, apenas para montar o mapa de drives de rede. O sandbox nega abrir subprocesso com stdio
+em pipe (EPERM documentado), e essa chamada NAO esta dentro do try/catch do Vite — a suite inteira
+nao carrega. A propria mensagem do sandbox autoriza "restructure it to avoid capturing output".
+
+O que foi feito: um shim FORA do repositorio (node_modules e ignorado; nada versionado muda) que
+troca SOMENTE essa chamada por resposta vazia — que e o caminho oficial de fallback do Vite
+(`if (windowsNetworkMap.size === 0) safeRealpathSync = fs.realpathSync.native;`, linha 2465).
+
+  arquivo:  node_modules/.cache/dsh-vitest-sandbox-shim.cjs
+  sha256:   3499B9F32E579F22EE08FD3562F8211C77CC211C40A37D838ADC6AE4FB61EF1E
+  intercepta: child_process.exec('net use')  e  child_process.execSync('net use')
+  NAO toca em:  qualquer outro comando, qualquer outro spawn, qualquer arquivo
+  uso:      NODE_OPTIONS='--require ./node_modules/.cache/dsh-vitest-sandbox-shim.cjs' pnpm exec vitest run ...
+
+Transparencia sobre o risco de falso verde: o shim poderia mascarar falha se algum teste dependesse
+de subprocesso ou do mapeamento de drives de rede. Nenhum teste desta entrega depende — nem os novos,
+nem os 447 da suite (sao logica de app, de IA e de midia local). Corroboracao independente: o
+`tsc --noEmit` NAO usa o shim e sai 0 (bloco 1). Fora do sandbox o comando e o mesmo, sem NODE_OPTIONS.
+
+Tambem ficam em node_modules/.cache (descartaveis, fora do repositorio):
+  tsconfig-entrega.json      C91A295301525EFE0B4DAE10BDEF2818D38B72BDBE6CD430549CD358B3503474
+  prova-mutacao.ps1          94C288809F8A263FD52D1BA7ED022AB1AB5E402F5917DA2AE70AF7A03FE9D96B
+
+--------------------------------------------------------------------------------
+1. tsc --noEmit
+--------------------------------------------------------------------------------
+Medicao final (arvore inteira):
+
+  $ HORA DA VERIFICACAO FINAL: 2026-10-02 16:26:51
+  $ pnpm exec tsc --noEmit
+  exit=0
+
+Historico desta mesma medicao, porque ele importa (dois escritores na arvore):
+
+  16:05:46  pnpm exec tsc --noEmit -> exit 1, 9 erros, TODOS em server/media/simulated-episode.ts
+            (EpisodeAssetView sem `imageSize`, `planImage` inexistente, imports nao usados).
+            Naquele instante aquele arquivo estava sendo editado pela frente de midia: o `git status`
+            do inicio da minha sessao nao o listava, e as 16:05:46 ele aparecia como ` M` com
+            LastWriteTime do mesmo segundo. A frente de midia consertou depois; remedido as 16:17:00
+            -> exit 0, e as 16:26:51 -> exit 0. Os 9 erros NUNCA foram da minha entrega: nenhum dos
+            arquivos desta entrega estava entre eles.
+  16:17:00  pnpm exec tsc --noEmit -> exit=0
+  16:26:51  pnpm exec tsc --noEmit -> exit=0
+
+Verificacao escopada usada enquanto a arvore estava vermelha por causa alheia (config fora do
+repositorio, inclui src/** e server/ai/**, exclui so o teste que importa server/media):
+
+  $ pnpm exec tsc --noEmit -p node_modules\.cache\tsconfig-entrega.json
+  exit=0
+
+--------------------------------------------------------------------------------
+2. PROMPTS VERSIONADOS EM SINCRONIA
+--------------------------------------------------------------------------------
+  $ node .tools/build_prompts.mjs
+  OK: 15 prompts gerados em server/ai/prompts.generated.ts
+
+  $ node .tools/build_prompts.mjs --check
+  OK: prompts em sincronia com .rebeca/prompts/.
+  exit=0
+
+A v1 saiu da arvore (`identidade-personagem@v1.md`), como o plano manda: .tools/build_prompts.mjs:99
+recusa duas versoes ativas do mesmo prompt_id. Conferido:
+
+  $ Test-Path '.rebeca\prompts\identidade-personagem@v1.md'
+  False
+  $ git status --porcelain
+   D .rebeca/prompts/identidade-personagem@v1.md
+  ?? .rebeca/prompts/identidade-personagem@v2.md
+
+O texto da v1 continua no historico do git (o gerador desta casa exige arquivo unico por prompt_id,
+entao "manter a versao anterior no disco" da skill rebeca-prompt-eng nao e possivel aqui; declarado).
+
+--------------------------------------------------------------------------------
+3. SUITE COMPLETA
+--------------------------------------------------------------------------------
+Medicao final:
+
+  $ HORA DA SUITE COMPLETA: 2026-10-02 16:26:57
+  $ NODE_OPTIONS=... pnpm exec vitest run
+   Test Files  40 passed (40)
+        Tests  447 passed (447)
+     Duration  119.69s
+
+Medicao anterior (16:19), com a frente de midia ainda no meio da edicao dela — registrada porque
+mostra que as falhas eram dela e nao minhas:
+
+   Test Files  2 failed | 38 passed (40)
+        Tests  4 failed | 443 passed (447)
+   FAIL src/media/__tests__/media-imagens.test.ts > recusa imagem de cena fora da allow-list ...
+   FAIL src/media/__tests__/media-render.test.ts > recusa fornecedor PROIBIDO ...
+   FAIL src/media/__tests__/media-render.test.ts > recusa quando o canal nao tem allow-list ...
+   FAIL src/media/__tests__/media-render.test.ts > o portao roda mesmo com o cache quente ...
+   (os 4 casos sao do portao de fornecedor de midia, area que a outra sessao estava editando —
+    .rebeca/canais/luna/allow-list.json estava com +1 entrada minimax/image-01 no working tree)
+
+Testes novos desta entrega, rodados tambem isolados:
+
+  $ pnpm exec vitest run src/data/__tests__/personagem-ciclo.test.ts
+  Test Files  1 passed (1)   Tests  11 passed (11)
+
+  $ pnpm exec vitest run src/features/identidade/__tests__/personagem-opcoes-simuladas.test.ts
+  Test Files  1 passed (1)   Tests  6 passed (6)
+
+  $ pnpm exec vitest run src/features/identidade/__tests__/identidade-personagem.test.tsx
+  Test Files  1 passed (1)   Tests  6 passed (6)
+
+--------------------------------------------------------------------------------
+4. PROVA ADVERSARIAL POR MUTACAO — 8 garantias desfeitas, uma a uma
+--------------------------------------------------------------------------------
+Metodo: cada mutacao e aplicada ao arquivo real, o teste que a protege e rodado, e o arquivo e
+restaurado e conferido por sha256 (byte a byte). Se a restauracao nao bater o hash, o instrumento
+acusa em vez de deixar passar. As mutacoes foram aplicadas com System.IO (UTF-8 sem BOM) — ver a
+secao 5, onde isso virou incidente.
+
+M1. "personagem novo nasce rascunho" -> status: 'oficial' em saveCharacterDraft
+  arquivo: src/data/client.ts
+  mutacao: [status: 'rascunho',] -> [status: 'oficial',]
+  sha256 original:      555D1A0095F8A1A8525B70DB3CC0D9DC78D700E4566D3B82994C861A5D702030
+  sha256 com mutacao:   7FF51FCFB3BD71FF3EC97B4C5E85EF030CB3399891B44B375D4EE12B03BC9616
+  resultado: src/data/__tests__/personagem-ciclo.test.ts -> 11 tests | 4 failed
+    AssertionError: expected { id: 'luna-bento', ...(9) } to match object { channelId: 'luna', ...(5) }
+    AssertionError: expected 'oficial' to be 'rascunho' // Object.is equality
+  sha256 restaurado:    555D1A0095F8A1A8525B70DB3CC0D9DC78D700E4566D3B82994C861A5D702030
+  restauracao byte a byte: True
+
+M2. "aprovacao substitui a versao oficial anterior" -> filtro de substituicao desligado
+  arquivo: src/data/client.ts
+  mutacao: [item.status === 'oficial' &&] -> [false &&]
+  sha256 original:      555D1A00...
+  sha256 com mutacao:   73E56103AB824192D6FB3FD60638D46D731D86775EFE29C99EC006961233816B
+  resultado: 11 tests | 2 failed
+    AssertionError: expected [] to deeply equal [ 'v4' ]        <- nada foi substituido
+    AssertionError: expected [Function] to throw error matching /substituida/i
+                    but got 'Este personagem ja e oficial.'      <- a v4 ficou OFICIAL para tras
+  sha256 restaurado:    555D1A00...   restauracao byte a byte: True
+
+M3. "personagem de outro canal e recusado" -> findCharacter ignora o canal
+  arquivo: src/data/client.ts
+  mutacao: [(item) => item.channelId === channelId && item.id === characterId,]
+        -> [(item) => item.id === characterId,]
+  sha256 original:      555D1A00...
+  sha256 com mutacao:   8BA36CE4F7F140FAF627B7A7747B3E3A34051140A69C149C682F431580284520
+  resultado: 11 tests | 1 failed
+    AssertionError: promise resolved "{ id: 'arquivo-intruso', ...(9) }" instead of rejecting
+  sha256 restaurado:    555D1A00...   restauracao byte a byte: True
+
+M4. "a escolha nao pode ser decorativa: 2 a 3 opcoes" -> schema aceita uma opcao
+  arquivo: src/ai/schemas.ts
+  mutacao: [{ minItems: 2, maxItems: 3 }] -> [{ minItems: 1, maxItems: 3 }]
+  sha256 original:      29A20C96204656219893DBB881ED4BA215D41ABFBECAB05C277FA10E71FC1213
+  sha256 com mutacao:   D7B08D7025BF10F525326F964745A231B2E6B5DB1F204C0C755A6758807D5FEF
+  resultado: personagem-opcoes-simuladas.test.ts -> 6 tests | 1 failed
+    AssertionError: expected '' to match /pelo menos 2/
+  sha256 restaurado:    29A20C96...   restauracao byte a byte: True
+
+M5. "a IA nao grava sozinha: nada sem clique humano" -> onResult grava a primeira opcao
+  arquivo: src/features/identidade/IdentidadePage.tsx
+  mutacao: [setOpcoesCriacao(opcoesDaResposta(resultado.data));]
+        -> [ ...mesma linha...; escolherOpcao.mutate({ proposal: opcoesDaResposta(resultado.data)[0]
+             ?? ({} as CharacterProposal), derivedFromId: null, origin: {...} });]
+  sha256 original:      D54C10303A6F5C5D5D44B8932070DBA369CF60180A5F9A2F509FD4529FB4A3B3
+  sha256 com mutacao:   74ECCCFA6AAEA7C252690F3C8894278BF30B40BB6676B63CB5110AAB4AF40A22
+  resultado: identidade-personagem.test.tsx -> 6 tests | 2 failed
+    AssertionError: expected "saveCharacterDraft" to not be called at all,
+                    but actually been called 1 times
+  sha256 restaurado:    D54C1030...   restauracao byte a byte: True
+
+M6. "trocar de canal nao deixa nada do canal anterior na tela" -> conteudo deixa de remontar
+  arquivo: src/app/AppShell.tsx  (linha 30 — arquivo de outra frente, mexido SO em mutacao temporaria)
+  mutacao: [key={channelId ?? 'global'}] -> [key="fixo"]
+  sha256 original:      DC62FED69B44D72760BEC149277D62EC22F1640E1F2B361284F2C32157760E6A
+  sha256 com mutacao:   66BD9EAC006F954F02B112BBFFDEAC5E8643B6932DDFCA89469AC9CF8AB0B075
+  resultado: 6 tests | 1 failed
+    x trocar de canal limpa o ciclo: nada do canal anterior fica na tela
+    Error: expect(element).not.toBeInTheDocument()
+    expected document not to contain element, found <ul
+      aria-label="Opcoes de personagem propostas pela IA" ...>
+  sha256 restaurado:    DC62FED6...   restauracao byte a byte: True
+  git status --porcelain src/app/AppShell.tsx -> (vazio: arquivo intacto)
+  Guarda contra escrita concorrente: antes de restaurar, o script compara o hash do arquivo com o
+  hash mutado; se outro escritor tivesse gravado na janela, a restauracao era ABORTADA e relatada em
+  vez de sobrescrever trabalho alheio.
+
+M7. "o refino deriva da ficha escolhida" -> refino ignora o nome da base
+  arquivo: server/ai/simulated.ts
+  mutacao: [nome: base.nome,] -> [nome: 'Nome Novo',]
+  sha256 original:      B1CC0ACB96A304C18ED5260E8A5AD44C5FE7CAB446695A168F5EDD8C502B3EFD
+  sha256 com mutacao:   A0386A1ABC86FEB104A39459AE7C793A4B529E2C0571B37D8477DB3269C8D785
+  resultado: 6 tests | 1 failed
+    AssertionError: expected 'Nome Novo' to be 'Tico' // Object.is equality
+  sha256 restaurado:    B1CC0ACB...   restauracao byte a byte: True
+
+M8. "ficha sem procedencia nao entra no canal" -> a exigencia de `simulated` deixa de valer
+  arquivo: src/data/client.ts
+  mutacao: [if (typeof source['simulated'] !== 'boolean') {] -> [if (false) {]
+  sha256 original:      555D1A00...
+  sha256 com mutacao:   866DD1D56B9462ED85D0F675C86D05F9EF36749F14D42E6B4230CED0529B110C
+  resultado: 11 tests | 1 failed
+    x exige procedencia: ficha sem origem registrada nao entra no canal
+    AssertionError: promise resolved "{ id: 'luna-bento', ...(9) }" instead of rejecting
+  sha256 restaurado:    555D1A00...   restauracao byte a byte: True
+
+=== ACHADO DA PROPRIA PROVA: um teste meu que NAO mordia ===
+Antes da M6 acima, a mutacao foi aplicada no MEU arquivo (remover so `setRespostaCriacao(null);` do
+efeito de limpeza da tela de Identidade):
+
+  sha256 original: D54C1030... / sha256 com mutacao: 4725FF19B5A5B6A3116A87901C8CA3767A826E16274EA1E26BD3D0C42D611F6D
+  resultado: Test Files 1 passed (1)   Tests 6 passed (6)   <- VERDE com a mutacao aplicada
+
+Ou seja: o teste de troca de canal nao protegia a garantia que dizia proteger — a lista sumia por
+outro motivo (opcoesCriacao zerado fazia o bloco cair na mensagem de "nenhuma opcao legivel") e as
+assercoes nao olhavam para isso. Duas correcoes:
+
+  (a) o teste ganhou as assercoes que faltavam: o canal novo nao pode exibir "Opcoes geradas" nem
+      "nao trouxe nenhuma opcao legivel" (mentira sobre o canal novo), tem de exibir "Nenhuma opcao
+      foi gerada ainda", e o campo de descricao tem de estar vazio;
+  (b) investigando por que a mutacao nao mordia, apareceu o mecanismo real: src/app/AppShell.tsx:30
+      remonta a subarvore com `key={channelId}`. O `useEffect` de limpeza na tela era, portanto,
+      codigo decorativo — guarda que nunca dispara. Ele foi REMOVIDO, com o comentario explicando
+      onde o isolamento mora; e a M6 passou a ser aplicada no lugar certo (o `key`), onde ficou
+      vermelha como devia.
+
+Foi exatamente para achar isso que a mutacao existe.
+
+--------------------------------------------------------------------------------
+5. INCIDENTE DECLARADO: encoding do PowerShell 5.1 na primeira tentativa de mutacao
+--------------------------------------------------------------------------------
+A primeira tentativa usou um .ps1 com `Get-Content -Raw` / `Set-Content -Encoding utf8`. Duas coisas
+deram errado ao mesmo tempo:
+
+  (a) este host roda PowerShell 5.1 ($PSVersionTable.PSVersion = 5.1.26100.9549) com o .ps1 lido em
+      ANSI: acentos no proprio script quebraram o parser ("A cadeia de caracteres nao tem o
+      terminador", linha 49);
+  (b) pior: `Get-Content -Raw` decodificou o UTF-8 como ANSI e `Set-Content -Encoding utf8` regravou
+      com BOM e com mojibake, e o script abortou antes da linha de restauracao (o `2>&1 | Out-String`
+      com stderr nativo estourou o $ErrorActionPreference='Stop'). O arquivo ficou mutado E corrompido.
+
+Estado medido logo depois (evidencia do dano):
+  primeiros bytes: EF BB BF 2F 2A   (BOM adicionado)
+  linha 124 lida como UTF-8: /** AtualizaÃ§Ã£o crua, preservando o estado no ciclo. Uso interno e
+                              deliberado â€” ver `patchArtifact`. */
+
+Reparo, byte a byte, e prova:
+  $ bytes = Encoding.GetEncoding(1252).GetBytes(ReadAllText($p, UTF8))
+  $ [System.IO.File]::WriteAllBytes($p, $bytes)
+  "BOM agora: 47,42,42"                       (a BOM saiu)
+  $ hash depois de reverter a mutacao com contexto unico:
+  sha256 atual:                     555D1A0095F8A1A8525B70DB3CC0D9DC78D700E4566D3B82994C861A5D702030
+  sha256 registrado antes da mutacao: 555D1A0095F8A1A8525B70DB3CC0D9DC78D700E4566D3B82994C861A5D702030
+  restauracao byte a byte: True
+
+Metodo corrigido (usado em todas as 8 mutacoes acima): `[System.IO.File]::ReadAllText(path, UTF8)` +
+`WriteAllText(path, texto, UTF8Encoding($false))` — sem BOM, sem passar pelo codepage ANSI, com
+verificacao de sha256 antes e depois. Nenhum outro arquivo passou por esse caminho corrompido; a
+unica vítima foi src/data/client.ts, e ela esta provada intacta pelo hash.
+
+--------------------------------------------------------------------------------
+6. INTEGRIDADE DOS ARQUIVOS ENTREGAVEIS (sha256)
+--------------------------------------------------------------------------------
+Tabela da versao FINAL — depois das correcoes do QA-015 (secao 8), do conserto do teste instavel
+(secao 9) e da correcao de texto do QA-016 (secao 10). Medidos as 19:30. O arquivo do QA
+(qa-fase1-adversarial.test.ts) e dele: o hash abaixo e o que estava no disco as 19:30, e ele pode
+mudar sem que isso seja defeito desta entrega.
+
+3CB8F4EFFCD6CECA7A997F7E5156AE510DF063CAD1FA6BFC87DA65B20FE412E7  src/data/types.ts
+3C4854E92CE57031CDFB6ADB43F5D3062406BB4466C98421E9C904C75D60FCB8  src/data/client.ts
+0DB4991B1E6FD5211EBB3B02BE44B55DAD7D55ED16A920CF8B00DB8697E7B651  src/data/mock/db.ts
+BD32B7C29A4976D2195E31B45BD0FEAD4CA3E01390A4CC3FEC4D53942B9785F7  src/data/__tests__/personagem-ciclo.test.ts
+D96138AC42D25C60D7614F70A1F850A70FA0541711A4A86BA680C2CA296AA1AB  src/data/__tests__/qa-fase1-adversarial.test.ts
+29A20C96204656219893DBB881ED4BA215D41ABFBECAB05C277FA10E71FC1213  src/ai/schemas.ts
+EBC34D1F7280732C0B1EAB885609D6BE4F78887A5B08E02352F7EF4176F67F52  src/ai/contract.ts
+3453A83D73B6F85C2231AF0CAF76D9BB11AB5A9EDBAC5DD9ABAAECF198D9733C  src/ai/__tests__/fixtures.ts
+B1CC0ACB96A304C18ED5260E8A5AD44C5FE7CAB446695A168F5EDD8C502B3EFD  server/ai/simulated.ts
+2E92F74D305E3C8F3EED22295E270D6366C2F0902ECFCA313F04592D79CA24AA  server/ai/prompts.generated.ts
+95735F7589E1191CC0B1AB49A2CF1E38684FB6C54A9AD13236BD74DE56E2B31E  src/features/identidade/IdentidadePage.tsx
+8346BEE11940F66C2A066B96D7C24F9FA7071E1A20578BC5FF5F3BCF156C22EF  src/features/identidade/__tests__/identidade-personagem.test.tsx
+ACA52757B681BFA0B89D7F6C677592E48521A0CDEB34F4CAB01E80C502E95CE7  src/features/identidade/__tests__/personagem-opcoes-simuladas.test.ts
+6FC866CB740BC03A3ED20AF1CF0A5056E9A5F45D3FCE162DFA2832ABC3537808  .rebeca/prompts/identidade-personagem@v2.md
+30F266B7B05E76AB93AB3D04DFDCF13C6956DABF2611A1CD287FFE54232C7FDE  .rebeca/decisoes/ADR-015-ciclo-do-personagem.md
+(deletado)                                                        .rebeca/prompts/identidade-personagem@v1.md
+
+git status no fim (nada commitado; `git add` largo nunca foi usado):
+ M .rebeca/canais/luna/allow-list.json        <- frente de midia
+ M .rebeca/custos.csv                         <- chamadas reais de IA de outra sessao; NAO tocado por mim
+ D .rebeca/prompts/identidade-personagem@v1.md
+ M server/ai/prompts.generated.ts
+ M server/ai/simulated.ts
+ M server/media/providers/minimax.ts          <- frente de midia
+ M server/media/simulated-episode.ts          <- frente de midia
+ M src/ai/__tests__/fixtures.ts
+ M src/ai/contract.ts
+ M src/ai/schemas.ts
+ M src/data/client.ts
+ M src/data/mock/db.ts
+ M src/data/types.ts
+ M src/features/identidade/IdentidadePage.tsx
+?? .rebeca/prompts/identidade-personagem@v2.md
+?? src/data/__tests__/personagem-ciclo.test.ts
+?? src/features/identidade/__tests__/
+(novos, da outra frente: .rebeca/evidencias/fase-2-imagens.txt, server/media/providers/image-provider.ts,
+ src/media/__tests__/media-imagens.test.ts, .rebeca/fontes/, .rebeca/planos/)
+
+--------------------------------------------------------------------------------
+7. O QUE **NAO** FOI VERIFICADO (declarado, nao omitido)
+--------------------------------------------------------------------------------
+a) Nenhuma chamada PAGA de IA foi feita por esta entrega. A suite usa o provedor simulado
+   (server/ai/simulated.ts) e duble de rede nos testes de tela. Portanto o caminho real com chave
+   configurada (2-3 opcoes vindas de um modelo de verdade) NAO foi exercitado — o que existe e o
+   contrato (schema + validacao da saida), provado pelo registry.test.ts para todas as funcoes.
+b) A ARTE do personagem continua ausente, e o plano diz que e assim: ArtSlot segue como placeholder
+   e server/media/manifest.ts:53 continua fixando characterSheet: 'ausente'. Isso NAO foi tocado
+   (e de outra frente). Consequencia honesta: a tela diz que existe ficha canonica e diz que as
+   pranchas de referencia/expressoes/angulos ainda nao existem.
+c) A camada de midia ainda NAO consome a ficha oficial: RevisaoPage passa para o gerador de imagem
+   apenas name/role/sheetVersion. Levar descricaoVisual/promptImagem/negativePrompt/seed ate a
+   geracao e trabalho da fase seguinte.
+d) Nao existe caminho de descarte de versao `substituido` nem de rascunho: a lista do canal cresce a
+   cada refino aprovado. Declarado; nao implementado nesta fase (o PDF nao pede).
+e) approvedBy continua impossivel (D3, sem autenticacao): grava-se o FATO da aprovacao (quando, em
+   que canal, qual versao). A tela diz explicitamente que quem aprovou nao e registrado.
+f) A garantia de isolamento NA TELA e estrutural (src/app/AppShell.tsx:30, key={channelId}) e foi
+   provada pela M6; o teste correspondente protege o comportamento observavel, nao a linha do
+   AppShell (que e de outra frente, mexida apenas em mutacao temporaria e restaurada byte a byte).
+g) `.rebeca/estado.md` NAO foi atualizado por mim: esta na lista de arquivos proibidos para esta
+   entrega. (Ele aparece como ` M` no git status da segunda rodada — a alteracao e de outra sessao.)
+   Quem integra precisa registrar la o ciclo do personagem (e a ADR-015) a mao.
+h) A ADR-015 foi escrita, mas o numero pode colidir com uma ADR da frente de midia (que tambem
+   estava trabalhando em fornecedor de imagem). O arquivo tem slug proprio
+   (ADR-015-ciclo-do-personagem.md) para que uma colisao de numero seja visivel e renumeravel.
+
+--------------------------------------------------------------------------------
+8. SEGUNDA RODADA — correcoes pedidas pelo QA-015 (achados 2 e 3)
+--------------------------------------------------------------------------------
+Relatorio: docs/qa/QA-015-fases-1-e-2.md (rebeca-qa, independente). Dos 9 achados, 2 sao da Fase 1 e
+os dois foram ACEITOS — o QA tem reproducao minima e o defeito esta no codigo. Nenhum foi contestado.
+Os achados de midia (1, 4, 5, 6, 8) sao da frente da Fase 2 e NAO foram tocados por mim.
+
+ACHADO 2 — o numero da revisao subia da BASE, nao do topo da identidade.
+  Antes: `sheetVersion: base ? nextSheetVersion(base.sheetVersion) : 'v1'` em saveCharacterDraft.
+  Efeito medido pelo QA: refinar uma versao `substituido` reemitia o numero de uma ficha VIVA (duas
+  "v2" convivendo), e duas ramificacoes da mesma base tambem davam ["v2","v2"]. A frase do ADR-015
+  ("o episodio gravado com a v4 continua rastreavel") era FALSA como estava implementado.
+  Correcao em src/data/client.ts: `proximaVersaoDaIdentidade(channelId, name, base)` sobe do TOPO da
+  identidade (nome normalizado + linhagem da base), com piso `v1` para a primeira ficha. A ADR-015
+  ganhou a secao "O que sheetVersion garante — e o que nao garante", com o limite declarado (entre
+  identidades diferentes o numero pode coincidir; a chave de auditoria e `id` + `sheetVersion`).
+
+ACHADO 3 — duas regras de identidade no mesmo arquivo.
+  Antes: `nextCharacterId` tirava o diacritico, `mesmaIdentidade` comparava a string crua. Aprovar
+  `Bento` e depois `Bentó` deixava DOIS `oficial` para o mesmo cachorro (ids `luna-bento` e
+  `luna-bento-2`) — invariante no 3 furado por um acento.
+  Correcao: uma unica funcao `identidadeDoNome` (sem acento via NFD + remocao de marcas, sem caixa,
+  sem separador) usada pelo gerador de `id` E pela substituicao da versao oficial.
+
+ASSERCOES INVERTIDAS NO ARQUIVO DO QA (declarado, nao escondido)
+  Os 4 casos de `src/data/__tests__/qa-fase1-adversarial.test.ts` que documentavam os defeitos
+  ("REFUTADO: ...") passaram a afirmar o comportamento correto ("CORRIGIDO: ..."), cada um com o
+  achado e a data no comentario. Nenhum outro caso do arquivo foi tocado; nenhuma assercao foi
+  afrouxada — as que mudaram ficaram MAIS estritas (contagem de oficiais, status `substituido` da
+  versao anterior, unicidade do rotulo de versao). Sem esta inversao a suite ficaria vermelha para
+  sempre, porque o teste afirmava o defeito.
+
+PROVA: TESTES DO QA VERDES (antes das mutacoes inversas)
+  $ HORA: 2026-10-02 18:08:30
+  $ pnpm exec vitest run src/data/__tests__ src/ai/__tests__ src/features/identidade/__tests__
+   Test Files  15 passed (15)
+        Tests  179 passed (179)
+  (dentro dos 179: qa-fase1-adversarial.test.ts 15/15, personagem-ciclo.test.ts 13/13,
+   identidade-personagem.test.tsx 6/6, personagem-opcoes-simuladas.test.ts 6/6, channel-scope 4/4)
+
+PROVA: MUTACAO INVERSA (reintroduz o defeito, mostra o vermelho, restaura por sha256)
+  sha256 da entrega corrigida: 3C4854E92CE57031CDFB6ADB43F5D3062406BB4466C98421E9C904C75D60FCB8
+
+  INVERSA-2 — devolve `sheetVersion: base ? nextSheetVersion(base.sheetVersion) : 'v1'`:
+    sha256 com o defeito: FBC55315E0549480AE950B1D00BE0D234E3BB23E5A91A2A10FFAAF50E30E32EA
+    resultado: 3 testes vermelhos
+      x (QA)     CORRIGIDO: o numero da revisao e unico — refinar uma versao substituida sobe do TOPO
+      x (QA)     CORRIGIDO: duas ramificacoes do mesmo refino recebem numeros diferentes
+      x (minha)  a revisao sobe do TOPO da identidade — refinar versao substituida nao reemite numero vivo
+    sha256 restaurado: 3C4854E9...   restauracao identica: True
+
+  INVERSA-3 — devolve `mesmaIdentidade` comparando a string crua:
+    sha256 com o defeito: DE00A787D7389135F4ED4BC1BBC34411A4AE88957397E18489A4BD3ACFEA11DC
+    resultado: 3 testes vermelhos
+      x (QA)     CORRIGIDO: espaco INTERNO nao cria uma segunda identidade canonica
+      x (QA)     CORRIGIDO: acento nao separa identidades que o humano le como o mesmo nome
+      x (minha)  acento, caixa e separador nao criam duas identidades canonicas
+    sha256 restaurado: 3C4854E9...   restauracao identica: True
+
+  Antes das correcoes, os mesmos 4 casos davam exatamente o oposto (os valores medidos):
+      AssertionError: expected [ 'Ben to' ] to deeply equal [ 'Bento', 'Ben to' ]
+      AssertionError: expected [ 'Bentó' ] to deeply equal [ 'Bento', 'Bentó' ]
+      AssertionError: expected 'v3' to be 'v2'
+      AssertionError: expected [ 'v2', 'v3' ] to deeply equal [ 'v2', 'v2' ]
+
+ARVORE INTEIRA NA SEGUNDA RODADA (prazo de validade declarado)
+  $ HORA: 2026-10-02 18:05:55
+  $ pnpm exec tsc --noEmit                       -> exit 0
+  $ node .tools/build_prompts.mjs --check        -> OK: prompts em sincronia  (exit 0)
+  $ pnpm exec vitest run                         -> 4 arquivos vermelhos | 38 verdes, TODOS os 4 em
+       src/media/__tests__ (qa-fase2-adversarial, media-imagens, media-render, media-thumbnails):
+       sao os achados da Fase 2 que a outra sessao esta corrigindo em paralelo (a mesma janela em que
+       server/media/providers/minimax.ts, server/media/simulated-episode.ts e o novo
+       server/media/providers/image-provider.ts aparecem modificados). Nenhum arquivo de src/data,
+       src/ai ou src/features/identidade falhou — o escopo da Fase 1 fecha 179/179.
+  Nao toquei em server/media/** nem em src/media/** (restricao explicita): `git status` desses
+  caminhos lista apenas arquivos da outra frente.
+
+--------------------------------------------------------------------------------
+9. TERCEIRA RODADA — o teste central da Fase 1 era INSTAVEL POR TEMPO
+--------------------------------------------------------------------------------
+Achado do agente pai, com evidencia propria em `.rebeca/evidencias/qa-fase1-teste-central.txt`:
+sob a suite da area carregada, o caso "percorre as quatro batidas" deu
+
+  × percorre as quatro batidas: opções → escolha → refino → aprovação   20136ms
+    → Test timed out in 20000ms.
+
+Nao era assercao: era tempo, por 136 ms. E um teste instavel no **criterio de aceite principal** e
+pior do que teste nenhum — ele fica vermelho em CI ao acaso e, a partir dai, ninguem confia na suite.
+O `.rebeca/estado.md` ja registra este padrao (revisao.test.tsx, channel-scope.test.tsx, suite inteira
+sob carga).
+
+O QUE **NAO** FOI FEITO: subir o `testTimeout`. O proprio estado.md diz que subir o limite de novo
+esconderia o problema real — um limite maior so esconde que o teste faz demais. O limite continua 20 s.
+
+O que foi feito (tres mexidas estruturais, nenhuma delas "esperar mais"):
+
+  (a) Eventos sem atraso e entrada por COLAGEM. `userEvent.setup({ delay: null })` tira o tick real
+      entre eventos, e `paste` no lugar de `type` troca 58 eventos (um por caractere, cada um
+      re-renderizando a tela inteira) por **um**. Medido no arquivo isolado, o caso das quatro
+      batidas: 8342 ms -> 2367 ms.
+  (b) Divisao das quatro batidas em casos menores, cada um com o seu orcamento — "escolher", "refinar"
+      e "aprovar" passaram a ser tres casos, com as MESMAS assercoes distribuidas (nenhuma foi
+      removida; a contagem do arquivo subiu de 6 para 8 casos). Nenhum caso agora faz o ciclo inteiro
+      num unico orcamento.
+  (c) Casca mais leve para quem nao precisa dela. `renderTela` monta a tela de Identidade pela rota;
+      so o caso que troca de canal usa `renderCasca` (`AppRoutes` inteiro), porque o seletor de canal
+      vive na barra superior. O custo de render da casca nao era o que os outros casos mediam.
+  (d) Um bug de teste que a colagem expos: o botao de gerar so existe depois que a consulta do canal
+      resolve, e o caso usava `getByRole` (sincrono). Com a digitacao lenta isso passava por acidente
+      — o tempo de escrever 58 caracteres cobria a consulta. Virou `findByRole`.
+  (e) Fim dos avisos `An update to IdentidadePage inside a test was not wrapped in act(...)`, que
+      apareciam no log do QA: os casos de gravacao agora terminam **depois** que a consulta invalidada
+      volta (esperando o cartao novo / o desaparecimento do botao de aprovar). Mesma familia do
+      estouro: o caso nao pode depender de *quando* o estado assenta.
+
+MEDICOES (todas com hora; a suite da area sao 15 arquivos, ~185 testes)
+
+  arquivo isolado, antes:  8342 / 6702 / 3065 / 2000 ms nos casos pesados   (teto 20000)
+  arquivo isolado, depois: 2331 / 1670 / 2769 / 2865 / 4849 / 540 / 4321 / 487 ms  -> 8/8 verdes
+
+  RODADA 1 da area (18:44:45 -> 18:45:52): Test Files 15 passed (15) | Tests 185 passed (185)
+     pior caso da tela: 4849 ms;  "sem timeout e sem aviso de act"
+  RODADA 2 da area (18:45:52 -> 18:47:20): Test Files 15 passed (15) | Tests 185 passed (185)
+     pior caso da tela: 5337 ms;  "sem timeout e sem aviso de act"
+
+  SUITE INTEIRA, carga maxima (18:47:38 -> 18:55:32, 462 s de parede, 42 arquivos com ffmpeg junto):
+     os 8 casos da tela: 7290 / 2549 / 3142 / 2281 / 5669 / 1317 / 8824 / 1255 ms  -> TODOS verdes
+     nenhum timeout em src/features/identidade; o teto de 20 s nao foi tocado
+     resultado geral: 2 arquivos vermelhos | 40 verdes — os vermelhos sao de FORA da minha area:
+       (i) `src/media/__tests__` (frente de midia, em correcao paralela) e
+       (ii) `src/features/revisao/__tests__/revisao.test.tsx`, que estourou o teto de 20 s naquele
+            run e, rodado isolado as 19:05, passa (com 7 avisos de act proprios). E o mesmo padrao
+            que o estado.md ja registra para esse arquivo — nao e meu arquivo e nao foi tocado por
+            mim (vai para o dono dele no handoff).
+     Antes da correcao, na mesma situacao de carga, o meu caso deu 21257 ms (timeout).
+
+  LIMITE DECLARADO DESTA MEDICAO: a rodada de confirmacao da suite inteira logo depois estourou o teto
+  de 10 minutos do executor deste sandbox (o run nao terminou), entao a suite inteira foi medida uma
+  vez nesta janela e a suite da area duas vezes. O isolado e justamente onde o caso passava antes —
+  por isso as duas rodadas da area e a suite inteira valem mais do que qualquer rodada isolada.
+
+Nao toquei em `server/media/**` nem em `src/media/**` nesta rodada tambem.
+
+--------------------------------------------------------------------------------
+10. QUARTA RODADA — o ADR-015 dizia mais do que o codigo faz (QA-016, achados 2 e 3)
+--------------------------------------------------------------------------------
+Segunda revisao adversarial: `docs/qa/QA-016-correcoes-fases-1-e-2.md`. Os dois achados sao de
+**texto** (gravidade BAIXA) e o QA mediu que o **comportamento** esta certo — o defeito e a frase.
+Aceitos os dois; nenhum contestado. E a SEGUNDA vez que este ADR promete mais do que o codigo entrega
+(na primeira, o defeito era no codigo), entao a correcao veio com uma regra nova escrita no proprio
+ADR: afirmacao de garantia so entra acompanhada do **limite** e de onde ela e verificavel.
+
+ACHADO 2 — "identidade = nome MAIS linhagem" e "sheetVersion unico dentro de uma identidade".
+  Lida como a **uniao** das duas relacoes, a identidade seria o fecho transitivo — e
+  `proximaVersaoDaIdentidade` calcula **vizinhança de um passo**: (mesmo nome) U (linhagem da MINHA
+  base). Contraexemplo do QA, medido: A("Bento") v1 -> B("Pip", linhagem de A) v2 -> C("Bento", do
+  zero) v2. B ~ A (linhagem) e A ~ C (nome), mas B e C nao se olham: duas fichas v2 convivem.
+  Correcao no ADR (texto, sem mexer no comportamento):
+    - "sheetVersion e unico e crescente **por nome**, dentro de um canal; a linhagem da base
+      **estende a contagem** (para o caso de o refino renomear)";
+    - o limite escrito: "e vizinhança de um passo, nao fecho transitivo", com o caso A/B/C;
+    - e o que desambigua duas fichas de mesmo rotulo: o par `id` + `sheetVersion`.
+  Prova: o caso A/B/C virou teste no MEU arquivo (`personagem-ciclo.test.ts`, "a vizinhança de
+  identidade e de um passo, nao o fecho") — se alguem implementar o fecho, o teste fica vermelho e o
+  ADR tem de ser reescrito com ele. Verde as 19:28.
+
+ACHADO 3 — "a chave de auditoria de um ativo gerado e o par `id` + `sheetVersion`".
+  Nenhum ativo registra esse par. Conferido no codigo (leitura, nao confianca):
+    - `MediaAsset` (`src/media/contract.ts:155-189`): registra `providerId`, `model`, `promptVersion`,
+      `reference` — **nenhum campo de personagem**;
+    - `server/media/manifest.ts:53`: `characterSheet: 'ausente'`;
+    - `src/media/client.ts:176` e `server/media/http.ts:166`: o que viaja e `{ name, role,
+      sheetVersion }` — **o `id` nao viaja em ponto nenhum**.
+  Como tornar a frase verdadeira exigiria mexer em `src/media/**` e `server/media/**` (fora do meu
+  escopo, e a frente esta editando esses arquivos agora), a frase foi **reescrita como o que ela ainda
+  sera**: nova secao "Rastrear a ficha no ativo gerado ainda nao existe (declarado, nao prometido)",
+  com os tres pontos acima e a Fase 3 nomeada como quem fecha isso. Nenhuma promessa de auditoria
+  ficou de pe sem lastro.
+
+TAMBEM CORRIGIDO no ADR, na mesma varredura da promessa de auditoria: a linha da alternativa
+"apagar a versao anterior" (que dizia "perde a rastreabilidade do que foi usado nos episodios") e a
+consequencia positiva (que dizia "o refino e auditavel ... com a ficha que os episodios usaram") —
+as duas davam por existente o vinculo ativo <-> ficha que nao existe. E o comentario que eu tinha
+deixado no arquivo do QA ("dentro de uma identidade, o rotulo identifica uma ficha") passou a dizer
+"**por nome**", que e o que a assercao dele mede e o que o ADR corrigido promete.
+
+PROVA (comando + observado, com hora)
+
+  $ HORA: 2026-10-02 19:24:38  pnpm exec tsc --noEmit   -> exit 1, 4 erros, TODOS em
+      server/media/providers/minimax.ts (imports nao usados, `rmSync` inexistente) — arquivo da frente
+      de midia, com mtime 19:24:51, ou seja, sendo gravado no instante da medicao
+  $ HORA: 2026-10-02 19:26:55  pnpm exec tsc --noEmit   -> exit 1, 5 erros, TODOS em
+      src/media/__tests__/qa-fase2-adversarial.test.ts (TS1128, sintaxe — arquivo em edicao)
+  $ HORA: 2026-10-02 19:26:44  pnpm exec tsc --noEmit -p node_modules/.cache/tsconfig-entrega.json
+      -> **exit 0**. O config escopado cobre `src/**`, `server/ai/**` e `vitest.setup.ts`, e exclui
+      APENAS os 5 arquivos de teste que importam `server/media/providers/**` (todos da outra frente,
+      todos em edicao agora). Nenhum arquivo de src/data, src/ai, src/features ou server/ai e excluido
+      — a exclusao nao pode mascarar erro meu, porque os meus arquivos nao dependem daqueles.
+  $ node .tools/build_prompts.mjs --check -> OK: prompts em sincronia (exit 0), 19:24:38
+
+  Duas rodadas cheias da area, com a arvore carregada, na versao final (186 testes):
+    RODADA 1 (19:28:21 -> 19:29:13): Test Files 15 passed (15) | Tests 186 passed (186)
+       pior caso da tela: 5282 ms  |  "sem timeout, sem aviso de act, nenhum caso vermelho"
+    RODADA 2 (19:29:13 -> 19:30:21): Test Files 15 passed (15) | Tests 186 passed (186)
+       pior caso da tela: 4741 ms  |  "sem timeout, sem aviso de act, nenhum caso vermelho"
+
+  LIMITE DECLARADO: a suite inteira nao foi remedida nesta rodada — as duas rodadas da area sao a
+  prova pedida, e a suite inteira estava com o parser quebrado por um arquivo da outra frente
+  (TS1128) no momento da medicao.
+
+================================================================================
+FIM DA EVIDENCIA
+================================================================================

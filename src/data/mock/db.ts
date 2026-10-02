@@ -18,6 +18,7 @@ import type {
   Channel,
   ChannelKpis,
   Character,
+  CharacterSheetOrigin,
   ContentSeed,
   ModuleState,
   Recommendation,
@@ -619,13 +620,164 @@ export const contents: ContentSeed[] = [
    Personagens e Brand Kit
    ============================================================================= */
 
+/**
+ * Procedência de uma ficha de exemplo.
+ *
+ * `promptId` vazio e `simulated: false` significam "não veio de proposta de IA nenhuma" — é dado de
+ * exemplo escrito à mão. Marcar como simulado faria a tela dizer que houve geração onde não houve.
+ */
+const origemDeExemplo = (): CharacterSheetOrigin => ({ promptId: '', promptVersion: 0, simulated: false });
+
+/**
+ * Personagens de exemplo, **com a ficha completa**.
+ *
+ * Antes, cada personagem era só nome, papel e `sheetVersion` — o "Character Sheet canônico" era um
+ * número sem documento. A ficha entra aqui porque é dela que o refino parte: sem a ficha anterior não
+ * existe "gostei desse, mas quero as orelhas maiores".
+ *
+ * `approvedAt` fica ausente de propósito: estes personagens são anteriores ao fluxo de aprovação e
+ * não há registro de quando foram aprovados. Inventar a data seria inventar estado.
+ */
 export const characters: Character[] = [
-  { id: 'luna-hero', channelId: 'luna', name: 'Luna', role: 'Protagonista', sheetVersion: 'v4', status: 'oficial', tone: 'pink' },
-  { id: 'luna-dog', channelId: 'luna', name: 'Tico', role: 'Cachorro curioso, melhor amigo', sheetVersion: 'v2', status: 'oficial', tone: 'amber' },
-  { id: 'luna-bee', channelId: 'luna', name: 'Zum', role: 'Abelhinha amiga', sheetVersion: 'v1', status: 'em_aprovacao', tone: 'teal' },
-  { id: 'arq-host', channelId: 'arquivo', name: 'Narrador do Arquivo', role: 'Voz e apresentação', sheetVersion: 'v3', status: 'oficial', tone: 'amber' },
-  { id: 'aims-host', channelId: 'aims', name: 'Apresentador simples', role: 'Voz e apresentação', sheetVersion: 'v2', status: 'oficial', tone: 'cyan' },
-  { id: 'aims-bot', channelId: 'aims', name: 'Bit', role: 'Mascote didático', sheetVersion: 'v1', status: 'rascunho', tone: 'violet' },
+  {
+    id: 'luna-hero',
+    channelId: 'luna',
+    name: 'Luna',
+    role: 'Protagonista',
+    sheetVersion: 'v4',
+    status: 'oficial',
+    tone: 'pink',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Menina de 6 anos, silhueta arredondada com cabeça de aproximadamente um terço da altura, pele morena clara, cabelo castanho escuro na altura do ombro com uma mecha rosa presa por um grampo de margarida. Vestido azul-céu de manga curta com barra amarela, sapatilha verde. Olhos grandes e redondos, castanhos, com brilho branco no canto. Expressão típica: sorriso aberto e sobrancelhas erguidas de curiosidade.',
+      tracos: [
+        'grampo de margarida no cabelo',
+        'mecha rosa à frente da orelha',
+        'vestido azul-céu com barra amarela',
+        'olhos grandes e redondos com brilho',
+        'cabeça com um terço da altura',
+      ],
+      promptImagem:
+        'cheerful 6-year-old girl, rounded silhouette, head one third of body height, light brown skin, dark brown shoulder-length hair with a pink streak and a daisy hair clip, sky blue short-sleeve dress with yellow hem, green shoes, big round brown eyes with white highlight, flat 2D children illustration, neutral background, full body, consistent design sheet',
+      negativePrompt:
+        'realistic photo, recognizable real person, different hair color, extra limbs, adult proportions, text, watermark, hard shadow on face',
+      seed: 1104,
+      notasConsistencia:
+        'Não alterar: cor e corte do cabelo, grampo de margarida, paleta do vestido e proporção da cabeça. A Luna precisa parecer a mesma em todo episódio — desvio aqui é defeito, não variação artística.',
+    },
+  },
+  {
+    id: 'luna-dog',
+    channelId: 'luna',
+    name: 'Tico',
+    role: 'Cachorro curioso, melhor amigo',
+    sheetVersion: 'v2',
+    status: 'oficial',
+    tone: 'amber',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Cachorro pequeno e arredondado, do tamanho do joelho da Luna, corpo branco com mancha caramelo cobrindo a orelha direita, orelhas grandes e caídas, olhos redondos e escuros, focinho curto, patas curtas e cauda fina com a ponta escura. Sem coleira. Expressão típica: cabeça levemente inclinada e língua de fora.',
+      tracos: ['orelhas grandes e caídas', 'sem coleira', 'mancha caramelo na orelha direita', 'ponta da cauda escura', 'corpo branco arredondado'],
+      promptImagem:
+        'small rounded white cartoon dog, caramel patch over the right ear, large floppy ears, big round dark eyes, short snout, no collar, short legs, thin tail with dark tip, neutral background, full body, flat 2D children illustration, consistent design sheet',
+      negativePrompt: 'collar, leash, extra limbs, deformed paws, realistic photo, text, watermark, aggressive expression',
+      seed: 2210,
+      notasConsistencia:
+        'Não alterar: ausência de coleira, mancha caramelo só na orelha direita e proporção entre Tico e Luna. O modelo tende a acrescentar coleira quando o cenário é parque — conferir em toda cena.',
+    },
+  },
+  {
+    id: 'luna-bee',
+    channelId: 'luna',
+    name: 'Zum',
+    role: 'Abelhinha amiga',
+    sheetVersion: 'v1',
+    status: 'em_aprovacao',
+    tone: 'teal',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Abelha pequena e rechonchuda, corpo amarelo com duas faixas pretas largas, asas translúcidas azuladas, olhos grandes e redondos, antenas curtas com ponta redonda. Sem ferrão visível. Expressão típica: alegre, com as asas levantadas.',
+      tracos: ['duas faixas pretas largas', 'asas translúcidas azuladas', 'sem ferrão visível', 'antenas de ponta redonda'],
+      promptImagem:
+        'small chubby cartoon bee, yellow body with two wide black stripes, translucent blue wings, big round eyes, short antennae with round tips, no visible stinger, neutral background, full body, flat 2D children illustration, consistent design sheet',
+      negativePrompt: 'stinger, realistic insect, extra wings, scary face, text, watermark, dark background',
+      seed: 3311,
+      notasConsistencia:
+        'Não alterar: número de faixas, cor das asas e ausência de ferrão. Personagem em aprovação: não entra em episódio nenhum antes da aprovação humana.',
+    },
+  },
+  {
+    id: 'arq-host',
+    channelId: 'arquivo',
+    name: 'Narrador do Arquivo',
+    role: 'Voz e apresentação',
+    sheetVersion: 'v3',
+    status: 'oficial',
+    tone: 'amber',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Ilustração de meio corpo de um narrador estilizado, silhueta angular, casaco grafite sobre camisa papel, óculos redondos de aro fino, cabelo grisalho penteado para o lado. Rosto apenas sugerido, sem traços de pessoa real. Expressão típica: sobrancelha erguida, mão apoiada no queixo.',
+      tracos: ['óculos redondos de aro fino', 'casaco grafite', 'rosto sugerido, sem pessoa real', 'cabelo grisalho lateral'],
+      promptImagem:
+        'stylized half-body illustration of a documentary narrator, angular silhouette, graphite coat over paper-white shirt, thin round glasses, side-parted grey hair, face suggested with minimal features, flat vector illustration, neutral background, consistent design sheet',
+      negativePrompt: 'recognizable real person, photorealistic face, celebrity likeness, extra fingers, text, watermark',
+      seed: 4402,
+      notasConsistencia:
+        'Não alterar: cor do casaco, formato dos óculos e o fato de o rosto ser sugerido. Nunca aproximar de pessoa real reconhecível — é gate de conformidade, não preferência.',
+    },
+  },
+  {
+    id: 'aims-host',
+    channelId: 'aims',
+    name: 'Apresentador simples',
+    role: 'Voz e apresentação',
+    sheetVersion: 'v2',
+    status: 'oficial',
+    tone: 'cyan',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Personagem geométrico de corpo inteiro feito de formas simples: cabeça circular ciano, tronco retangular azul-profundo, braços e pernas em cápsulas finas. Sem rosto detalhado, apenas dois pontos escuros no lugar dos olhos. Expressão típica: neutra e didática, braço direito apontando para o lado.',
+      tracos: ['cabeça circular ciano', 'tronco retangular azul-profundo', 'olhos em dois pontos escuros', 'sem roupa ou acessório'],
+      promptImagem:
+        'simple geometric presenter character, full body, cyan circular head, deep blue rectangular torso, thin capsule arms and legs, two dark dots as eyes, no clothing, flat vector illustration, neutral background, consistent design sheet',
+      negativePrompt: 'realistic person, detailed face, extra limbs, brand logo, text, watermark, gradients',
+      seed: 5503,
+      notasConsistencia:
+        'Não alterar: proporção entre cabeça e tronco, ausência de roupa e a paleta ciano/azul. Formas devem continuar legíveis em miniatura.',
+    },
+  },
+  {
+    id: 'aims-bot',
+    channelId: 'aims',
+    name: 'Bit',
+    role: 'Mascote didático',
+    sheetVersion: 'v1',
+    status: 'rascunho',
+    tone: 'violet',
+    derivedFromId: null,
+    sheetOrigin: origemDeExemplo(),
+    sheet: {
+      descricaoVisual:
+        'Robô pequeno e arredondado, corpo branco-leitoso com painel violeta no peito, antena única com esfera luminosa, olhos em forma de arco, rodinhas no lugar dos pés. Expressão típica: piscando, com a antena inclinada para o lado.',
+      tracos: ['antena única com esfera luminosa', 'painel violeta no peito', 'olhos em arco', 'rodinhas no lugar dos pés'],
+      promptImagem:
+        'small rounded cartoon robot, off-white body, violet chest panel, single antenna with glowing sphere, arc-shaped eyes, wheels instead of feet, flat vector illustration, neutral background, full body, consistent design sheet',
+      negativePrompt: 'weapons, sharp edges, realistic metal texture, extra arms, text, watermark, dark background',
+      seed: 6604,
+      notasConsistencia:
+        'Rascunho: não entra em episódio nenhum antes da aprovação humana. Não alterar a antena única nem o painel violeta quando a ficha for refinada.',
+    },
+  },
 ];
 
 export const brandKits: BrandKit[] = [

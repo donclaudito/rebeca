@@ -52,6 +52,168 @@ function round(value: number, digits = 2): number {
 
 const WEEKDAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 
+/* --- Personagens: a ficha de origem e as opções simuladas -------------------- */
+
+/**
+ * A ficha de origem de um refino, como ela chega na entrada.
+ *
+ * Tudo é lido com tolerância de propósito: a entrada é dado externo e o simulado não pode quebrar por
+ * causa de uma forma inesperada — o que faltar cai no valor neutro e a saída continua passando no
+ * schema, que é o que o `registry.test.ts` cobra de todas as funções.
+ */
+interface FichaBase {
+  readonly nome: string;
+  readonly papel: string;
+  readonly descricaoVisual: string;
+  readonly tracos: readonly string[];
+  readonly promptImagem: string;
+  readonly negativePrompt: string;
+  readonly seed: number;
+}
+
+/**
+ * A base do refino, quando existe.
+ *
+ * `personagemBase` é uma lista de no máximo um item: vazia = criação do zero. Ficha sem nome é tratada
+ * como ausente — devolver opções sem nome quebraria o schema de saída (`minLength: 1`), e o simulado
+ * tem de ser um exemplo de resposta **válida**, não um caso de erro.
+ */
+function primeiraFicha(raw: unknown): FichaBase | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const item = raw[0];
+  if (typeof item !== 'object' || item === null) return null;
+
+  const registro = item as Record<string, unknown>;
+  const texto = (chave: string): string =>
+    typeof registro[chave] === 'string' ? (registro[chave] as string).trim() : '';
+  const nome = texto('nome');
+  if (nome.length === 0) return null;
+
+  return {
+    nome,
+    papel: texto('papel'),
+    descricaoVisual: texto('descricaoVisual'),
+    tracos: Array.isArray(registro['tracos'])
+      ? registro['tracos'].filter((traco): traco is string => typeof traco === 'string')
+      : [],
+    promptImagem: texto('promptImagem'),
+    negativePrompt: texto('negativePrompt'),
+    seed: typeof registro['seed'] === 'number' && Number.isFinite(registro['seed']) ? registro['seed'] : 0,
+  };
+}
+
+/** Três leituras distintas do mesmo pedido — opções iguais não seriam escolha. */
+const FICHAS_SIMULADAS = [
+  {
+    nome: 'Bento',
+    papel: 'Personagem de apoio, curioso e um pouco atrapalhado',
+    descricaoVisual:
+      'Personagem pequeno e arredondado, corpo branco, orelhas grandes e caídas, olhos redondos e escuros, sem coleira, patas curtas e cauda fina com a ponta escura. Expressão típica de curiosidade, cabeça levemente inclinada.',
+    tracos: [
+      'orelhas grandes e caídas',
+      'sem coleira',
+      'corpo branco arredondado',
+      'olhos redondos escuros',
+      'ponta da cauda escura',
+    ],
+    promptImagem:
+      'small rounded white cartoon character, large floppy ears, big round dark eyes, no collar, short legs, thin tail with dark tip, neutral background, full body, flat 2D children illustration, consistent design sheet',
+    negativePrompt:
+      'collar, extra limbs, deformed paws, text, watermark, realistic photo, recognizable real person',
+    seed: 4242,
+  },
+  {
+    nome: 'Nino',
+    papel: 'Companheiro de brincadeira, mais alto e mais veloz',
+    descricaoVisual:
+      'Personagem esguio de pernas longas, corpo bege uniforme, orelhas pequenas em pé, cauda curta em pompom e listras finas nas costas. Sem coleira nem roupa. Expressão típica: orelhas erguidas e olhar atento para o lado.',
+    tracos: ['orelhas pequenas em pé', 'sem coleira', 'cauda curta em pompom', 'listras finas nas costas'],
+    promptImagem:
+      'slim long-legged cartoon animal, beige body, small upright ears, short pom-pom tail, thin stripes on the back, no collar, neutral background, full body, flat 2D children illustration, consistent design sheet',
+    negativePrompt: 'collar, floppy ears, extra limbs, text, watermark, realistic photo, recognizable real person',
+    seed: 4301,
+  },
+  {
+    nome: 'Pip',
+    papel: 'Filhote pequenino, curioso e tagarela',
+    descricaoVisual:
+      'Personagem bem pequeno e compacto, corpo cinza-claro, mancha escura em volta do olho esquerdo, orelhas assimétricas (uma caída, outra em pé) e patas grossas. Sem coleira. Expressão típica: boca aberta em surpresa.',
+    tracos: ['mancha escura no olho esquerdo', 'orelhas assimétricas', 'sem coleira', 'patas grossas'],
+    promptImagem:
+      'tiny compact cartoon animal, light grey body, dark patch around the left eye, asymmetric ears, thick paws, no collar, neutral background, full body, flat 2D children illustration, consistent design sheet',
+    negativePrompt: 'collar, symmetric ears, extra limbs, text, watermark, realistic photo, recognizable real person',
+    seed: 4388,
+  },
+] as const;
+
+/** Opções de criação: o pedido do humano fica registrado em `notasConsistencia`, para conferência. */
+function novasFichas(pedido: string): unknown[] {
+  return FICHAS_SIMULADAS.map((ficha) => ({
+    ...ficha,
+    tracos: [...ficha.tracos],
+    notasConsistencia:
+      `Não alterar: ${ficha.tracos.slice(0, 3).join('; ')}. Manter a mesma paleta em toda cena; evitar sombra dura no rosto. Pedido de origem registrado para conferência: "${pedido.slice(0, 200)}".`,
+  }));
+}
+
+/**
+ * Refino: as opções **derivam da base** e mexem só no que o `ajuste` pediu.
+ *
+ * É a diferença entre refinar e recomeçar. O simulado preserva nome, papel, traços e prompt da ficha
+ * de origem, acrescenta o ajuste e mantém a seed vizinha da original — o mesmo comportamento que o
+ * prompt real exige, e o que o teste de refino confere.
+ */
+function refinoDaBase(base: FichaBase, ajuste: string): unknown[] {
+  const ajusteLimpo = ajuste.length > 0 ? ajuste : 'o ajuste pedido';
+  const visualBase =
+    base.descricaoVisual.length >= 20
+      ? base.descricaoVisual
+      : 'Personagem de apoio, forma arredondada e expressão alegre.';
+  const promptBase =
+    base.promptImagem.length >= 20
+      ? base.promptImagem
+      : 'simple cartoon character, neutral background, full body, flat 2D children illustration';
+  const negativos =
+    base.negativePrompt.length > 0
+      ? base.negativePrompt
+      : 'extra limbs, deformed shapes, text, watermark, realistic photo, recognizable real person';
+  const papel = base.papel.length >= 3 ? base.papel : 'Personagem de apoio';
+  const seedBase = Number.isFinite(base.seed) ? base.seed : 0;
+
+  const leituras = [
+    {
+      detalhe: 'mudança aplicada sobre a ficha de origem, sem tocar no resto.',
+      prompt: ', same design as the reference sheet',
+      traco: `ajuste: ${ajusteLimpo}`,
+    },
+    {
+      detalhe: 'mesma mudança, com o traço ajustado mais evidente.',
+      prompt: ', emphasize the adjusted feature, same design as the reference sheet',
+      traco: `ajuste evidente: ${ajusteLimpo}`,
+    },
+    {
+      detalhe: 'leitura alternativa da mudança, mantendo o resto da ficha.',
+      prompt: ', alternate reading of the adjusted feature, same design as the reference sheet',
+      traco: `leitura alternativa: ${ajusteLimpo}`,
+    },
+  ];
+
+  return leituras.map((leitura, indice) => ({
+    nome: base.nome,
+    papel,
+    descricaoVisual: `${visualBase} Ajuste aplicado: ${ajusteLimpo} — ${leitura.detalhe}`.slice(0, 900),
+    tracos: [...base.tracos, leitura.traco].map((traco) => traco.slice(0, 80)).slice(0, 12),
+    promptImagem: `${promptBase}${leitura.prompt}`.slice(0, 1200),
+    negativePrompt: negativos.slice(0, 600),
+    seed: Math.min(seedBase + indice + 1, 2_147_483_647),
+    notasConsistencia:
+      `Ajuste pedido pelo humano: "${ajusteLimpo}". Não alterar: ${base.tracos.slice(0, 4).join('; ') || 'os traços já aceitos na ficha de origem'}. A ficha de origem continua sendo a referência dos episódios já gerados.`.slice(
+        0,
+        800,
+      ),
+  }));
+}
+
 /* --- Geradores por função ---------------------------------------------------- */
 
 /**
@@ -387,20 +549,24 @@ const GENERATORS: Record<AiFunctionId, (context: SimulatedContext) => unknown> =
     };
   },
 
+  /*
+   * Opções de personagem — e o refino da escolhida.
+   *
+   * A saída mudou de **uma** ficha para **2-3 opções** porque o PDF pede *"o sistema gera opções. Eu
+   * escolho uma"*: com ficha única, a "escolha" seria um botão sem alternativa. Quando vem
+   * `personagemBase`, o pedido é refino — e o simulado mostra o comportamento que o prompt real exige:
+   * manter o que o humano já aceitou e mexer **só** no que o `ajuste` pediu.
+   */
   'identidade-personagem': ({ input }) => {
     const pedido = text(input, 'pedido', 'um personagem novo');
-    return {
-      nome: 'Bento',
-      papel: 'Personagem de apoio, curioso e um pouco atrapalhado',
-      descricaoVisual:
-        'Personagem pequeno e arredondado, corpo branco, orelhas grandes e caídas, olhos redondos e escuros, sem coleira, patas curtas e cauda fina com a ponta escura. Expressão típica de curiosidade, cabeça levemente inclinada.',
-      tracos: ['orelhas grandes e caídas', 'sem coleira', 'corpo branco arredondado', 'olhos redondos escuros', 'ponta da cauda escura'],
-      promptImagem:
-        'small rounded white cartoon character, large floppy ears, big round dark eyes, no collar, short legs, thin tail with dark tip, neutral background, full body, flat 2D children illustration, consistent design sheet',
-      negativePrompt: 'collar, extra limbs, deformed paws, text, watermark, realistic photo, recognizable real person',
-      seed: 4242,
-      notasConsistencia: `Não alterar: tamanho das orelhas, ausência de coleira e cor do corpo. Manter a mesma paleta em toda cena; evitar sombra dura no rosto. Pedido de origem registrado para conferência: "${pedido.slice(0, 200)}".`,
-    };
+    const ajuste = text(input, 'ajuste', '');
+
+    const base = primeiraFicha(input['personagemBase']);
+    if (base) {
+      return { opcoes: refinoDaBase(base, ajuste) };
+    }
+
+    return { opcoes: novasFichas(pedido) };
   },
 
   'monetizacao-veredito': ({ input }) => {

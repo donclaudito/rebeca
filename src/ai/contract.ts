@@ -321,13 +321,20 @@ export const AI_FUNCTIONS: Record<AiFunctionId, AiFunctionSpec> = {
     id: 'identidade-personagem',
     label: 'Criar personagem',
     purpose:
-      'Converte o pedido em português ("um cachorro curioso, orelhas grandes") em ficha de personagem consistente.',
+      'Converte o pedido em português ("um cachorro curioso, orelhas grandes") em opções de ficha de personagem — e refina a escolhida a partir dela.',
     stage: 'criar',
     promptId: 'identidade-personagem',
-    promptVersion: 1,
+    promptVersion: 2,
     tier: 'criativo',
     outputSchema: 'identidade-personagem',
-    maxOutputTokens: 1600,
+    /*
+     * 2400 e não 1600: a saída passou de **uma** ficha para 2-3 opções, e o teto antigo foi calculado
+     * para uma. Resposta truncada no meio do JSON vira `schema-invalido` — foi exatamente o defeito
+     * medido em `criar-cena` (`.rebeca/evidencias/502-criar-cena-teto-de-tokens.txt`), e refazer a
+     * chamada custa duas vezes. O teto por chamada (US$ 0,05) continua com folga: no modelo mais caro
+     * dos níveis, 2400 tokens de saída ficam em torno de US$ 0,03.
+     */
+    maxOutputTokens: 2400,
     effect: 'propoe-rascunho',
     requiresHumanApproval: true,
     childChannelOnly: false,

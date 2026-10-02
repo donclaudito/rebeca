@@ -1,0 +1,856 @@
+================================================================================
+REBECA · FASE 2 — AS IMAGENS: DA CENA ESCRITA AO ARQUIVO NO DISCO
+Evidência de execução — 2026-10-02
+Autor: agente da Fase 2 (delegação). Área: server/media (imagem). Não commitado.
+================================================================================
+
+AMBIENTE
+--------
+Node v26.7.0 · pnpm 11.25.0 · Windows · ffmpeg 8.1.2-full_build-www.gyan.dev
+Chave da MiniMax neste ambiente: AUSENTE (REBECA_MINIMAX_API_KEY não definida e
+  .rebeca/segredos/midia.json inexistente). Ver "NÃO VERIFICADO / NÃO EXECUTADO".
+
+ENTREGÁVEIS (sha256 do estado entregue)
+---------------------------------------
+CB2D0B5A5B8F0509CEAF7EF96BAB1BA6B12CFC51166647466EBED634B5DB6974  server/media/providers/minimax.ts
+6833A9D94FA3EF2CFB0915A69C9A21F21DC2975A765BF9B27640AE1A6FBB4C9E  server/media/providers/image-provider.ts   (NOVO)
+1C0B477B827BD59C273BDAEA533332350098CAD85F314D72690062531C8A44AE  server/media/simulated-episode.ts
+4269A59C452CC3B0EEDD5F18A68B48BEC6FDAB2928C0D19A608A1569B1F04FAC  src/media/__tests__/media-imagens.test.ts  (NOVO)
+                                                                  .rebeca/evidencias/fase-2-imagens.txt (este
+                                                                  arquivo não leva o próprio sha256: ele muda
+                                                                  a cada edição deste texto)
+
+Nenhum outro caminho foi criado ou editado por esta entrega. `git add -A` / `git add .`:
+NÃO usados. Nada foi commitado. O livro real `.rebeca/custos.csv` não foi tocado (última
+gravação 15:49:06, anterior a esta sessão) e `.rebeca/assets/luna/luna-ep-imagens` não
+existe na árvore real: a suíte escreve em `REBECA_ROOT`/`REBECA_ASSETS_ROOT`/
+`REBECA_COST_LEDGER` temporários.
+
+================================================================================
+1. TIPOS — `pnpm exec tsc --noEmit`
+================================================================================
+
+Comando: pnpm exec tsc --noEmit
+Resultado: exit 0 — nenhum erro.
+
+Nota de árvore compartilhada (D9), registrada porque aconteceu no meio da sessão: numa
+rodada intermediária este comando ficou VERMELHO com 2 erros, ambos em
+`src/features/identidade/__tests__/identidade-personagem.test.tsx` (arquivo NOVO, não
+commitado, gravado às 16:09:22 pela Fase 1 — que está escrevendo agora). Provei então que
+a minha entrega estava limpa com um config derivado que exclui a área deles:
+
+  pnpm exec tsc --noEmit -p <temp>/tsconfig.fase2.json   → exit 0
+  (base = tsconfig.json do repositório, "exclude": [".../src/features/identidade/**"],
+   com junction de node_modules no diretório temporário para a resolução de tipos)
+
+Minutos depois a Fase 1 corrigiu o próprio arquivo e o comando global voltou a exit 0 —
+que é o resultado final registrado acima. A lição do D9 em uma linha: **o vermelho global
+apareceu e sumiu sem que eu tenha tocado em nada fora do meu escopo**.
+
+================================================================================
+2. TESTES DA ENTREGA — `src/media/__tests__/media-imagens.test.ts` (novo)
+================================================================================
+
+Comando: pnpm exec vitest run src/media/__tests__/media-imagens.test.ts --reporter=verbose
+Resultado: Test Files 1 passed (1) · Tests 19 passed (19) · 44,66 s
+
+Os 19 testes, e o que cada um morde:
+
+adapter real da MiniMax (image-01)
+  ✓ sem chave, recusa com instrução e NÃO toca a rede ................... fetch não chamado
+  ✓ grava o PNG na pasta do canal, cobra o preço publicado e envia o
+    contrato documentado ............................................... arquivo em
+    .rebeca/assets/luna/luna-ep-imagens/imagem/cena-01-<hash8>.png; custo
+    0,0035; corpo {model:image-01, aspect_ratio:16:9,
+    response_format:base64, n:1, seed:101, prompt_optimizer:false}; a
+    resolução MEDIDA do arquivo é 1280x720 (doc de 16:9), não 1920x1080
+  ✓ idempotência antes do gasto: a segunda chamada não chama a rede e
+    devolve custo zero ................................................. 2 renders,
+    fetch chamado 1x, segundo custo 0
+  ✓ traduz erro de saldo com HTTP 200 — e não grava arquivo nenhum ....... status 1008
+  ✓ recusa sucesso sem imagem, citando failed_count ...................... não grava vazio
+  ✓ recusa prompt acima de 1500 caracteres ANTES da rede ................. limite documentado
+  ✓ recusa proporção que a API não aceita ANTES da rede .................. 1920x1000
+  ✓ não grava imagem de um canal na pasta de outro — recusa antes da rede  ChannelScopeError
+
+seleção do provedor por configuração
+  ✓ sem chave resolve o simulado e a resposta DIZ que é prova de máquina . motivo contém
+    "Prova de máquina, NÃO arte" e "ffmpeg"
+  ✓ com chave resolve a MiniMax e declara o rótulo de deep synthesis com
+    a redação NÃO VERIFICADA ........................................... deepSynthesis.required
+    = true e deepSynthesis.text = null (o teste cai se alguém inventar o texto)
+  ✓ provedor real desconhecido não herda preço nem rótulo de ninguém
+  ✓ o preço declarado separa "de graça" de "não verificado" (0 / 0,0035 / null)
+  ✓ o plano da cena vem do provedor que vai gerar: hash e caminho do real
+    diferem dos do simulado (arte e prova de máquina não disputam arquivo)
+  ✓ provedor real sem `plan()` é recusado em vez de reusar o plano do simulado
+  ✓ o simulado segue sem `plan` no objeto — delega ao planImage canônico
+
+imagem de cena no pipeline
+  ✓ recusa imagem fora da allow-list antes de qualquer chamada de rede .... fetch não
+    chamado, nenhum arquivo, nenhuma linha no livro (roda SEM ffmpeg: o portão
+    vem antes do assertFfmpegAvailable)
+  ✓ a cena vira PNG no disco com custo real no livro — e rodar de novo não
+    gasta nem cria arquivo .............................................. 2 cenas reais
+    (simulated=false), caminho casando por CENA (cena-01 → cena-01-<hash8>.png,
+    cena-02 → cena-02-<hash8>.png), imageSize {1280,720} medido, 2 linhas de custo
+    em .rebeca/custos.csv com provedor=minimax modelo=image-01 custo_usd=0,003500 e
+    prompt_id "... #real"; 2ª execução: created=0, reused=7, MESMA lista de
+    arquivos, MESMO número de linhas e NENHUMA requisição nova (fetch 2x no total,
+    as duas da 1ª execução)
+  ✓ sem chave o episódio cai no simulado e a resposta diz que é prova de máquina
+    (motivo com a frase, custo 0, prompt_id "... #simulado", fetch não chamado)
+  ✓ o padrão do pipeline continua sendo o simulado — provedor pago não entra
+    por acidente de ambiente (com chave presente e a MiniMax PERMITIDA na
+    allow-list, o resultado continua simulado e o fetch não é chamado)
+
+================================================================================
+3. REGRESSÃO — a suíte que já existia
+================================================================================
+
+Comando: pnpm exec vitest run src/media/__tests__/media-thumbnails.test.ts
+         src/media/__tests__/media-render.test.ts --reporter=verbose
+Resultado: Test Files 2 passed (2) · Tests 30 passed (30) · 46,73 s
+
+Rodada final de conferência, com a entrega congelada (após retirar dois símbolos
+exportados e sem uso — `miniMaxNativeSize` e um reexport de id do simulado):
+Comando: pnpm exec vitest run src/media/__tests__/media-imagens.test.ts
+         src/media/__tests__/media-thumbnails.test.ts src/media/__tests__/media-render.test.ts
+Resultado: Test Files 3 passed (3) · Tests 49 passed (49) · 76,81 s · e `pnpm exec tsc
+--noEmit` exit 0
+
+Importa porque a entrega MEXEU em dois caminhos já provados:
+  - `minimax.ts`: a chamada HTTP e a leitura da resposta (`base_resp`, base64,
+    failed_count) foram extraídas para `requestImageGeneration`, usada pelas DUAS
+    finalidades (thumbnail e imagem de cena). Os 6 testes do adapter de thumbnail
+    continuam verdes, incluindo os de erro 1008/2049/sem imagem/sem status_code.
+  - `simulated-episode.ts`: o plano da imagem passou a vir do provedor
+    (`planImageFor`). Os 3 testes de idempotência/render e os 3 do portão de
+    fornecedor continuam verdes.
+
+Suíte completa: pnpm exec vitest run
+Resultado (rodada final): Test Files 40 passed (40) · Tests 447 passed (447) · exit 0 ·
+155,00 s
+
+Rodada intermediária, registrada porque é risco REAL de árvore compartilhada: nessa mesma
+suíte, um teste da Fase 1 caiu por TEMPO —
+
+  src/features/identidade/__tests__/identidade-personagem.test.tsx >
+  "percorre as quatro batidas: opções → escolha → refino → aprovação" — 20.027 ms
+  (o teto do `testTimeout` é 20 s)
+
+Esse arquivo importa apenas `@/app/routes`, `@/auth/token`, `@/data/client`,
+`@/ai/contract` e `@/data/types` — **nenhum** módulo tocado por esta entrega. Rodado
+SOZINHO, passou (6/6, e o teste que havia caído levou 5.079 ms). Na rodada final ele passou
+dentro da suíte (17.141 ms). Leitura honesta: é o teste de tela no limite do teto sob carga,
+e esta entrega soma carga (o arquivo novo roda o episódio 4 vezes, 3 delas renderizando de
+verdade com ffmpeg, ~45 s no total). Não é regressão desta entrega, mas é interação — e está
+declarada nos riscos do relatório.
+
+Suíte completa SEM a área em escrita pela Fase 1:
+Comando: pnpm exec vitest run --exclude "**/node_modules/**" --exclude "**/dist/**"
+         --exclude "src/features/identidade/**"
+Resultado: Test Files 38 passed (38) · Tests 435 passed (435) · exit 0 · 138,00 s
+(naquele momento, sem o diretório da Fase 1, a árvore inteira ficava verde — incluindo os
+19 testes desta entrega e os 30 de regressão do módulo de mídia).
+
+================================================================================
+4. PROVA ADVERSARIAL POR MUTAÇÃO — o portão de fornecedor
+================================================================================
+
+Alvo: o laço `for (const alvo of [...]) { assertProviderAllowed(...) }` no topo de
+`runSimulatedEpisode` — o portão que roda antes de qualquer rede e antes do ffmpeg.
+Mutação aplicada: `assertProviderAllowed({` → `if (false) assertProviderAllowed({`
+(uma linha; nada mais foi alterado).
+
+sha256 ANTES .................................... 1C0B477B827BD59C273BDAEA533332350098CAD85F314D72690062531C8A44AE
+sha256 MUTADO ................................... EBDED9A9AA9F2D32A80E569846269796915C061B6D778821A43C707F6975B3C3
+sha256 RESTAURADO ............................... 1C0B477B827BD59C273BDAEA533332350098CAD85F314D72690062531C8A44AE
+identico ao original? ........................... True
+
+Comando: pnpm exec vitest run src/media/__tests__/media-imagens.test.ts
+         -t "recusa imagem de cena fora da allow-list"
+Resultado (com a mutação): 1 failed | 18 skipped
+
+  × recusa imagem de cena fora da allow-list antes de qualquer chamada de rede
+    → expected null to be an instance of ProviderNotAllowedError
+
+Leitura do vermelho: sem o portão, o episódio **não foi recusado** — seguiu adiante,
+chamou o provedor e gerou arte de um fornecedor que a allow-list do canal não autoriza
+(o teste levou 26,7 s, ou seja: gerou imagem, clipe, voz, trilha e renderizou). É o
+defeito do ADR-013 de volta: a política valendo para a etapa barata e não valendo para a
+cara. O teste morde, e morde pelo motivo certo.
+
+Restaurei o arquivo a partir de cópia byte a byte e confirmei por sha256 (acima). O
+arquivo entregue é idêntico ao que passou nos testes.
+
+================================================================================
+5. FATOS DE API E PREÇO — fonte relida em 2026-10-02 (não inventados)
+================================================================================
+
+Fonte de preço (relida nesta sessão):
+  https://platform.minimax.io/docs/guides/pricing-paygo
+  → seção "Image": `| image-01 | $0.0035 per image |`
+  (a versão `.md` da página foi lida porque o HTML trunca antes da seção Image)
+
+Fonte do contrato (OpenAPI oficial, relida nesta sessão):
+  https://platform.minimax.io/docs/api-reference/image-generation-t2i.md
+  - POST https://api.minimax.io/v1/image_generation · Bearer API_key
+  - body: model (enum: image-01), prompt (MÁXIMO 1500 CARACTERES), aspect_ratio
+    (1:1 1024x1024 · 16:9 1280x720 · 4:3 1152x864 · 3:2 1248x832 · 2:3 832x1248 ·
+     3:4 864x1152 · 9:16 720x1280 · 21:9 1344x576), width/height (512–2048, múltiplo
+    de 8, "only effective for image-01" e `aspect_ratio` TEM PRIORIDADE quando os dois
+    vão juntos), response_format (url | base64; a URL expira em 24 h), seed (mesma seed
+    + mesmos parâmetros = imagem reprodutível), n (1–9), prompt_optimizer (bool)
+  - resposta: data.image_base64[] | data.image_urls[], metadata.success_count /
+    metadata.failed_count ("images blocked due to content safety"), id,
+    base_resp.status_code (0 · 1002 rate limit · 1004 auth · 1008 saldo · 1026
+    conteúdo sensível · 2013 parâmetros · 2049 chave inválida)
+
+Consequência declarada no código por causa disso (não é suposição):
+  16:9 devolve 1280x720 NATIVO. O pedido do pipeline é 1920x1080, então a arte da cena
+  sai em 720p e o render amplia para 1080p. Em vez de esconder, a entrega MEDE a
+  resolução do arquivo em disco (cabeçalho IHDR) e a publica em
+  `EpisodeAssetView.imageSize`, e o aviso do provedor diz isso em pt-BR.
+
+Rótulo de deep synthesis (ADR-005): a releitura direta de
+https://platform.minimax.io/protocol/terms-of-service em 2026-10-02 devolveu HTTP 200 com
+corpo ILEGÍVEL (página renderizada por JS) — a mesma ressalva já registrada em
+`.rebeca/pesquisa/d2-termos-pendentes-menores.md`. Portanto: a obrigação de rotular está
+declarada (`deepSynthesis.required = true`), mas a REDACÇÃO do rótulo continua
+`NÃO VERIFICADO` (`deepSynthesis.text = null`), como o `spec-midia.json` do canal já
+registrava. Nenhum texto de rótulo foi inventado, e um teste fixa isso.
+
+================================================================================
+6. NÃO VERIFICADO / NÃO EXECUTADO — declarado, não maquiado
+================================================================================
+
+1. **NENHUMA GERAÇÃO REAL FOI EXECUTADA.** O critério de aceite "uma geração real (com a
+   chave) medida: arquivo, bytes, tempo e custo lançado" **não foi cumprido**: não existe
+   chave da MiniMax nesta máquina (variável ausente e `.rebeca/segredos/midia.json`
+   inexistente). Consequência: o preço real cobrado, a latência real, o tamanho real do
+   PNG e a resolução real entregue para 16:9 estão **NÃO VERIFICADOS na prática** — o que
+   há é a doc oficial lida e um duplo de `fetch` que devolve um PNG válido. Pedir a chave
+   ao dono e rodar `imageProvider: 'auto'` uma vez é o próximo passo para fechar isso.
+2. **O caminho `width`/`height` (1920x1080 nativo) não foi usado.** A escolha foi mandar
+   `aspect_ratio` (enum documentado) e aceitar 720p, em vez de apostar que omitir
+   `aspect_ratio` não faz o default `1:1` prevalecer. Se a primeira geração real mostrar
+   que `width`/`height` funciona, subir a resolução é uma linha — e o `model` do hash
+   precisa subir junto (nome de arquivo novo), senão a Fase 2 reusa a arte antiga.
+3. **`negativePrompt` do storyboard não tem para onde ir.** `ImageRequest`
+   (`src/media/contract.ts`) só carrega `prompt`, `onScreenText`, `width`, `height` e
+   `seed`. O `ContentItem.storyboard.cenas` da Fase 1 tem `negativePrompt`, e ele **não**
+   chega ao provedor: o contrato é de outra área (`src/media/**` está fora do escopo desta
+   tarefa). Sem campo, o prompt negativo simplesmente não existe no caminho real.
+4. **O vínculo storyboard → EpisodeSpec não foi feito** — por decisão explícita do
+   enunciado: é a próxima etapa. Hoje o `EpisodeSpec` continua com cenas fixas
+   (`EPISODIO_SINTETICO`) e o campo `episodeId` que liga conteúdo e episódio segue ausente
+   nos dados de exemplo.
+5. **A TELA não foi tocada.** O item 5 do plano ("as cenas geradas aparecerem onde o
+   humano decide") exige `src/features/revisao/**`, que está fora do escopo de arquivos
+   permitido a esta delegação. O que a tela precisa **já existe na resposta**:
+   `EpisodeRunResult.imageProvider` (com `simulated`, `motivo` em pt-BR, preço e o aviso
+   de deep synthesis), `EpisodeAssetView.costUsd`/`simulated`/`imageSize` e
+   `cost.simulated` (que deixou de ser `true` fixo). Falta ligar na UI — e nenhuma outra
+   rota HTTP/CLI foi alterada: `imageProvider: 'auto'` é opt-in e o padrão continua
+   simulado, então **a CLI `.tools/render-episodio.mjs` segue sem gastar nada**.
+6. **A árvore compartilhada mudou debaixo desta entrega (D9), duas vezes.** No meio da
+   sessão `tsc --noEmit` ficou vermelho por um arquivo novo da Fase 1 e voltou a verde
+   quando eles o corrigiram (seção 1); e um teste de tela deles caiu por tempo numa rodada
+   e passou na seguinte (seção 3). Nada disso é desta entrega, mas qualquer leitura futura
+   deste arquivo precisa saber que a árvore tinha dois escritores.
+7. **Revisão adversarial do `rebeca-qa` não foi executada** sobre esta entrega (quem
+   produz não aprova). O que existe aqui é a prova de mutação do portão, feita pelo
+   próprio autor.
+8. **Nenhuma imagem gerada foi aberta e olhada.** A avaliação estética e de consistência
+   de personagem (invariante nº 3) não foi feita: o Character Sheet oficial continua
+   inexistente no repositório (`reference: 'sintetica'` no manifesto), e o que foi
+   exercitado foi um PNG sintético de cor sólida produzido pelo próprio teste.
+
+================================================================================
+7. NOTA DE AMBIENTE — como os testes foram executados no sandbox
+================================================================================
+
+No sandbox confinado desta sessão o carregador do Vite falha com `spawn EPERM`:
+`optimizeSafeRealPathSync` (dentro do próprio Vite) chama `exec("net use")` para detectar
+drive de rede, e a criação do pipe é negada pelo sandbox — o erro derruba o carregamento
+da config ANTES de qualquer teste. Como esta sessão não permite escalar permissão, o
+desvio usado foi o que o **próprio Vite prevê**: fazer `fs.realpathSync.native` lançar
+EISDIR, caso em que ele cai para `fs.realpathSync` e retorna sem chamar `exec`.
+
+  NODE_OPTIONS="--import <temp>/vite-sandbox-patch.mjs" pnpm exec vitest run ...
+
+O desvio vive em `%TEMP%`, não no repositório, e não altera nenhum resultado de teste
+(não há drive de rede mapeado nesta máquina). A suíte do projeto roda normalmente sem ele
+em ambiente não confinado.
+
+================================================================================
+8. SAÍDA BRUTA (resumos das rodadas)
+================================================================================
+
+--- pnpm exec vitest run src/media/__tests__/media-imagens.test.ts --reporter=verbose
+ Test Files  1 passed (1)
+      Tests  19 passed (19)
+   Duration  44.66s
+
+--- pnpm exec vitest run src/media/__tests__/media-thumbnails.test.ts src/media/__tests__/media-render.test.ts
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Duration  46.73s
+
+--- pnpm exec vitest run (suíte completa, rodada FINAL)
+ Test Files  40 passed (40)
+      Tests  447 passed (447)
+   Duration  155.00s · exit 0
+
+--- pnpm exec vitest run (rodada intermediária, mesma árvore, outro momento)
+ Test Files  1 failed | 39 passed (40)
+      Tests  1 failed | 446 passed (447)
+   Duration  262.22s
+   único vermelho: src/features/identidade/__tests__/identidade-personagem.test.tsx,
+   por TEMPO (20.027 ms contra teto de 20 s) — Fase 1, em escrita agora, não importa
+   nenhum módulo desta entrega. Rodado sozinho: 6/6 passed (o teste que caiu: 5.079 ms).
+   Na rodada final ele passou dentro da suíte (17.141 ms).
+
+--- pnpm exec vitest run --exclude "**/node_modules/**" --exclude "**/dist/**" --exclude "src/features/identidade/**"
+ Test Files  38 passed (38)
+      Tests  435 passed (435)
+   Duration  138.00s · exit 0
+   (a mesma suíte sem o diretório que outro agente está escrevendo: 100% verde,
+    incluindo os 19 testes desta entrega e os 30 de regressão do módulo de mídia)
+
+--- pnpm exec vitest run src/media/__tests__/media-imagens.test.ts src/media/__tests__/media-thumbnails.test.ts src/media/__tests__/media-render.test.ts
+ Test Files  3 passed (3)
+      Tests  49 passed (49)
+   Duration  76.81s
+
+--- pnpm exec tsc --noEmit
+ exit 0 (nenhum erro). Rodada intermediária: 2 erros, ambos em
+ src/features/identidade/__tests__/identidade-personagem.test.tsx (Fase 1) — corrigidos
+ por eles no meio da sessão.
+--- pnpm exec tsc --noEmit -p <temp>/tsconfig.fase2.json (sem src/features/identidade/**)
+ exit 0
+
+================================================================================
+9. RODADA 2 — CORREÇÕES DO QA-015 (revisão adversarial independente)
+================================================================================
+
+Origem: `docs/qa/QA-015-fases-1-e-2.md` (veredito REFUTADO parcial) e os 17 testes dele em
+`src/media/__tests__/qa-fase2-adversarial.test.ts`. Esta seção cobre os achados de **mídia**
+(1, 4, 5, 6, 7 e 8). Os achados 2 e 3 são da Fase 1 e não são meus.
+
+Nada foi commitado; nenhum `git add`. Os caminhos tocados continuam sendo só os do escopo:
+`server/media/providers/minimax.ts`, `server/media/providers/image-provider.ts` (novo),
+`server/media/simulated-episode.ts`, `src/media/__tests__/media-imagens.test.ts` (novo) e
+este arquivo. O livro real `.rebeca/custos.csv` segue com a gravação de **15:49:06**
+(anterior às duas sessões) e `.rebeca/assets/luna/luna-ep-imagens` não existe na árvore
+real. Nenhum `.parcial` sobrou em lugar nenhum (conferido com `Get-ChildItem -Recurse`).
+
+sha256 APÓS A RODADA 2 — **HISTÓRICO** (a rodada 3 / QA-016 mudou de novo; os hashes do estado
+entregue estão na seção 11.5):
+  E51B5B0FCAA40BFCC7BA1477442609A6D00A09944C3615BBC6A2640D36ECE2A3  server/media/providers/minimax.ts
+  7995F1ABF6DED2D11F4B8ECE1DE0C86A28CB3B2FD3EE62BB6040044D827B37DD  server/media/providers/image-provider.ts
+  EDF0BEEA8BC89D6259B95429A2D085C73030375001E1A0525E23A7EA4D3E938D  server/media/simulated-episode.ts
+  072EB4988803F5C94C168795DEBFF8A29E6EC82D457B0DB0A9F3B48A03E07153  src/media/__tests__/media-imagens.test.ts
+
+--------------------------------------------------------------------------------
+9.1 O QUE FOI FEITO, ACHADO POR ACHADO
+--------------------------------------------------------------------------------
+
+**Achado 1 (ALTA) — gravar antes de validar deixava ativo envenenado no disco.**
+Corrigido com `writeValidatedImage()` (`minimax.ts`): os bytes vão para `<destino>.parcial`
+na mesma pasta do canal, são **validados lá** e só então promovidos por `renameSync`
+(atômico, mesmo volume). Falha apaga o parcial e **não deixa nada no destino**.
+E a checagem de reuso deixou de ser `fileExists()` (tamanho > 0): virou `isUsableImage()`,
+que exige que o arquivo seja uma imagem que **abre**. Arquivo presente que não abre é
+apagado e regerado — não é "sucesso com custo zero".
+Vale para as **duas** finalidades do arquivo (thumbnail e imagem de cena), que era o que o
+QA apontou em `:393-394` e `:557-558`.
+
+**Achado 8 (BAIXA, causa raiz do 1) — a validação comparava 3 dos 8 bytes.**
+`assertImageBytes` virou `assertDecodableImage`, com **duas camadas**:
+
+  **Camada 1 — estrutura, em JS puro (sempre, sem binário).** PNG: assinatura completa (8 bytes),
+  caminhada pelos *chunks* com conferência de **CRC**, presença de `IHDR` + `IDAT` + `IEND` e o `IDAT`
+  **inflando de verdade** (`zlib.inflateSync`) — os pixels existem e estão completos. JPEG: começo
+  (`FFD8`), fim (`FFD9`) e caminhada de segmentos até o `SOS`.
+  **Camada 2 — decodificação real pelo ffmpeg, quando o binário existe** (`-frames:v 1 -f null -`):
+  prova que o mesmo decodificador que monta o clipe consegue abrir o arquivo.
+
+  **Por que a camada 1 não pode depender do ffmpeg** — e esta decisão mudou durante a correção: a
+  primeira versão exigia só a camada 2. Isso transformaria a correção de integridade em **regressão** do
+  caminho de thumbnail: `/api/media/thumbnails` roda em request e pode rodar em ambiente sem ffmpeg (a
+  Vercel é citada em `server/ai/ledger.ts`), onde hoje ele funciona. Com o piso em JS puro, a garantia é
+  **a mesma em qualquer máquina** e o teto é mais alto onde o pipeline de vídeo roda — que é onde o
+  arquivo vai ser consumido de fato.
+
+  Por que **decodificar** e não só `ffprobe` (medido nesta sessão, ffmpeg 8.1.2, quatro arquivos em
+  `%TEMP%`):
+
+  | arquivo                                  | `ffprobe -show_streams`        | `ffmpeg -frames:v 1`          | camada 1 |
+  |------------------------------------------|--------------------------------|-------------------------------|----------|
+  | PNG 1280x720 válido                      | exit 0, width/height corretos  | exit 0 em 0,05 s              | aceita   |
+  | PNG de 33 bytes (assinatura + IHDR)      | **exit 0**, width 0 height 0   | "Decoding error" em 0,05 s    | recusa: sem IDAT/IEND |
+  | PNG cortado em 20 bytes                  | **exit 0**, "chunk too big"    | "Decoding error" em 0,05 s    | recusa: chunk maior que o arquivo |
+  | página HTML de erro com nome `.png`      | **exit 0**, "Invalid PNG sig." | "Decoding error" em 0,05 s    | recusa: assinatura |
+
+Ou seja: **exit code de `ffprobe` não distingue imagem de lixo** (ele adivinha o demuxer pelo nome do
+arquivo). O que distingue é decodificar — e a estrutura, que não precisa de binário nenhum. E **não
+trava**: os três casos ruins morreram em 0,05 s; o laço de 15 min que o QA mediu é do `zoompan` com
+`-loop 1` sobre um arquivo **já aceito**, não da validação.
+
+**Achado 4 (MÉDIA) — terceiro provedor simulado herdava hash e caminho do ffmpeg.**
+`planImageFor` deixou de chavear o fallback pela flag `simulated`: agora exige **id E modelo**
+do provedor simulado conhecido (`simulado-imagem` / `ffmpeg-lavfi-drawtext-2`). Qualquer
+outro simulado sem `plan` é recusado, com a mensagem dizendo que declarar `simulated: true`
+não empresta o caminho de ninguém.
+
+**Achado 5 (MÉDIA) — o `plan` de terceiro não passava pela segunda rede de escopo.**
+`planImageFor` agora passa todo plano por `assertPlanWithinScope`: `assertWithinChannel`
+(o caminho tem de estar sob `.rebeca/assets/<canal>/`) **e** formato de `hash` (8 hex) e
+`sha256` (64 hex), que são o nome do arquivo e a chave do manifesto. O ponto de extensão
+ficou seguro por si — e não virou parede: um plano legítimo, dentro do canal, continua
+sendo respeitado (há teste para os dois lados).
+
+**Achado 6 (MÉDIA) — manifesto perdido relançava linhas no livro.**
+`register()` e o laço do render agora consultam o **livro** antes de registrar
+(`ledgerCostUsd`), pela chave `(episódio, etapa, modelo, hash8)`. Se já existe linha, o
+ativo é contado como **reusado**, não gera linha nova e o manifesto reconstruído recebe o
+custo que o LIVRO registra — e não o `0` que o provedor devolveu ao encontrar o arquivo.
+`created` volta a 0 e `reused` ao total, que é a leitura honesta.
+
+  > **Defeito que a minha própria primeira versão introduziu — e como apareceu.** A chave
+  > inicial era `(episódio, etapa, hash8)`. Rodando a suíte, o teste de idempotência do
+  > pipeline caiu com `expected 10 to be 9`: `renderEpisode` calcula **um** hash para os
+  > três arquivos do render (`render.ts:293` — `longo`, `short` e legenda saem do mesmo
+  > `hash8` de entrada), então a linha do `longo` fazia o `short` ser lido como "já
+  > registrado" e o `short` **nunca entrava no livro**. O `modelo` entrou na chave
+  > (`RENDER_MODEL.long`/`.short`/`.captions` são distintos) e o teste voltou a passar.
+  > Registro isto porque é a evidência de que o teste morde — inclusive contra mim.
+
+**Achado 7 (BAIXA) — `failed_count` só era lido como número.**
+O exemplo do OpenAPI oficial devolve `failed_count: '0'` (string) e o schema declara
+`integer`. Agora as duas formas são aceitas (string só se for dígitos), e a pista
+"pode ter sido bloqueio de segurança" volta a aparecer na mensagem.
+
+**Achado 9 (observação) — `providers` vence `imageProvider: 'auto'`.** Comportamento
+documentado, mantido de propósito: o opt-in de gasto continua sendo do **run**, e um
+chamador que informe um conjunto completo manda nele. O erro cai para o lado barato.
+
+--------------------------------------------------------------------------------
+9.2 TESTES DA ENTREGA (27 agora) E A PROVA POR MUTAÇÃO INVERSA
+--------------------------------------------------------------------------------
+
+Comando: pnpm exec vitest run src/media/__tests__/media-imagens.test.ts --reporter=verbose
+Resultado: **28 passed (28)** — os 19 de antes mais 9 novos, um por achado:
+  achado 1 ....... resposta que não é imagem não deixa arquivo no disco nem vira
+                   "sucesso grátis" (segunda chamada VOLTA a falar com o provedor)
+  achado 8 ....... PNG truncado que passa pela assinatura de 3 bytes é recusado e
+                   substituído por imagem inteira (e o novo arquivo é reconhecido
+                   como reutilizável, o que prova que ele abre)
+  achado 1 ....... o arquivo de passagem não sobrevive a uma falha de validação
+                   (a camada 1 pega o PNG de 33 bytes: "está incompleto: não há IDAT")
+  achado 7 ....... `failed_count` em string aparece na mensagem
+  achado 4 ....... simulado sem `plan` não herda hash/caminho do ffmpeg
+  achado 5 ....... plano fora da pasta do canal é recusado; dentro, é respeitado
+  achado 5 ....... hash fora do formato do projeto é recusado
+  achado 6 ....... apagado o `meta.json`: sem requisição nova, sem linha nova, sem
+                   arquivo novo, `created=0`, `reused` = total, e o custo real do
+                   livro volta para o manifesto reconstruído
+  thumbnail ...... a thumbnail real da MiniMax também grava só depois de validar
+                   (mesmo helper, outra finalidade), cobra o preço e, com lixo do
+                   provedor, não deixa nem destino nem `.parcial` — a cobertura que
+                   o teste antigo da thumbnail perdeu ao ficar com fixture obsoleta
+
+**MUTAÇÃO INVERSA (exigida pelo pedido) — reintroduzir a gravação antes da validação:**
+
+  mutação: `writeValidatedImage` volta a gravar direto no destino e validar depois
+           (`ensureParentDir` → `writeFileSync(path, bytes)` → `assertDecodableImage(path)`),
+           que é o defeito do achado 1, linha por linha.
+  Aplicada sobre o **arquivo final** (o mesmo que está sendo entregue):
+  sha256 ANTES ................................. E51B5B0FCAA40BFCC7BA1477442609A6D00A09944C3615BBC6A2640D36ECE2A3
+  sha256 MUTADO ................................ A0611B2B61D45C9144C39C8CA6C7F0493A1834DD0CCA463BADF8CDCCDF599F1F
+  sha256 RESTAURADO ............................ E51B5B0FCAA40BFCC7BA1477442609A6D00A09944C3615BBC6A2640D36ECE2A3
+  identico ao entregue? ........................ True
+
+  Comando: pnpm exec vitest run src/media/__tests__/media-imagens.test.ts -t "achado 1"
+  Resultado (mutado): **3 failed | 2 passed | 23 skipped**
+    × achado 1: resposta que não é imagem não deixa arquivo no disco nem vira "sucesso grátis" (28 ms)
+    × o arquivo de passagem não sobrevive a uma falha de validação (11 ms)
+    × a thumbnail real da MiniMax também grava só depois de validar (outra finalidade) (102 ms)
+    as três com `AssertionError: expected true to be false` — é `existsSync(path)` voltando
+    `true` onde o código corrigido não deixa nada. Vermelho pelo motivo certo, e nas **duas
+    finalidades** do arquivo (imagem de cena e thumbnail).
+
+--------------------------------------------------------------------------------
+9.3 SUÍTE COMPLETA — O QUE FICOU VERMELHO, E DE QUEM É
+--------------------------------------------------------------------------------
+
+Comando: pnpm exec vitest run
+Resultado (rodada final, com a validação de duas camadas):
+  Test Files 2 failed | 40 passed (42) · Tests **10 failed | 480 passed (490)** · 432,49 s
+`tsc --noEmit`: **todos** os erros são de `src/features/identidade/__tests__/identidade-personagem.test.tsx`
+(a Fase 1, sendo editada agora — numa leitura eram 2 erros, noutra 6, com `renderIdentidade` recém-extraído
+e ainda não definido). Prova de que a minha área está limpa:
+
+  Comando: pnpm exec tsc --noEmit -p <temp>/tsconfig.fase2.json
+           (base = tsconfig.json do repositório;
+            "exclude": [".../src/features/identidade/**", ".../src/data/**"] — as duas áreas da Fase 1;
+            junction de node_modules no diretório temporário para a resolução de tipos)
+  Resultado: **exit 0** — nenhum erro.
+
+Os 10 vermelhos estão em DOIS arquivos, e **nenhum é um teste desta entrega**:
+
+**Nota de uma rodada anterior (registrada por honestidade):** entre 16:5x e 17:0x esta
+mesma suíte teve **11** vermelhos — o décimo primeiro era
+`src/features/identidade/__tests__/identidade-personagem.test.tsx`, teste de tela da Fase 1
+que caiu por **tempo** (20.027 ms contra o teto de 20 s) com a máquina carregada (as duas
+sessões rodando a suíte ao mesmo tempo). Rodado **sozinho**, ele passa (6/6, 5.079 ms no
+teste que havia caído) — e na rodada final ele **passou dentro da suíte**. Não é desta
+entrega e não é do QA; é o teto apertado dos testes de tela já registrado no `QA-015`.
+
+**(a) `src/media/__tests__/media-thumbnails.test.ts` — 1 teste (fixture obsoleta).**
+  × "grava a imagem e cobra o preço real quando a resposta vem base64"
+  O fixture do teste é `Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0x00])` —
+  9 bytes, assinatura + um byte. Passava na checagem de 3 bytes e é exatamente o arquivo
+  que a validação nova (correta) recusa. Esse arquivo está **fora do meu escopo**
+  (`src/media/**` é proibido, exceto o meu teste novo), então **não foi tocado**.
+  Correção de uma linha: trocar o fixture por um PNG de verdade (IHDR+IDAT+IEND) — o
+  gerador `pngSolido` já existe no meu arquivo de teste.
+
+**(b) `src/media/__tests__/qa-fase2-adversarial.test.ts` — 9 testes (do QA-015).**
+  Três grupos, com motivos diferentes:
+  - **3 têm fixture falsa e esperam sucesso** (`pngMinimo`, 33 bytes): "o pedido 1920x1080
+    vira `aspect_ratio: 16:9`", "CONFIRMADO: a resolução publicada é MEDIDA do arquivo" e
+    "idempotência normal: duas chamadas, uma única requisição". Correção: trocar o fixture
+    por `pngSolido` (que **já existe no próprio arquivo deles**, usado nos testes de
+    pipeline). Sem isso, o teste afirma que um arquivo que não abre é ativo válido.
+  - **5 são testes `REFUTADO:` que afirmam o comportamento defeituoso** — por construção
+    eles *documentam* o defeito, não o guardam: achado 1 ("resposta que não é imagem deixa
+    o arquivo no disco"), achado 1b ("arquivo truncado por outro processo também é aceito
+    como pronto para reuso"), achado 6 ("sem o `meta.json`, a reexecução relança linhas no
+    livro"), achado 4 ("terceiro SIMULADO sem `plan` herda o hash e o CAMINHO") e achado 5
+    ("o `plan` de um terceiro não passa pela segunda rede de escopo"). **Fazer os dois
+    lados ao mesmo tempo é impossível**: ou o defeito existe, ou a correção existe. Como
+    este arquivo está fora do meu escopo, **não foi tocado**; as versões invertidas (que
+    afirmam a garantia) estão no meu arquivo, uma por achado, na seção "QA-015".
+  - **1 é um teste que passava e cuja fixture ficou inválida**: "terceiro provedor REAL
+    que declara `plan` é respeitado" usa `path: join(tempDir, 'x.png')` — **fora** da pasta
+    do canal. O achado 5 do próprio QA diz que isso tem de ser recusado; o teste dele
+    contradiz o achado dele. Correção: usar um caminho dentro de
+    `.rebeca/assets/luna/<episódio>/imagem/` (ex.: via `assetPath`).
+
+Nenhum outro arquivo falhou: os 40 arquivos verdes incluem `media-render.test.ts` (o
+pipeline inteiro), `media-thumbnails.test.ts` (23 dos 24), `media-custos`, `media-library`,
+`identidade-personagem.test.tsx` (Fase 1) e os **28 testes desta entrega**. **Não há
+vermelho em `src/features/**` nem em `src/data/**`** na rodada final.
+
+================================================================================
+10. O QUE CONTINUA NÃO VERIFICADO (rodada 2)
+================================================================================
+
+1. **Nenhuma geração real** — segue valendo o item 1 da seção 6: não há chave da MiniMax
+   nesta máquina e eu não tentei obter. O que mudou é que agora existe uma correção que
+   **rejeita** ativo ruim; ela foi provada com PNG sintético válido e com três formas de
+   arquivo envenenado, não com bytes de um provedor real.
+2. **Em ambiente SEM ffmpeg, a validação é só a camada 1 (estrutura).** É deliberado — a
+   alternativa seria exigir o binário e regredir a rota de thumbnail serverless — mas
+   significa que "o ffmpeg abre este arquivo" é afirmado **apenas onde o ffmpeg existe**
+   (o pipeline de vídeo inteiro). A camada 2 nunca foi exercitada com um arquivo que passe
+   na camada 1 e falhe na decodificação: não consegui construir um caso desses, e o teste
+   não finge que conseguiu.
+3. **A camada 1 do JPEG é mais fraca que a do PNG** (começo, fim e caminhada de segmentos
+   até o SOS — sem inflar nada, porque JPEG não tem um passo de descompressão barato e
+   isolado). E o formato que a MiniMax devolve em `base64` **não foi verificado** com chave
+   real: não há como afirmar se vem PNG ou JPEG.
+4. **Um arquivo estruturalmente válido que faça o ffmpeg entrar em laço** ainda poderia
+   consumir o teto de 15 min do `spawnSync` (`FFMPEG_TIMEOUT_MS`, em `server/media/ffmpeg.ts`,
+   fora do meu escopo). O que existe hoje são as duas camadas, que rejeitam os três modos de
+   falha medidos — laço não é um deles.
+5. **O reuso pelo manifesto não revalida o arquivo.** `findReusable` (`server/media/manifest.ts`,
+   fora do escopo) confia em `existsSync`. O adapter agora só grava o que valida e só reusa o
+   que abre, então a origem de um arquivo truncado no destino passa a ser externa — mas um
+   `meta.json` apontando para um PNG truncado ainda seria reusado pelo pipeline. Fechar isso
+   é a mesma validação em `manifest.ts`.
+6. **Os 10 vermelhos da seção 9.3 não são desta entrega, mas são reais** e ficam no caminho
+   de quem aceitar o próximo PR. Os patches estão descritos acima, teste por teste — e **4
+   deles (1 na thumbnail + 3 no arquivo do QA) são só fixture falsa**: trocar `pngMinimo` por
+   `pngSolido`/PNG real resolve, sem tocar em nenhuma asserção.
+7. Seguem valendo os itens 3 a 8 da seção 6 (negativePrompt sem campo no contrato, tela não
+   tocada, vínculo storyboard→EpisodeSpec, revisão do `rebeca-qa` sobre ESTA rodada de
+   correções, nenhuma imagem olhada por humano) e o item 3 daquela seção sobre o formato
+   exato do que o provedor devolve.
+
+================================================================================
+11. RODADA 3 — INVERSÕES AUTORIZADAS E OS ACHADOS DA SEGUNDA REVISÃO (QA-016)
+================================================================================
+
+Contexto: o orquestrador autorizou (2026-10-02, ~18:35) aplicar os patches de fixture e inverter as
+asserções que **afirmavam o defeito**, com quatro condições: comentar cada inversão com o achado e a
+data; não afrouxar nenhuma asserção; manter a garantia também no meu arquivo; e preservar a
+reprodução mínima do defeito como comentário. As quatro foram cumpridas — o arquivo do QA agora diz,
+no topo e em cada teste invertido, o que ele afirmava antes.
+
+Esta seção registra também a **QA-016**: uma segunda rodada de revisão que chegou durante o trabalho
+(arquivo do QA editado às 18:50:12 e 18:56:50, no meio das minhas rodadas) e que encontrou **seis**
+achados — quatro de mídia contra as minhas correções, **um deles de dinheiro**, e dois no adapter da
+OpenAI (fora do meu escopo).
+
+--------------------------------------------------------------------------------
+11.1 O QUE FOI CORRIGIDO NESTA RODADA
+--------------------------------------------------------------------------------
+
+**QA-016 ALTA — "arquivo apagado entre execuções faz o provedor cobrar de novo e o LIVRO não
+registra".** Achado contra a MINHA correção do achado 6, e é o mais grave: com o ARQUIVO apagado e o
+livro intacto, o provedor é chamado outra vez e **cobra outra vez**; a consulta ao livro achava a linha
+antiga, contava como reuso e **omitia a segunda cobrança**. O episódio relatava o custo de UMA imagem
+depois de pagar duas — e esse número é o mesmo que os portões de teto leem.
+
+Correção: a regra passou a separar as duas situações pelo único fato que importa para o livro —
+**cobrou agora (`costUsd > 0`) ⇒ registra sempre** (invariante nº 4; nenhuma consulta ao livro pode
+dispensá-lo); **não cobrou (`costUsd === 0`) ⇒ o arquivo já estava lá**, e aí a linha existente
+significa "já pago antes": não gera linha nova, conta como reuso e o custo registrado volta ao
+manifesto reconstruído. As duas regras convivem, e há teste para cada lado.
+
+**QA-016 MÉDIA — "a camada 1 não valida o IHDR".** A camada 1 só conferia que o `IHDR` tinha 13 bytes.
+Passavam por ela: `IHDR 0x0`, `colorType=99`, `bitDepth=7` e `IDAT` sem pixel nenhum — todos recusados
+apenas pela camada 2. Correção: `ihdrValido()` confere dimensões > 0, `colorType` do formato,
+`bitDepth` válido para aquele `colorType`, métodos de compressão/filtro e **`interlace` ∈ {0,1}**.
+
+**QA-016 MÉDIA — "sem ffmpeg, um PNG que NÃO decodifica é aceito".** Era o meu risco declarado nº 2
+virando fato. Fecha junto com o anterior: onde não há binário, a camada 1 é a única defesa, e agora ela
+basta para os cinco casos de cabeçalho/pixel medidos.
+
+**QA-016 BAIXA — "`interlace` inválido passa nas DUAS camadas".** Mesma correção; hoje a recusa é da
+camada 1, com a mensagem dizendo qual campo está errado.
+
+**QA-016 — "pixels insuficientes para as dimensões".** O QA tinha este como o 5º caso que a camada 1
+deixava passar (recusado só pelo ffmpeg). Entrou junto: a camada 1 agora compara o tamanho dos pixels
+descomprimidos com o que o `IHDR` exige. Só para PNG **não entrelaçado** — no Adam7 a disposição é
+outra e usar a fórmula linear recusaria imagem válida; onde não dá para afirmar, o código não afirma.
+
+--------------------------------------------------------------------------------
+11.2 O QUE **NÃO** FOI CORRIGIDO, E POR QUÊ (dois achados ALTOS, fora do escopo)
+--------------------------------------------------------------------------------
+
+**`server/media/providers/openai.ts` tem o achado 1 do QA-015 intacto** — e é o caminho pago de
+thumbnail **em uso** (`providerForThumbnails` prefere a OpenAI quando há chave; o QA contou 13 linhas
+`openai / gpt-image-2.5-sunburst` no livro):
+
+  - `openai.ts:235` `writeFileSync(path, bytes)` **antes** de conferir a assinatura (`:237`);
+  - `openai.ts:159` `if (existsSync(path))` como checagem de reuso — um arquivo de **zero byte** com o
+    nome certo já é "ativo pronto", e a retentativa devolve sucesso com custo zero.
+
+`openai.ts` **não está no meu escopo de arquivos** (`server/media/providers/minimax.ts` + um arquivo
+novo; mais `simulated-episode.ts` e o meu teste). Não toquei nele. Os dois testes do QA que o expõem
+(`REFUTADO (NOVO, gravidade ALTA)`) continuam **verdes afirmando o defeito** — que é a pior combinação:
+suíte verde com defeito grave conhecido. O caminho de correção é o mesmo desta entrega, e exige extrair
+`assertDecodableImage`/`isUsableImage`/`writeValidatedImage` de `minimax.ts` para um módulo
+compartilhado em `server/media/providers/` e usá-lo nos dois adapters. **Pronto para aplicar mediante
+autorização** — é o primeiro item do "próximo".
+
+--------------------------------------------------------------------------------
+11.3 AS INVERSÕES (o que mudou no arquivo do QA, teste por teste)
+--------------------------------------------------------------------------------
+
+| Teste (arquivo `qa-fase2-adversarial.test.ts`) | Antes afirmava | Agora afirma |
+|---|---|---|
+| QA-015 achado 1 (resposta que não é imagem) | arquivo fica no disco, retentativa dá "sucesso grátis" | nada no disco, retentativa volta à rede e falha |
+| QA-015 achado 1/8 (truncado por outro processo) | aceito como ativo pronto, custo 0 | regerado: requisição nova, custo real, resolução presente |
+| QA-015 achado 6 (manifesto perdido) | livro ganha linhas, `reused = 0` | livro não cresce, `created = 0`, `reused` = total, custo do livro no manifesto |
+| QA-015 achado 4 (simulado sem `plan`) | herda hash e caminho do ffmpeg | recusado; o simulado de verdade mantém o plano dele |
+| QA-015 achado 5 (plan fora do canal) | aceito | `ChannelScopeError`; plano legítimo dentro do canal segue aceito |
+| QA-016 ALTA (arquivo apagado) | segunda cobrança invisível, custo pela metade | duas linhas no livro, custo dobrado, ativo contado como gerado |
+| QA-016 MÉDIA (sem ffmpeg) | IHDR 0x0 aceito e promovido | recusado na camada 1; nada no destino |
+| QA-016 MÉDIA (IHDR) | recusa vinha da camada 2 | recusa vem da camada 1 (a que existe sem ffmpeg) |
+| QA-016 BAIXA (`interlace`) | virava o ativo do canal | recusado com o campo na mensagem |
+| QA-016 (pixels insuficientes) | recusado pela camada 2 | recusado já pela camada 1 |
+
+Fixtures corrigidas (não são inversões, são arquivos falsos que a validação nova recusa):
+`media-thumbnails.test.ts` (`respostaMiniMax` usava **9 bytes**) e três testes do QA que usavam
+`pngMinimo` (33 bytes) — todos passaram a usar PNG de verdade; e o teste "terceiro provedor REAL que
+declara `plan` é respeitado", cuja fixture apontava para **fora** da pasta do canal, contra o próprio
+achado 5 do QA.
+
+**A garantia vive nos dois arquivos.** No meu (`media-imagens.test.ts`) há um teste estrito por achado,
+inclusive os quatro da QA-016 e o ALTA do livro — se o arquivo do QA sair amanhã, a cobertura fica.
+
+--------------------------------------------------------------------------------
+11.4 RODADAS COMPLETAS (duas seguidas, com hora)
+--------------------------------------------------------------------------------
+
+Comando (as duas): `pnpm exec vitest run`
+
+  RODADA 1 — início **2026-10-02 19:09:32**
+    Test Files  42 passed (42)
+         Tests  **517 passed (517)**
+      Duration  301,41 s · exit 0
+
+  RODADA 2 — início **2026-10-02 19:14:40**
+    Test Files  42 passed (42)
+         Tests  **517 passed (517)**
+      Duration  229,03 s · exit 0
+
+  Fim: 19:18:36. `pnpm exec tsc --noEmit` **exit 0**.
+
+**A árvore estava quieta nas duas rodadas — e a Fase 1 não deixou vermelho.** As duas rodadas
+anteriores desta sessão tinham vermelho de terceiros (2 testes em `qa-fase1-adversarial.test.ts` na
+rodada de 18:41, já corrigidos por eles; e um teste de tela da Fase 1 que caía por tempo com a máquina
+carregada). Nestas duas, **zero**. O que rodou entre elas: nada — o único arquivo que escrevi no
+intervalo foi **este** arquivo de evidência, que nenhum teste lê.
+
+Nota sobre a árvore real, para não deixar dúvida: `.rebeca/custos.csv` foi gravado às **18:28:15**,
+durante a sessão, e `.rebeca/assets/luna` existe. **Nada disso é desta entrega:** as linhas novas do
+livro (271 no total, contra 257 que o QA-015 mediu) são `criar / openai / gpt-6.1-sol / tokens` — custo
+de LLM da Fase 1 gerando roteiro — e a árvore de assets é de 14:42–14:43 (thumbnails da Fase 1). A
+pasta do meu episódio de teste (`luna-ep-imagens`) **não existe** na árvore real, e não há nenhum
+arquivo `.parcial` em lugar nenhum.
+
+--------------------------------------------------------------------------------
+11.5 sha256 DO ESTADO ENTREGUE (fim das duas rodadas)
+--------------------------------------------------------------------------------
+
+  3FA9F224456CB00DAB1DF42E7D4871E6F7B6E1A9B5168081D38D35C5D202783B  server/media/providers/minimax.ts
+  7995F1ABF6DED2D11F4B8ECE1DE0C86A28CB3B2FD3EE62BB6040044D827B37DD  server/media/providers/image-provider.ts
+  F5BAF2128DB60CE3695561B0255F694149F6F3AABDE350620751326D540062D4  server/media/simulated-episode.ts
+  1B8F46242F94296237F83916854E5951CD4226481F7C46772E57853823D3EC2C  src/media/__tests__/media-imagens.test.ts
+  71FCE72C716A5B19B3C4380D406446CF1A406FD8D4091FC037346DAF43F7E55A  src/media/__tests__/qa-fase2-adversarial.test.ts  (arquivo do QA — só as inversões/fixtures autorizadas)
+  0E13305DBEDA3D0FCEA72D2A8F692C293E7EABC0271810DF6B7EABD4559F4FCF  src/media/__tests__/media-thumbnails.test.ts      (arquivo da Fase 1 — só a fixture)
+
+**ATENÇÃO: este quadro é HISTÓRICO.** A rodada 4 (seção 12) mudou `minimax.ts`, `simulated-episode.ts`,
+os dois arquivos de teste e criou `image-integrity.ts`. Os hashes do estado entregue estão na
+seção 12.5.
+
+================================================================================
+12. RODADA 4 — O ADAPTER DA OPENAI (o caminho pago em uso) E A EXTRAÇÃO
+================================================================================
+
+Autorizado pelo orquestrador em 2026-10-02, com um argumento que decide: não é simetria com o
+`minimax.ts` — é que `openai.ts` **é o caminho pago em uso**. `providerForThumbnails` prefere a OpenAI
+quando há chave, e o livro tem 13 linhas de thumbnail `openai / gpt-image-2.5-sunburst`. Um arquivo de
+**zero byte** com o nome certo virando "ativo pronto" não é defeito latente num adapter futuro: está no
+caminho que cobra dinheiro hoje.
+
+Agravente de processo registrado pelo orquestrador, e que este arquivo assume: **os dois testes do QA
+estavam VERDES afirmando o defeito**. Suíte 517/517 com um ALTA em aberto é pior que suíte vermelha —
+verde é o que faz alguém parar de procurar.
+
+--------------------------------------------------------------------------------
+12.1 A EXTRAÇÃO — uma implementação, dois adapters
+--------------------------------------------------------------------------------
+
+**Arquivo novo: `server/media/providers/image-integrity.ts`.** Para lá foram
+`assertDecodableImage`, `isUsableImage`, `writeValidatedImage` e tudo que só elas usavam (caminhada de
+chunks, `crc32`, validação de `IHDR`, inflate do `IDAT`, contagem de pixels, validação de JPEG).
+
+O tipo do erro **não** foi para lá: `createImageIntegrity({ criarErro, formatos })` recebe a fábrica de
+erro do adapter. Assim cada um mantém a própria classe e o próprio `code` —
+`MiniMaxError('resposta-invalida')` e `OpenAiImageError('resposta-invalida')` — e as **mensagens** do
+caminho da MiniMax são as mesmas de antes da extração, byte a byte.
+
+`formatos` também é por adapter, e por um motivo concreto: a MiniMax devolve `base64` sem formato
+documentado (PNG **ou** JPEG, como sempre aceitou), enquanto a resposta da OpenAI é PNG e o ativo nasce
+com extensão `.png` no nome — aceitar JPEG ali seria aceitar um arquivo que o manifesto chama de PNG.
+Há teste para isso ("a OpenAI NÃO aceita JPEG").
+
+**`minimax.ts` não mudou de comportamento:** nenhum caller captura `MiniMaxError` por classe (conferido
+por busca em todo `*.ts`), as mensagens são idênticas e os 24 testes do adapter de thumbnail + os 45 do
+meu arquivo seguiram verdes sem uma única alteração de asserção por causa da extração.
+
+--------------------------------------------------------------------------------
+12.2 O QUE MUDOU NO `openai.ts`
+--------------------------------------------------------------------------------
+
+| Antes | Agora |
+|---|---|
+| `if (existsSync(path))` → reusa qualquer coisa com o nome certo | `if (isUsableImage(path))` → só reusa o que **abre**; o resto é apagado e regerado |
+| `writeFileSync(path, bytes)` e **depois** conferir a assinatura | `writeValidatedImage(...)`: grava em `<path>.parcial`, valida nas duas camadas, promove por `rename` |
+| assinatura conferida: 8 bytes de PNG (e nada além) | estrutura do PNG (chunks, CRC, IHDR, IDAT inflando, pixels suficientes) **+** decodificação real pelo ffmpeg quando o binário existe |
+
+--------------------------------------------------------------------------------
+12.3 TESTES
+--------------------------------------------------------------------------------
+
+Os dois testes do QA que afirmavam o defeito foram **invertidos** com o protocolo já cumprido:
+comentário com o achado e a data, **reprodução mínima preservada** logo acima, e asserção mais estrita
+(ex.: a retentativa tem de voltar à rede e falhar de novo; o arquivo tem de ser um PNG de verdade, não
+vazio). O `describe` mudou de nome — "…ficou com o achado 1 da rodada anterior" virou "…que ESTÁ EM USO".
+
+A garantia também ficou no **meu** arquivo, como exigido (para não desaparecer se o arquivo do QA sair):
+três testes novos em `media-imagens.test.ts`, incluindo o de JPEG recusado.
+
+Comando: `pnpm exec vitest run src/media/__tests__/media-imagens.test.ts
+          src/media/__tests__/qa-fase2-adversarial.test.ts src/media/__tests__/media-thumbnails.test.ts`
+Resultado: **93 passed (93)** · 3 arquivos · 141,56 s
+
+--------------------------------------------------------------------------------
+12.4 PROVA ADVERSARIAL POR MUTAÇÃO — **uma** mutação, os DOIS adapters
+--------------------------------------------------------------------------------
+
+Mutação no **módulo compartilhado** (`writeValidatedImage` volta a gravar direto no destino e validar
+depois — o defeito dos achados 1/8). É justamente o teste da extração: se a implementação é uma só,
+quebrá-la tem de derrubar os dois adapters.
+
+  sha256 ANTES ................................ 6ABF82767245D6ED42AE0466B98DF26C1948BBDD4DFB5812240941970F3A4559
+  sha256 MUTADO ............................... 38C95F41902D35602121046A58B7D948023F00146E20A61C88EBF56DBB1E5975
+  sha256 RESTAURADO ........................... 6ABF82767245D6ED42AE0466B98DF26C1948BBDD4DFB5812240941970F3A4559
+  identico ao entregue? ....................... True
+
+  Comando: pnpm exec vitest run <os dois arquivos> -t "valida|não deixa arquivo|zero byte"
+  Resultado: **7 failed | 2 passed | 60 skipped**
+
+  Vermelhos, e são os dois adapters:
+    × (MiniMax) achado 1: resposta que não é imagem não deixa arquivo no disco
+    × (MiniMax) o arquivo de passagem não sobrevive a uma falha de validação
+    × (MiniMax) a thumbnail real também grava só depois de validar
+    × (QA) CORRIGIDO achado 1: resposta que não é imagem não deixa arquivo no disco
+    × (QA) CORRIGIDO achado MÉDIA: a camada 1 valida o IHDR (o parcial fica no disco)
+    × (OpenAI) a OpenAI grava só depois de validar — nada sobra no disco
+    × (OpenAI) a OpenAI grava só depois de validar: lixo do provedor não deixa ativo
+
+  Os **2 verdes** são os testes de "arquivo de zero byte", que exercitam a checagem de **reuso** e não a
+  ordem de escrita — passarem sob esta mutação é o comportamento correto, e está dito aqui para não
+  parecer que a mutação foi mais fraca do que foi.
+
+--------------------------------------------------------------------------------
+12.5 RODADAS COMPLETAS E sha256 DO ESTADO ENTREGUE
+--------------------------------------------------------------------------------
+
+Comando (as duas): `pnpm exec vitest run` — e `pnpm exec tsc --noEmit` → **exit 0**
+
+  RODADA 1 — início **2026-10-02 19:32:12**
+    Test Files  42 passed (42)
+         Tests  **521 passed (521)**
+      Duration  175,66 s · exit 0
+
+  RODADA 2 — início **2026-10-02 19:35:09**
+    Test Files  42 passed (42)
+         Tests  **521 passed (521)**
+      Duration  177,94 s · exit 0
+
+  Fim: 19:38:09. **Nenhum vermelho de terceiros nas duas** — nem da Fase 1, nem do QA. O único arquivo
+  que escrevi entre as rodadas foi **este** (nenhum teste o lê).
+
+sha256 do estado entregue:
+
+  2071B13911221DFB644295D135FCC128DACBFF935375AF7653E14884DC9B1502  server/media/providers/minimax.ts
+  7995F1ABF6DED2D11F4B8ECE1DE0C86A28CB3B2FD3EE62BB6040044D827B37DD  server/media/providers/image-provider.ts
+  6ABF82767245D6ED42AE0466B98DF26C1948BBDD4DFB5812240941970F3A4559  server/media/providers/image-integrity.ts   (NOVO — o módulo compartilhado)
+  BD2242A6A5013ABCC31C69CF1C78C5E5865DB6E3AC55A795D4D4D6978BBD962D  server/media/providers/openai.ts           (corrigido nesta rodada)
+  F5BAF2128DB60CE3695561B0255F694149F6F3AABDE350620751326D540062D4  server/media/simulated-episode.ts
+  39B6EB818F2AB199F426C1F2EA5DA019516194280FAE39C32BFFE8440A8057D5  src/media/__tests__/media-imagens.test.ts
+  21DC35EC056DB0CD029C88B3F4D5AD79A050218FD134F284088D74373A46524B  src/media/__tests__/qa-fase2-adversarial.test.ts
+  0E13305DBEDA3D0FCEA72D2A8F692C293E7EABC0271810DF6B7EABD4559F4FCF  src/media/__tests__/media-thumbnails.test.ts
+
+Conferência do arquivo do QA depois das minhas edições (19:29:09): **0 testes `REFUTADO` restantes** —
+12 asserções invertidas/atualizadas (5 do QA-015, 6 do QA-016 e 1 atualizada por mudança de camada), cada
+uma com o achado, a data e a reprodução mínima preservada em comentário.
+
+Estado da árvore real: a pasta do meu episódio de teste **não existe**, zero arquivos `.parcial`, e o
+`git status` da minha área mostra exatamente `minimax.ts`, `openai.ts`, `media-thumbnails.test.ts`
+(modificados) e `image-integrity.ts`, `image-provider.ts`, `media-imagens.test.ts`,
+`qa-fase2-adversarial.test.ts` (novos, não rastreados). Nada commitado, nenhum `git add`.
+
+================================================================================
+FIM
+================================================================================

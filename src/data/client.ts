@@ -17,6 +17,9 @@ import type {
   ChannelId,
   ChannelKpis,
   Character,
+  CharacterProposal,
+  CharacterSheet,
+  CharacterSheetOrigin,
   ContentItem,
   ContentStatus,
   ModuleState,
@@ -25,13 +28,13 @@ import type {
   Roteiro,
   Storyboard,
   ThumbnailOption,
+  TileTone,
   WeeklySlot,
 } from './types';
-import { channels, contents, todayIso } from './mock/db';
+import { channels, characters, contents, todayIso } from './mock/db';
 import {
   brandKitFor,
   channelById,
-  charactersFor,
   currentWeekDays,
   kpis,
   kpisFor,
@@ -81,9 +84,29 @@ function seedStore(): ContentItem[] {
 
 let store: ContentItem[] = seedStore();
 
+/* -----------------------------------------------------------------------------
+   Personagens: a cópia mutável do ciclo do personagem
+   -----------------------------------------------------------------------------
+   Mesma ideia do `store` acima, com uma diferença que importa: personagem **nasce** de proposta de IA,
+   mas quem grava é sempre um clique humano. Enquanto a lista lia direto o dado de exemplo
+   (`charactersFor`), não havia onde gravar escolha nenhuma — e as quatro batidas do PDF (opções →
+   escolha → refino → aprovação) não tinham como acontecer.
+   -------------------------------------------------------------------------- */
+
+function seedCharacterStore(): Character[] {
+  return characters.map((character) => ({
+    ...character,
+    sheet: { ...character.sheet, tracos: [...character.sheet.tracos] },
+    sheetOrigin: { ...character.sheetOrigin },
+  }));
+}
+
+let characterStore: Character[] = seedCharacterStore();
+
 /** Restaura o estado de exemplo (usado por testes e pelo botão "reiniciar exemplo"). */
 export function resetStore(): void {
   store = seedStore();
+  characterStore = seedCharacterStore();
 }
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -283,6 +306,331 @@ function patchArtifact(channelId: ChannelId, contentId: string, patch: Partial<C
 }
 
 /* =============================================================================
+   Ciclo do personagem — opções → escolha → refino → aprovação
+   -----------------------------------------------------------------------------
+   O que o PDF do cliente pede, com estas palavras: *"O sistema gera opções. Eu escolho uma. Depois
+   digo: 'Gostei desse, mas quero as orelhas maiores e sem coleira.' Ela gera novamente. Quando eu
+   aprovar o personagem, ele vira um personagem oficial."*
+
+   Quem gera é a função de IA (`identidade-personagem`), que **não grava nada** — ela devolve opções
+   para a tela. Quem grava é este bloco, e só a partir de clique humano:
+
+     `AiAction` (proposta)  →  `saveCharacterDraft` (escolha vira rascunho)  →  `approveCharacter`
+     (rascunho vira oficial)
+
+   Duas regras que não se negociam aqui:
+
+   1. **Personagem novo nasce `rascunho`.** `approveCharacter` é o único caminho para `oficial` — não
+      existe atalho, nem parâmetro de status vindo de fora.
+   2. **Refinar não edita a ficha existente: cria uma nova.** A versão anterior permanece no registro,
+      porque episódios já gerados usaram **ela** (`rebeca-branding`, princípio 5). Quando a nova é
+      aprovada, a anterior deixa de ser oficial — `substituido` — em vez de continuarem duas
+      identidades canônicas com o mesmo nome.
+   ============================================================================= */
+
+/** Tetos idênticos aos do schema de `identidade-personagem` (`src/ai/schemas.ts`) — a fonte é lá. */
+const CHARACTER_NAME_MAX = 60;
+const CHARACTER_ROLE_MIN = 3;
+const CHARACTER_ROLE_MAX = 120;
+const CHARACTER_VISUAL_MIN = 20;
+const CHARACTER_VISUAL_MAX = 900;
+const CHARACTER_TRAIT_MAX = 80;
+const CHARACTER_TRAITS_MAX = 12;
+const CHARACTER_PROMPT_MIN = 20;
+const CHARACTER_PROMPT_MAX = 1200;
+const CHARACTER_NEGATIVE_MAX = 600;
+const CHARACTER_NOTES_MIN = 10;
+const CHARACTER_NOTES_MAX = 800;
+
+function findCharacter(channelId: ChannelId, characterId: string): Character {
+  const found = characterStore.find(
+    (item) => item.channelId === channelId && item.id === characterId,
+  );
+  if (!found) {
+    // Mesma mensagem para "não existe" e para "não é deste canal": a interface não pode denunciar a
+    // existência de um personagem de outro canal (invariante nº 2).
+    throw new Error('Personagem não encontrado neste canal.');
+  }
+  return found;
+}
+
+/** Cópia de leitura: quem recebe um personagem não mexe na ficha guardada. */
+function cloneCharacter(character: Character): Character {
+  return {
+    ...character,
+    sheet: { ...character.sheet, tracos: [...character.sheet.tracos] },
+    sheetOrigin: { ...character.sheetOrigin },
+  };
+}
+
+function requireCharacterName(raw: unknown): string {
+  if (typeof raw !== 'string') throw new Error('Nome de personagem inválido.');
+  const nome = normalizeSingleLine(raw);
+  if (nome.length === 0) throw new Error('O personagem precisa de um nome.');
+  if (nome.length > CHARACTER_NAME_MAX) {
+    throw new Error(`O nome do personagem precisa ter no máximo ${CHARACTER_NAME_MAX} caracteres.`);
+  }
+  return nome;
+}
+
+function requireCharacterRole(raw: unknown): string {
+  const papel = normalizeSingleLine(typeof raw === 'string' ? raw : '');
+  if (papel.length < CHARACTER_ROLE_MIN) {
+    throw new Error(`O papel do personagem precisa ter pelo menos ${CHARACTER_ROLE_MIN} caracteres.`);
+  }
+  if (papel.length > CHARACTER_ROLE_MAX) {
+    throw new Error(`O papel do personagem precisa ter no máximo ${CHARACTER_ROLE_MAX} caracteres.`);
+  }
+  return papel;
+}
+
+function requireVisualDescription(raw: unknown): string {
+  const descricao = normalizeMultiline(typeof raw === 'string' ? raw : '', CHARACTER_VISUAL_MAX);
+  if (descricao.length < CHARACTER_VISUAL_MIN) {
+    throw new Error(
+      `A descrição visual precisa ter pelo menos ${CHARACTER_VISUAL_MIN} caracteres: é ela que mantém o personagem igual entre episódios.`,
+    );
+  }
+  return descricao;
+}
+
+/**
+ * Traços canônicos. A lista **não pode ser vazia**: traço é o que se confere numa imagem para dizer
+ * "é o mesmo personagem" — ficha sem traço checável não garante consistência nenhuma, então ela não
+ * entra no canal (e, no `approveCharacter`, não vira oficial).
+ */
+function requireTraits(raw: unknown): string[] {
+  if (!Array.isArray(raw)) throw new Error('Traços inválidos.');
+  const tracos = raw
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => normalizeSingleLine(item).slice(0, CHARACTER_TRAIT_MAX))
+    .filter((item) => item.length > 0)
+    .slice(0, CHARACTER_TRAITS_MAX);
+  if (tracos.length === 0) {
+    throw new Error('A ficha precisa de pelo menos um traço checável em imagem.');
+  }
+  return tracos;
+}
+
+function requireImagePrompt(raw: unknown): string {
+  const prompt = normalizeMultiline(typeof raw === 'string' ? raw : '', CHARACTER_PROMPT_MAX);
+  if (prompt.length < CHARACTER_PROMPT_MIN) {
+    throw new Error(`O prompt de imagem precisa ter pelo menos ${CHARACTER_PROMPT_MIN} caracteres.`);
+  }
+  return prompt;
+}
+
+function requireNegativePrompt(raw: unknown): string {
+  return normalizeMultiline(typeof raw === 'string' ? raw : '', CHARACTER_NEGATIVE_MAX);
+}
+
+function requireSeed(raw: unknown): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    throw new Error('Seed inválida: sem ela não dá para reproduzir o mesmo personagem em outra geração.');
+  }
+  return safeInt(raw, 0, 2_147_483_647, 0);
+}
+
+function requireConsistencyNotes(raw: unknown): string {
+  const notas = normalizeMultiline(typeof raw === 'string' ? raw : '', CHARACTER_NOTES_MAX);
+  if (notas.length < CHARACTER_NOTES_MIN) {
+    throw new Error(
+      'As notas de consistência precisam dizer o que não pode mudar entre episódios.',
+    );
+  }
+  return notas;
+}
+
+/**
+ * Procedência da ficha — obrigatória e explícita.
+ *
+ * Ficha sem procedência é ficha que a lista não consegue explicar: **proposta simulada apresentada
+ * como geração real é mentira de produto** (o mesmo motivo pelo qual `Roteiro` carrega `simulated` e
+ * `promptId`). Por isso o campo não tem valor padrão: quem grava tem de dizer de onde veio.
+ */
+function requireSheetOrigin(raw: CharacterSheetOrigin): CharacterSheetOrigin {
+  const source = (raw ?? {}) as unknown as Record<string, unknown>;
+  const promptId =
+    typeof source['promptId'] === 'string' ? normalizeSingleLine(source['promptId']).slice(0, 80) : '';
+  const version = source['promptVersion'];
+  if (promptId.length === 0 || typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+    throw new Error(
+      'Procedência da ficha ausente: registrar de qual prompt a proposta veio é o que permite auditar a ficha depois.',
+    );
+  }
+  if (typeof source['simulated'] !== 'boolean') {
+    throw new Error('Procedência da ficha incompleta: falta dizer se a proposta foi simulação ou geração real.');
+  }
+  return { promptId, promptVersion: version, simulated: source['simulated'] };
+}
+
+/** Ficha normalizada, pronta para ser gravada. */
+interface NormalizedProposal {
+  readonly name: string;
+  readonly role: string;
+  readonly sheet: CharacterSheet;
+}
+
+function requireProposal(proposal: CharacterProposal): NormalizedProposal {
+  const raw = (proposal ?? {}) as unknown as Record<string, unknown>;
+  return {
+    name: requireCharacterName(raw['nome']),
+    role: requireCharacterRole(raw['papel']),
+    sheet: {
+      descricaoVisual: requireVisualDescription(raw['descricaoVisual']),
+      tracos: requireTraits(raw['tracos']),
+      promptImagem: requireImagePrompt(raw['promptImagem']),
+      negativePrompt: requireNegativePrompt(raw['negativePrompt']),
+      seed: requireSeed(raw['seed']),
+      notasConsistencia: requireConsistencyNotes(raw['notasConsistencia']),
+    },
+  };
+}
+
+/** Número de uma revisão `vN`. `null` quando a string não é uma revisão legível. */
+function numeroDaVersao(versao: string): number | null {
+  const match = /^v(\d+)$/.exec(versao.trim());
+  const numero = match ? Number.parseInt(match[1] ?? '', 10) : Number.NaN;
+  return Number.isInteger(numero) && numero >= 1 ? numero : null;
+}
+
+/**
+ * Revisão seguinte de uma ficha: `v4` → `v5`.
+ *
+ * Se a versão de partida não for legível, a gravação é **recusada** em vez de recomeçar do `v1` por
+ * conta própria: renumerar em silêncio apagaria a diferença entre duas fichas.
+ */
+export function nextSheetVersion(previous: string): string {
+  const numero = numeroDaVersao(previous);
+  if (numero === null) {
+    throw new Error(`Não dá para derivar uma revisão nova a partir de "${previous}".`);
+  }
+  return `v${numero + 1}`;
+}
+
+/**
+ * A revisão que a próxima ficha desta **identidade** vai receber — sempre **topo + 1**.
+ *
+ * Subir a partir da base não bastava, e o `rebeca-qa` mediu por quê (`docs/qa/QA-015-fases-1-e-2.md`,
+ * achado 2): refinando uma versão `substituido` (ou abrindo duas ramificações da mesma base), a ficha
+ * nova reemitia o número de uma ficha **viva** — duas `v2` convivendo, e "qual ficha o episódio usou?"
+ * sem resposta. A subida de versão só torna o refino auditável se o número nunca se repetir dentro da
+ * identidade, então o cálculo olha para todas as fichas dela, não só para a base.
+ *
+ * "Identidade" aqui é o nome normalizado (`mesmaIdentidade`) **mais** a linhagem da base — o refino
+ * pode renomear o personagem, e nesse caso a continuidade da versão tem de vir da linhagem.
+ */
+function proximaVersaoDaIdentidade(
+  channelId: ChannelId,
+  name: string,
+  base: Character | undefined,
+): string {
+  const raiz = base ? lineageRootId(base.id) : null;
+  const daIdentidade = characterStore.filter(
+    (item) =>
+      item.channelId === channelId &&
+      (mesmaIdentidade(item.name, name) || (raiz !== null && lineageRootId(item.id) === raiz)),
+  );
+
+  let maior = 0;
+  for (const item of daIdentidade) {
+    const numero = numeroDaVersao(item.sheetVersion);
+    // Sem saber quais números já foram usados, reemitir seria pior do que parar.
+    if (numero === null) {
+      throw new Error(`Não dá para ler a revisão da ficha de "${item.name}": "${item.sheetVersion}".`);
+    }
+    maior = Math.max(maior, numero);
+  }
+
+  // A primeira ficha de uma identidade nasce `v1`; qualquer ficha seguinte sobe do topo dela.
+  return maior === 0 ? 'v1' : nextSheetVersion(`v${maior}`);
+}
+
+/** Cor do ícone do cartão — apresentação, não dado de marca. Rodízio para não repetir no canal. */
+const CHARACTER_TONES: readonly TileTone[] = [
+  'cyan',
+  'blue',
+  'violet',
+  'green',
+  'amber',
+  'rose',
+  'pink',
+  'teal',
+];
+
+function nextCharacterTone(channelId: ChannelId): TileTone {
+  const existentes = characterStore.filter((item) => item.channelId === channelId).length;
+  return CHARACTER_TONES[existentes % CHARACTER_TONES.length] ?? 'blue';
+}
+
+/**
+ * Identidade do personagem dentro do canal — o nome reduzido à forma que um humano lê como o mesmo.
+ *
+ * Tira acento, caixa e separador: `Bentó`, `bento`, `Ben  to` e `Ben-to` são **a mesma** identidade.
+ * Esta é a **única** regra de comparação de nome neste arquivo: o `id` e a substituição da versão
+ * oficial passam por aqui, e não podem divergir.
+ *
+ * Já divergiram uma vez, e o `rebeca-qa` mediu o resultado (`docs/qa/QA-015-fases-1-e-2.md`, achado 3):
+ * o gerador de `id` tirava o diacrítico e a comparação de identidade não, então aprovar `Bento` e
+ * depois `Bentó` deixava **dois** personagens `oficial` para o mesmo cachorro — o invariante nº 3
+ * ("a Luna parece a Luna") furado por um acento.
+ */
+function identidadeDoNome(raw: string): string {
+  return normalizeSingleLine(raw)
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+function mesmaIdentidade(a: string, b: string): boolean {
+  return identidadeDoNome(a) === identidadeDoNome(b);
+}
+
+function nextCharacterId(channelId: ChannelId, name: string): string {
+  const slug = identidadeDoNome(name).slice(0, 40) || 'personagem';
+  const base = `${channelId}-${slug}`;
+  let id = base;
+  let sufixo = 2;
+  while (characterStore.some((item) => item.id === id)) id = `${base}-${sufixo++}`;
+  return id;
+}
+
+/** Raiz da linhagem: sobe por `derivedFromId` até o personagem criado do zero. */
+function lineageRootId(characterId: string): string {
+  let atual = characterId;
+  const visitados = new Set<string>();
+  for (;;) {
+    if (visitados.has(atual)) return atual;
+    visitados.add(atual);
+    const item = characterStore.find((character) => character.id === atual);
+    if (!item || item.derivedFromId === null) return atual;
+    atual = item.derivedFromId;
+  }
+}
+
+/** O que o humano aceitou ao escolher uma opção, e de onde ela veio. */
+export interface CharacterDraftInput {
+  /** A ficha escolhida. É exatamente o que a IA propôs — nada é reinterpretado no caminho. */
+  readonly proposal: CharacterProposal;
+  /** De qual personagem este rascunho foi refinado. Ausente/`null` = criado do zero. */
+  readonly derivedFromId?: string | null;
+  /** Procedência da proposta (prompt, versão e se foi simulação). Obrigatória. */
+  readonly origin: CharacterSheetOrigin;
+}
+
+export interface CharacterApprovalResult {
+  readonly character: Character;
+  /**
+   * Versões oficiais que **deixaram** de ser oficiais nesta aprovação.
+   *
+   * Vem na resposta, e não é dedução da tela: a mensagem "a v4 foi substituída" só pode aparecer
+   * quando existe uma v4 substituída de verdade.
+   */
+  readonly superseded: Character[];
+}
+
+/* =============================================================================
    Consultas
    ============================================================================= */
 
@@ -356,7 +704,9 @@ export const api = {
 
   async getCharacters(channelId: ChannelId): Promise<Character[]> {
     await delay(130);
-    return charactersFor(channelId).map((character) => ({ ...character }));
+    return characterStore
+      .filter((character) => character.channelId === channelId)
+      .map(cloneCharacter);
   },
 
   async getBrandKit(channelId: ChannelId): Promise<BrandKit> {
@@ -597,6 +947,117 @@ export const api = {
       stage: 'agendar',
       approval: current.approval ? { ...current.approval, scheduledAt: quando } : null,
     });
+  },
+
+  /* ------------------------------------------------------------- personagens */
+
+  /**
+   * Grava a **escolha** do humano: a opção que ele apontou vira um personagem `rascunho` do canal.
+   *
+   * Este é o segundo tempo do ciclo do PDF ("o sistema gera opções. **Eu escolho uma**"). A IA fica de
+   * fora: ela propôs; quem chama isto é o clique em "Escolher esta opção" na tela de Identidade.
+   *
+   * Três decisões que estão embutidas aqui:
+   *
+   * 1. **Nasce `rascunho`.** Não existe parâmetro de status: `approveCharacter` é o único caminho para
+   *    `oficial`, e nenhuma proposta de IA chega lá sozinha.
+   * 2. **Refino cria versão nova, não edita a antiga.** `derivedFromId` aponta para a ficha de origem e
+   *    o `sheetVersion` sobe (`v2` → `v3`). A anterior continua no canal, porque episódios já gerados
+   *    usaram **ela** — trocar a ficha oficial sob os pés desses episódios é o defeito que o
+   *    invariante nº 3 proíbe.
+   * 3. **`derivedFromId` é validado contra o canal.** Apontar para personagem de outro canal é recusado
+   *    com a mesma mensagem de "não existe": não vaza a existência do dado alheio.
+   */
+  async saveCharacterDraft(
+    channelId: ChannelId,
+    input: CharacterDraftInput,
+  ): Promise<Character> {
+    await delay(220);
+    const { name, role, sheet } = requireProposal(input.proposal);
+    const origin = requireSheetOrigin(input.origin);
+
+    const derivedFromId = input.derivedFromId ?? null;
+    const base = derivedFromId === null ? undefined : findCharacter(channelId, derivedFromId);
+
+    const criado: Character = {
+      id: nextCharacterId(channelId, name),
+      channelId,
+      name,
+      role,
+      sheetVersion: proximaVersaoDaIdentidade(channelId, name, base),
+      status: 'rascunho',
+      tone: base ? base.tone : nextCharacterTone(channelId),
+      sheet,
+      derivedFromId: base ? base.id : null,
+      sheetOrigin: origin,
+    };
+
+    characterStore = [...characterStore, criado];
+    return cloneCharacter(criado);
+  },
+
+  /**
+   * Aprovação humana do personagem. **Único caminho** para `oficial` (o PDF: *"quando eu aprovar o
+   * personagem, ele vira um personagem oficial"*).
+   *
+   * O que ela faz, e por quê:
+   *
+   * - **Recusa ficha incompleta.** Oficial sem traço checável ou sem prompt de imagem seria um
+   *   "canônico" que não descreve nada — e é ele que a geração de imagem vai repetir em todo episódio.
+   * - **Substitui a versão oficial anterior.** Duas identidades oficiais com o mesmo nome tornariam
+   *   "a identidade canônica" uma pergunta sem resposta. A anterior não é apagada: fica `substituido`,
+   *   que é a verdade — ela foi oficial e os episódios já gerados usaram a ficha dela.
+   * - **Registra o fato da aprovação** (`approvedAt`, canal e versão da ficha). `approvedBy` continua
+   *   pendente do modelo de acesso (D3, sem autenticação): inventar um nome de usuário seria inventar
+   *   dado, e a tela diz isso em vez de fingir.
+   */
+  async approveCharacter(
+    channelId: ChannelId,
+    characterId: string,
+  ): Promise<CharacterApprovalResult> {
+    await delay(260);
+    const atual = findCharacter(channelId, characterId);
+
+    if (atual.status === 'oficial') throw new Error('Este personagem já é oficial.');
+    if (atual.status === 'substituido') {
+      throw new Error(
+        'Esta versão foi substituída por uma mais nova: aprove a versão vigente ou refine de novo.',
+      );
+    }
+
+    // Portão da ficha: o que o humano está tornando canônico tem de estar descrito por inteiro.
+    requireProposal({ nome: atual.name, papel: atual.role, ...atual.sheet });
+
+    const raiz = lineageRootId(atual.id);
+    const alvos = characterStore.filter(
+      (item) =>
+        item.channelId === channelId &&
+        item.id !== atual.id &&
+        item.status === 'oficial' &&
+        (lineageRootId(item.id) === raiz || mesmaIdentidade(item.name, atual.name)),
+    );
+
+    const substituidos: Character[] = [];
+    if (alvos.length > 0) {
+      const ids = new Set(alvos.map((item) => item.id));
+      characterStore = characterStore.map((item) =>
+        ids.has(item.id) ? { ...item, status: 'substituido' as const } : item,
+      );
+      for (const item of characterStore) {
+        if (ids.has(item.id)) substituidos.push(cloneCharacter(item));
+      }
+    }
+
+    const aprovado: Character = {
+      ...atual,
+      status: 'oficial',
+      approvedAt: new Date().toISOString(),
+    };
+    characterStore = characterStore.map((item) =>
+      item.id === aprovado.id && item.channelId === channelId ? aprovado : item,
+    );
+
+    return { character: cloneCharacter(aprovado), superseded: substituidos };
   },
 };
 

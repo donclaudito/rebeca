@@ -276,6 +276,70 @@ export interface ContentItem {
  */
 export type ContentSeed = Omit<ContentItem, 'approval'>;
 
+/**
+ * A ficha do personagem — o **Character Sheet** em forma de dado.
+ *
+ * É o que o PDF do cliente chama de identidade que "a plataforma passa a utilizar em vídeos futuros"
+ * (`.rebeca/fontes/ideabeba-extraido.txt`, seção *Identidade e branding*). Sem a ficha gravada,
+ * `sheetVersion` seria um número decorativo: diria que existe uma revisão canônica sem que exista
+ * nada para repetir em cada cena.
+ *
+ * A **arte** das pranchas continua sendo dívida do `rebeca-branding` (`ArtSlot` e
+ * `manifest.characterSheet` seguem sem arte) — o que existe aqui é a ficha textual de onde a geração
+ * parte: descrição visual, traços checáveis em imagem, prompt, o que evitar, seed e o que nunca muda.
+ * Os campos são exatamente os da função `identidade-personagem` (`src/ai/schemas.ts`), para a ficha
+ * gravada ser a mesma coisa que a IA propôs — nada é reinterpretado no caminho.
+ */
+export interface CharacterSheet {
+  /** Documento de identidade: forma, proporção, cor de cada parte, roupa, expressão típica. */
+  descricaoVisual: string;
+  /** Marcadores curtos e checáveis numa imagem ("orelhas grandes e caídas", "sem coleira"). */
+  tracos: string[];
+  /** Prompt de referência (em inglês), só o personagem, fundo neutro. */
+  promptImagem: string;
+  /** O que a geração deve evitar para o personagem não variar. */
+  negativePrompt: string;
+  /** Seed fixa — é o que permite reproduzir o mesmo personagem em outra geração. */
+  seed: number;
+  /** O que **não pode mudar** entre episódios e o que o modelo tende a errar neste tipo de personagem. */
+  notasConsistencia: string;
+}
+
+/**
+ * Uma **opção de personagem** — o que a IA devolve e o que o humano escolhe.
+ *
+ * É a unidade das quatro batidas do PDF: a função gera **opções**, o humano escolhe uma, pede refino
+ * e aprova. Enquanto isto era uma ficha única, não havia o que escolher — "o sistema gera opções" não
+ * tinha onde acontecer.
+ */
+export interface CharacterProposal {
+  nome: string;
+  papel: string;
+  descricaoVisual: string;
+  tracos: string[];
+  promptImagem: string;
+  negativePrompt: string;
+  seed: number;
+  notasConsistencia: string;
+}
+
+/**
+ * Procedência da ficha gravada — o mesmo princípio de `Roteiro.simulated`.
+ *
+ * Sem isto, uma proposta gerada por **simulação** (sem chave de provedor configurada) entraria na
+ * lista de personagens com a mesma cara de uma proposta real, e a tela não teria como dizer a
+ * verdade. Personagem simulado apresentado como personagem gerado é mentira de produto — e ele
+ * alimenta a geração de imagem depois.
+ */
+export interface CharacterSheetOrigin {
+  /** Id do prompt versionado que produziu a proposta. Vazio = dado de exemplo, não veio de IA. */
+  promptId: string;
+  /** Versão daquele prompt. `0` = não se aplica (dado de exemplo). */
+  promptVersion: number;
+  /** `true` = a proposta veio do provedor simulado, não de um modelo de verdade. */
+  simulated: boolean;
+}
+
 export interface Character {
   id: string;
   channelId: ChannelId;
@@ -283,8 +347,34 @@ export interface Character {
   role: string;
   /** Revisão do Character Sheet canônico — garante "a Luna parece a Luna". */
   sheetVersion: string;
-  status: 'oficial' | 'em_aprovacao' | 'rascunho';
+  /**
+   * `substituido` existe porque refinar um personagem oficial **não** pode deixar dois oficiais para
+   * trás: o PDF diz que a plataforma usa "aquela mesma identidade" em vídeos futuros, e duas versões
+   * oficiais com o mesmo nome tornariam "a identidade canônica" uma pergunta sem resposta. A versão
+   * antiga permanece no registro (os episódios já gerados usaram **ela**) — só deixa de ser oficial.
+   */
+  status: 'oficial' | 'em_aprovacao' | 'rascunho' | 'substituido';
   tone: TileTone;
+  /** A ficha canônica em si — o documento que a geração de imagem repete em cada cena. */
+  sheet: CharacterSheet;
+  /**
+   * De qual personagem este foi **refinado**. `null` = criado do zero: não há linhagem declarada.
+   *
+   * Declarada, nunca inferida — ligar duas fichas por semelhança de nome afirmaria uma linhagem que
+   * ninguém registrou.
+   */
+  derivedFromId: string | null;
+  /** De onde a ficha veio (proposta de IA aceita por humano, ou dado de exemplo). */
+  sheetOrigin: CharacterSheetOrigin;
+  /**
+   * ISO 8601 da aprovação humana que tornou este personagem oficial.
+   *
+   * Ausente nos personagens de exemplo: eles são anteriores a este fluxo e **não há registro** de
+   * quando foram aprovados — inventar a data seria inventar estado. `approvedBy` continua pendente do
+   * modelo de acesso (D3, sem autenticação): o que o app grava é o **fato** da aprovação, com data e
+   * canal, e a tela diz isso.
+   */
+  approvedAt?: string;
 }
 
 export interface BrandKit {

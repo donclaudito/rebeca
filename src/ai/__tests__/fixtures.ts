@@ -131,6 +131,10 @@ const FIXTURES: Record<AiFunctionId, Input> = {
     personagensExistentes: ['Luna'],
     paleta: ['#F472B6', '#FBBF24'],
     estiloVisual: 'flat 2D children illustration',
+    // Criação do zero: sem ajuste e sem ficha de origem. O caminho de **refino** (com
+    // `personagemBase` preenchido) tem teste próprio em `src/features/identidade/__tests__`.
+    ajuste: '',
+    personagemBase: [],
   },
 
   'monetizacao-veredito': {
