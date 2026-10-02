@@ -1,0 +1,306 @@
+EVIDÊNCIA — Autenticação das rotas de IA e mídia (ADR-014, Parte 2 do runbook)
+Data: 2026-10-02 · Máquina: Windows · Node v26.7.0 · pnpm 11.25.0
+Ambiente: nenhuma chave paga foi usada. Nenhum token real do Google foi apresentado.
+Toda a verificação de token rodou com verificador injetado; os testes de rota usam provedor simulado.
+
+================================================================================
+1. TIPOS
+================================================================================
+$ pnpm exec tsc --noEmit
+exit 0 — nenhum erro.
+
+================================================================================
+2. SUÍTE COMPLETA
+================================================================================
+$ pnpm exec vitest run
+Test Files  33 passed (33)
+     Tests  373 passed (373)
+exit 0
+
+(antes da correção da sessão de teste: 32 reprovados — 31 de tela por rodarem sem sessão, e o
+cabeçalho do livro em media-custo.test.ts; ver seção 6)
+
+$ pnpm exec vitest run src/auth
+Test Files  3 passed (3)
+     Tests  60 passed (60)
+   - guard.test.ts   (a guarda: 401/403/429/503, aud/iss/exp/sub, não-vazamento do token, rate limit,
+                      e a distinção entre "a assinatura não confere" e "não deu para verificar")
+   - rotas.test.ts   (as 9 rotas de api/** + as 2 de autenticação + os wrappers serverless)
+   - cliente.test.tsx (o portão, a sessão em memória, o header nas chamadas, a imagem autenticada)
+
+================================================================================
+3. BUILD DE PRODUÇÃO
+================================================================================
+$ pnpm run build
+✓ 1989 modules transformed.
+dist/index.html                   2.01 kB │ gzip:   1.03 kB
+dist/assets/index-D8UQ6nXX.css   39.21 kB │ gzip:   8.55 kB
+dist/assets/index-BFqEifGv.js   530.19 kB │ gzip: 155.78 kB
+✓ built in 3.73s
+exit 0
+
+A biblioteca do servidor NÃO entrou no bundle do navegador (grep em dist/assets/*.js):
+   gaxios ................. 0 ocorrências
+   OAuth2Client ........... 0 ocorrências
+   google-auth-library .... 0 ocorrências
+   jwks ................... 0 ocorrências
+   accounts.google.com/gsi/client ... presente (constante pública, esperada)
+   token-ausente / conta-nao-autorizada ... ausentes (o cliente decide por status, não por código)
+
+================================================================================
+4. COLD START EM CONDIÇÃO DE PRODUÇÃO (o defeito que já derrubou a IA com 500)
+================================================================================
+Procedimento (o mesmo que pegou o ERR_MODULE_NOT_FOUND uma vez): compilar os entrypoints com
+tsc para FORA do repositório, apontar node_modules por junção, rodar com VERCEL=1 e cwd fora do
+projeto — nenhum arquivo .js solto na árvore (conferido por `git status --porcelain api server src`).
+
+$ pnpm exec tsc api/auth/config.ts api/auth/me.ts api/ai/status.ts api/media/episodes.ts \
+      --ignoreConfig --outDir <temp> --module esnext --moduleResolution bundler --target es2022 --skipLibCheck
+exit 0 — 44 arquivos .js emitidos (api/, server/ai/, server/auth/, server/media/, src/…)
+
+$ node <temp>/cold.mjs          # VERCEL=1, cwd fora do projeto
+
+--- CENÁRIO 1: sem GOOGLE_CLIENT_ID (falha fechada) ------------------------------
+config            -> 200 {"clientId":null,"googleScriptUrl":"https://accounts.google.com/gsi/client","allowedIdentities":0}
+ai/status         -> 503 {"code":"autenticacao-nao-configurada", ... falta a variável GOOGLE_CLIENT_ID ...}
+media/episodes    -> 503 {"code":"autenticacao-nao-configurada", ...}
+auth/me token fake-> 503 {"code":"autenticacao-nao-configurada", ...}
+
+--- CENÁRIO 2: com GOOGLE_CLIENT_ID e REBECA_ALLOWED_SUBS, sem token ------------------
+config            -> 200 {"clientId":"973836082003-teste.apps.googleusercontent.com", ...}
+ai/status         -> 401 {"code":"token-ausente","message":"Esta rota exige identidade. …"}
+media/episodes    -> 401 {"code":"token-ausente", ...}
+auth/me token fake-> 401 {"code":"token-invalido","message":"A credencial apresentada não é válida
+                          (assinatura, público, emissor ou validade). …"}
+
+================================================================================
+5. A VERIFICAÇÃO REAL DE ASSINATURA FOI EXERCITADA (lado negativo)
+================================================================================
+A partir do MESMO JS compilado, com a biblioteca resolvida pela junção:
+
+$ node <temp>/lib.mjs
+biblioteca resolveu: function          # google-auth-library@11.1.0 carrega no runtime compilado
+chaves publicas do Google: 200 kids: 2 # as chaves públicas REAIS foram baixadas
+
+Conclusão: o 401 do token forjado (`a.b.c`) na seção 4 foi recusa de ASSINATURA com as chaves
+reais do Google na mão — não foi falha de rede nem de carregamento de módulo.
+NÃO VERIFICADO: que um ID token legítimo (login de verdade) seja ACEITO. Só o dono, no navegador.
+
+================================================================================
+6. DEFEITOS ENCONTRADOS E CORRIGIDOS DURANTE A IMPLEMENTAÇÃO
+================================================================================
+a) /api/media/file × <img src>: a rota passou a exigir Authorization e uma tag <img> não envia
+   cabeçalho. Sintoma previsto: as três prévias de arte quebradas em silêncio. Criado
+   `src/auth/MediaImage.tsx` (fetch + blob: + revogação no desmonte). Testes: 3.
+b) A biblioteca oficial ecoa o token na mensagem (`Wrong number of segments in token: <token>`).
+   Toda falha virou motivo fixo; teste serializa o corpo do erro e recusa a presença do token.
+c) 31 testes de tela reprovados — os clientes de IA/mídia recusam sem sessão (comportamento correto).
+   Corrigido com sessão de teste declarada em `vitest.setup.ts`; a fronteira tem arquivo próprio
+   que LIMPA a sessão de propósito. Depois: `vitest run src/features/midia src/features/configuracoes
+   src/components/ai src/features/revisao src/media/__tests__/media-custo.test.ts` → 56/56, exit 0.
+d) `media-custo.test.ts` afirmava o cabeçalho exato do livro; a coluna `identidade_sub` entrou no
+   fim (aditivo). Teste atualizado e ganhou a asserção de que, sem sessão, a célula é VAZIA.
+e) O Vite não injeta `.env` em `process.env` (conferido em `vite/dist/node/chunks/node.js`, função
+   `loadEnv`: só VITE_USER_NODE_ENV, BROWSER e BROWSER_ARGS são escritos no processo). Ponte
+   explícita em `vite.config.ts` para DUAS chaves (GOOGLE_CLIENT_ID, REBECA_ALLOWED_SUBS) e não
+   para todas — chave de provedor dentro do processo é como um teste topa com credencial paga.
+f) Divergência entre o runbook e o ADR: o runbook dizia que /api/ai/status continuaria 200. Com a
+   decisão aplicada como escrita, ela responde 401. O runbook foi corrigido; o ADR não mudou.
+g) GET /api/media/file NÃO existia como função serverless: era atendido só pelo plugin do Vite, e na
+   Vercel cairia no rewrite de SPA devolvendo HTML com status 200 (o navegador leria HTML como
+   imagem). O sintoma apareceria SÓ publicado. Criado `api/media/file.ts` (mesma função compartilhada,
+   mesma guarda) e incluído na guarda de imports — 11 entrypoints conferidos agora.
+h) O CONSOLE DO DONO achou o que a suíte não via: `[GSI_LOGGER] google.accounts.id.initialize() is
+   called multiple times`. O StrictMode do React 19 remonta o efeito e o botão do Google era
+   inicializado a cada montagem; `renderButton` ACRESCENTA iframe, então podia haver dois botões
+   sobrepostos. Corrigido: `initialize` uma vez por cliente (callback único lendo o handler ATUAL em
+   variável de módulo) + `replaceChildren()` antes de desenhar. 5 testes novos em
+   `src/auth/__tests__/google.test.ts`, com `window.google` falso (não há como medir isso sem
+   navegador). Nenhum teste meu exercitava a remontagem — o defeito existia só no navegador.
+i) O outro aviso do console (`Cross-Origin-Opener-Policy policy would block the window.postMessage
+   call`) NÃO é nosso: medido que o servidor de desenvolvimento não envia COOP nenhum (a resposta de
+   `/` não tem o cabeçalho; o `vercel.json` vale só em produção) e que o login FUNCIONOU nas duas
+   tentativas do dono. Vem do caminho de popup/One Tap que o GSI tenta e que o nosso desenho não usa.
+   Em produção o valor é `same-origin-allow-popups`, o que a doc prescreve. Nada a corrigir —
+   registrado para não virar achismo.
+j) DEFEITO CARO — a ponte do `.env` mentia em silêncio, e o sintoma era "conta ainda não autorizada".
+   A ponte copiava `.env` -> `process.env` na avaliação do `vite.config.ts` com a regra "o ambiente
+   vence o arquivo". O Vite NÃO reavalia a configuração quando o `.env` muda, então editar a lista de
+   acesso não tinha efeito nenhum: o processo ficava com o valor antigo, escrito pela própria ponte.
+   MEDIÇÃO (sentinela no `.env`, sem reiniciar): 7 s depois, `GET /api/auth/config` devolvia o valor
+   ANTIGO -> "não pegou". CORRIGIDO: `server/dev-env.ts` lê o arquivo na hora do uso (cache por
+   mtime); o arquivo é ignorado em teste (`VITEST`) e em produção (`VERCEL`).
+   PROVA AO VIVO, com o servidor no ar e sem reiniciar:
+     1) .env trocado para o valor sentinela
+        /api/auth/config -> {"clientId":"SENTINELA-recarga-ao-vivo.apps.googleusercontent.com", ...}
+        RESULTADO: PEGOU a mudanca em 3 s, sem reiniciar (corrigido)
+     2) .env restaurado
+        /api/auth/config -> {"clientId":"973836082003-...apps.googleusercontent.com", ...}
+        RESULTADO: valor real de volta
+   Testes: src/__tests__/dev-env.test.ts (6), incluindo o que prova que o `.env` real do repositório
+   NÃO influencia a suíte (em VITEST a leitura do arquivo é desligada).
+   LIÇÃO DE MÉTODO: duas correções minhas falharam antes de o mecanismo real aparecer; o que o fez
+   aparecer foi um EXPERIMENTO COM VALOR OBSERVÁVEL (sentinela + endpoint público), não a leitura do
+   código.
+k) O SERVIDOR QUE O DONO USAVA ERA DE ONTEM. Medido: o processo que atendia `127.0.0.1:5173` era o
+   PID 15780, iniciado em **01/10/2026 05:02** — um processo de sessão anterior, com o grafo de
+   módulos remendado por reinícios internos do Vite. Toda a confusão de "editei o .env e nada mudou"
+   conviveu com esse processo. AÇÃO: processo encerrado e `pnpm dev` subido limpo (job gerenciado),
+   com verificação: `/api/auth/config` -> 200 com o Client ID, `/` -> 200, `/api/ai/status` sem token
+   -> **401** (guarda ativa).
+   REGRA PRÁTICA: quando o sintoma não bate com o código, a primeira coisa a conferir é **a idade do
+   processo** que está atendendo (`netstat -ano | Select-String ':5173'` + `Get-Process -Id <pid>`).
+l) A TELA DE ENTRADA agora separa as duas causas da recusa, porque elas se confundiram na prática:
+   "o servidor está com a lista vazia" (ação: editar o `.env`) e "o servidor tem N conta(s)
+   autorizada(s) e esta não é uma delas" (ação: conferir **qual conta** o seletor do Google escolheu —
+   ele troca de conta sozinho, e o `sub` de cada conta é diferente). Diz a **quantidade**, nunca a
+   lista: quem já se autenticou no Google vê o número, não quem tem acesso.
+m) REVISÃO POR ESPECIALISTA EM GOOGLE SIGN-IN (subagente dedicado, relatório em
+   `.rebeca/pesquisa/gsis-diagnostico-2026-10-02.md`). Três resultados que mudaram o rumo:
+   1. **EU ESTAVA PARCIALMENTE ERRADO sobre o COOP.** A doc oficial de Setup (seção "Cross Origin
+      Opener Policy", atualizada 2026-04-06) diz que, **com FedCM desligado**, não configurar o COOP
+      corretamente *"breaks communication between windows, leading to a blank pop-up window or similar
+      bugs"*. Não é ruído inofensivo por decreto. Mas também **não é a causa provada aqui**: o texto é
+      condicional ("would block"), o dev server não enviava COOP nenhum (ausente = `unsafe-none`, que
+      não corta o opener) e a credencial chegou duas vezes nesse mesmo ambiente.
+      AÇÃO: o dev server passou a mandar `Cross-Origin-Opener-Policy: same-origin-allow-popups` e
+      `Referrer-Policy: no-referrer-when-downgrade` — os dois valores que a doc de Setup pede
+      nominalmente para http + localhost. Verificado por HTTP: os dois cabeçalhos estão presentes no
+      documento, e a rota protegida segue 401 sem token.
+   2. **`use_fedcm_for_button` foi REVERTIDO.** Ele é a **única variável que mudou** entre os dois
+      logins que entregaram credencial e o sintoma "clique e nada acontece". Armadilha documentada: a
+      jornada FedCM do botão termina em redirecionamento/POST para o *login endpoint*, enquanto a doc
+      de exibição diz que no modo popup + `callback` o `login_uri` é ignorado — sem callback, o padrão
+      é um POST para a própria página (404 no Vite), **sem erro vermelho no console**.
+   3. **A LEITURA DO SINTOMA ESTAVA ERRADA (e é a lição mais útil):** a tela que mostra e-mail + `sub`
+      é a de conta **NÃO autorizada** — o sucesso é o app, que não mostra `sub`. As duas vezes em que
+      li "o login funcionou" provaram o **encanamento** (o Google entregou e o servidor verificou com
+      as chaves reais), não a **autorização**. E como `/api/auth/me` responde **200** para conta fora
+      da lista, esse estado aparece **sem nenhum erro no console** — o que explica "não entra e o
+      console só tem o aviso de COOP".
+   Medição feita com diagnóstico temporário (já REMOVIDO e conferido por grep + teste de rota):
+   `GET /api/auth/config?probe=<sub>` no plugin de dev respondeu `listaTamanho: 2`,
+   **`probeNaLista: true`** para `112541202691244517341`, e os 21 dígitos do membro 2 idênticos aos do
+   `sub` do token. Ou seja: **no servidor que está no ar agora, essa conta É autorizada.**
+   Instrumento de diagnóstico que ficou no produto (permanente): o relógio de 15 s do `click_listener`
+   + a linha de contagem na tela de entrada — é o teste de 1 minuto que separa as cinco causas
+   (A: não autorizada → lista; B: "não devolveu a credencial" → pop-up/FedCM; C: `Access blocked:` →
+   console do Google; D: 401 → Client ID divergente; E: nada em 20 s → pop-up bloqueado/webview).
+
+================================================================================
+7. SEGREDO E ÁRVORE
+================================================================================
+$ python .tools/scan_secrets.py --history
+6 achado(s) ignorado(s) pelo baseline revisado (.tools/scan_secrets.baseline)
+limpo: nenhum segredo em texto claro em 659 blobs (arvore + historico)
+exit 0
+
+$ git status --porcelain api server src   (filtrado por .js)
+(nenhuma linha) — nenhum JS compilado deixado ao lado do TS.
+
+================================================================================
+8. REVISÃO ADVERSARIAL (rebeca-qa) — REFUTADO PARCIALMENTE, CORRIGIDO
+================================================================================
+Relatório: docs/qa/QA-014-autenticacao-google.md (com a resposta do produtor no topo).
+Reprodução: src/auth/__tests__/qa-refutacao.test.tsx — ficou no repositório VERDE (os casos que ele
+escreveu para falhar passaram a medir a correção).
+
+Defeito 1 (média) — a guarda não era a primeira checagem nas 4 cascas serverless que leem corpo.
+  Observado antes: POST/PUT sem credencial e com corpo inválido -> 400 (entrada-invalida/corpo-invalido);
+  300 KB sem credencial -> 400 (o 413 era reescrito no catch da casca).
+  CORRIGIDO: o corpo é passado como FUNÇÃO (() => readJsonBody(req)) e lido DENTRO do roteador, depois
+  de authorizeRequest — 4 cascas, 2 plugins do Vite, 3 assinaturas de roteador. Efeito colateral: com
+  identidade válida, o 413 de corpo grande demais passou a ser preservado (teste próprio).
+Defeito 2 (média) — MediaImage aceitava 200 com text/html como imagem (o index.html do rewrite de SPA
+  virava blob: e ia para o <img>: imagem quebrada em silêncio).
+  CORRIGIDO: exige content-type image/ antes de createObjectURL.
+
+Observações de gravidade baixa, todas atendidas:
+  3. duas cotas independentes: leitura 240/min e geração 20/min (chaves de contador separadas);
+  4. default-src passou a incluir https://accounts.google.com/gsi/ (fallback que a doc oficial pede);
+  5. a CONTAGEM de identidades autorizadas saiu de /api/auth/config (fica em /api/auth/me, depois da
+     verificação) e a mensagem de 403 deixou de dizer quantas entradas da lista não parecem sub;
+  6. api/ai/settings.ts passou a usar redact na mensagem de erro.
+
+O que a revisão NÃO conseguiu refutar (registro): ataques de header (duplicado, array, NBSP, Basic,
+token cru, token de 9005 caracteres sem consultar o verificador); nenhum token vazado no corpo do erro,
+inclusive forçando o caminho em que a biblioteca ECOA o valor recebido; token forjado com kid real
+recusado pelas chaves reais do Google; livro intacto em 401/403/429 com controle positivo de que o
+mecanismo grava; migração aditiva do livro preservando soma e ordem; enxurrada de 712 identidades não
+zera o contador do abusador; google-auth-library fora do bundle do navegador; hash do CSP e os 4
+endereços + COOP conferidos contra a doc oficial.
+
+================================================================================
+10. RE-MEDIÇÃO FINAL (árvore parada, DEPOIS das correções do QA-014)
+================================================================================
+Tudo abaixo foi medido de novo depois de corrigir os 2 defeitos e as 4 observações do `rebeca-qa`.
+Os números das seções 2 e 4 acima são de ANTES das correções e ficam como registro do que foi medido
+naquele instante (a suíte cresceu com os casos novos do QA e com os meus).
+
+$ pnpm exec tsc --noEmit
+exit 0
+
+$ pnpm exec vitest run
+Test Files  34 passed (34)
+     Tests  391 passed (391)
+exit 0
+   (antes das correções: 33 arquivos / 375 testes; o `qa-refutacao.test.tsx` era vermelho de propósito)
+
+$ pnpm exec vitest run src/auth
+Test Files  5 passed (5)
+     Tests  82 passed (82)
+exit 0
+   (era 59; entraram o `qa-refutacao.test.tsx` do QA — agora verde —, os casos de cota dupla, o do
+    corpo não lido sem identidade, o do 413 preservado e os 5 do botão do Google que não sobrevive
+    mal à remontagem do React)
+
+$ pnpm run build
+dist/index.html                   2.01 kB │ gzip:   1.03 kB
+dist/assets/index-CBO8qfuS.css   39.21 kB │ gzip:   8.55 kB
+dist/assets/index-CBO8qfuS.js   530.10 kB │ gzip: 155.78 kB
+✓ built in 4.79s
+exit 0
+
+Bundle do navegador (grep em dist/assets/*.js): gaxios, OAuth2Client e google-auth-library = 0
+ocorrências; accounts.google.com/gsi/client presente.
+
+COLD START (JS compilado fora do repositório, VERCEL=1, cwd fora do projeto) — RE-MEDIDO:
+
+--- CENÁRIO A: sem GOOGLE_CLIENT_ID ------------------------------------------
+config                    -> {"clientId":null,"googleScriptUrl":"https://accounts.google.com/gsi/client"}
+ai/status                 -> 503 autenticacao-nao-configurada
+ai/generate corpo invalido-> 503 autenticacao-nao-configurada
+media/file                -> 503 autenticacao-nao-configurada
+media/thumbnails invalido -> 503 autenticacao-nao-configurada
+
+--- CENÁRIO B: com GOOGLE_CLIENT_ID, sem credencial --------------------------
+config                    -> 200 {"clientId":"973836082003-teste.apps.googleusercontent.com", …}
+ai/status                 -> 401 token-ausente
+ai/generate corpo invalido-> 401 token-ausente     <-- defeito 1 do QA: era 400, agora é 401
+media/file                -> 401 token-ausente
+media/thumbnails invalido -> 401 token-ausente     <-- defeito 1 do QA: era 400, agora é 401
+
+Os dois casos marcados são a prova de que a correção do defeito 1 está no **caminho real da função**
+(casca → roteador), e não só no teste do roteador — que era exatamente o buraco por onde o defeito
+passou na primeira vez.
+
+$ python .tools/scan_secrets.py --history
+limpo: nenhum segredo em texto claro em 659 blobs (arvore + historico)
+exit 0
+
+Árvore: nenhum `.js` compilado deixado ao lado do TS (o diretório temporário foi removido e conferido).
+
+================================================================================
+11. O QUE ESTA EVIDÊNCIA **NÃO** COBRE (declarado, sem maquiagem)
+================================================================================
+1. Login de verdade: nenhum ID token real foi aceito. O caminho positivo da assinatura está
+   delegado à biblioteca oficial e só o navegador do dono o exercita.
+2. Pop-up / One Tap no navegador real: CSP e COOP seguem a documentação oficial (relida em
+   2026-10-02), mas não foram observados em navegador nenhum nesta sessão.
+3. Runtime da Vercel: o cold start foi SIMULADO localmente; o deploy não foi executado. Em especial,
+   **não foi verificado** se o `@vercel/nft` traça o `await import('google-auth-library')` DINÂMICO
+   para o bundle da função.
+4. Rate limit: por instância do processo. Em serverless o contador pode nascer zerado.
+5. Dois escritores na mesma árvore durante a implementação (o dono confirmou a outra sessão ativa);
+   por isso NADA foi commitado — o commit exige a pasta quieta e a passagem pelo rebeca-qa (feita:
+   `docs/qa/QA-014-autenticacao-google.md`, com os achados corrigidos).

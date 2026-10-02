@@ -60,6 +60,28 @@ export function formatUsd(value: number): string {
   return usd.format(value);
 }
 
+const usdPrecise = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'USD',
+  minimumSignificantDigits: 1,
+  maximumSignificantDigits: 4,
+});
+
+/**
+ * Custo real de API, sem arredondar para `"US$ 0,00"`.
+ *
+ * `formatUsd` usa duas casas porque é o certo para **preço** (US$ 12,40 por minuto). Custo de chamada de
+ * IA é outra ordem de grandeza: uma geração real custou US$ 0,000227, e duas casas fariam a tela dizer
+ * "US$ 0,00" — ou seja, *não gastou nada*. É a mesma família de mentira que o rótulo "Custo real" já
+ * produziu uma vez, só que por arredondamento. Abaixo de um centavo, mostra dígitos significativos;
+ * de um centavo para cima, mantém as duas casas de sempre.
+ */
+export function formatUsdCost(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return formatUsd(0);
+  if (Math.abs(value) >= 0.01) return formatUsd(value);
+  return usdPrecise.format(value);
+}
+
 /** `31.4` → `"31,4%"` */
 export function formatPct(value: number): string {
   return `${oneDecimal.format(value)}%`;

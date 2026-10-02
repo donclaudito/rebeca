@@ -80,7 +80,14 @@ describe('cabeçalhos de segurança do deploy', () => {
 
   it('declara Content-Security-Policy de verdade (não vazia)', () => {
     expect(csp).not.toBe('');
-    expect(cspDirectives.get('default-src')).toEqual(["'self'"]);
+    expect(cspDirectives.get('default-src')).toContain("'self'");
+    /*
+     * A documentação oficial manda incluir o pai do GIS também no `default-src`, porque ele é o
+     * **fallback** de qualquer diretiva ausente. Hoje as quatro diretivas do Google estão declaradas
+     * explicitamente e isso não faz diferença — mas no dia em que alguém remover uma delas, o
+     * fallback é a única coisa que segura o botão de login. Achado 4 do `QA-014`.
+     */
+    expect(cspDirectives.get('default-src')).toContain('https://accounts.google.com/gsi/');
   });
 
   it('autoriza por hash cada script inline que o documento carrega', () => {
@@ -111,8 +118,52 @@ describe('cabeçalhos de segurança do deploy', () => {
     expect(globalHeaders.get('Strict-Transport-Security')).toMatch(/max-age=\d{6,}/);
     expect(globalHeaders.get('X-Content-Type-Options')).toBe('nosniff');
     expect(globalHeaders.get('X-Frame-Options')).toBe('DENY');
-    expect(globalHeaders.get('Cross-Origin-Opener-Policy')).toBe('same-origin');
+    /*
+     * `same-origin-allow-popups`, e não `same-origin`.
+     *
+     * Este era `same-origin` até o `ADR-014`. A documentação oficial do Sign in with Google é
+     * explícita: com FedCM desabilitado, o COOP precisa incluir `same-origin-allow-popups`, senão "a
+     * comunicação entre janelas quebra e o pop-up abre em branco". O valor antigo era exatamente o
+     * caso de falha descrito — e o sintoma (pop-up em branco) não aponta para cabeçalho nenhum, é o
+     * tipo de defeito que se procura no JavaScript por horas.
+     */
+    expect(globalHeaders.get('Cross-Origin-Opener-Policy')).toBe('same-origin-allow-popups');
     expect(globalHeaders.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+  });
+
+  /*
+   * CSP × Google Identity Services.
+   *
+   * O app entra com a conta Google, e a biblioteca vem de `accounts.google.com` — não é hospedada
+   * aqui (a doc oficial diz que autohospedar "não é caso de uso suportado"). Sem estas quatro
+   * autorizações, o CSP estrito que o `ADR-008` montou **bloqueia a própria entrada**: o botão não
+   * aparece, ou aparece e não conclui, e o console do navegador é o único lugar onde isso se lê.
+   *
+   * Os valores são exatamente os da documentação (Setup — Sign in with Google for Web, atualizada
+   * 2026-04-06, lida em 2026-10-02): `gsi/client` no script, `gsi/style` no estilo, `gsi/` no frame e
+   * na conexão. A doc pede o **pai** da URL, não a URL individual, justamente para não quebrar quando
+   * o Google mudar um caminho interno.
+   */
+  it('autoriza a biblioteca do Google a carregar, estilizar, enquadrar e conectar', () => {
+    const script = cspDirectives.get('script-src') ?? [];
+    expect(script).toContain('https://accounts.google.com/gsi/client');
+
+    const style = cspDirectives.get('style-src') ?? [];
+    expect(style).toContain('https://accounts.google.com/gsi/style');
+
+    // O botão do Google é um iframe de `accounts.google.com` — sem `frame-src`, ele não existe.
+    expect(cspDirectives.get('frame-src')).toContain('https://accounts.google.com/gsi/');
+
+    // E a biblioteca conversa com o servidor do Google por `fetch`/XHR.
+    expect(cspDirectives.get('connect-src')).toContain('https://accounts.google.com/gsi/');
+  });
+
+  it('não autoriza o domínio inteiro do Google no script-src', () => {
+    // Autorizar `https://accounts.google.com` inteiro daria ao host que serve o login poder carregar
+    // qualquer script dele. O caminho exato da biblioteca é o que a documentação pede.
+    const script = cspDirectives.get('script-src') ?? [];
+    expect(script).not.toContain('https://accounts.google.com');
+    expect(script).not.toContain('https://*.google.com');
   });
 
   it('não permite câmera, microfone, localização nem pagamento', () => {

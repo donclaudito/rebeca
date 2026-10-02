@@ -1,0 +1,210 @@
+# Evidência — "ele gerou mas não apareceu": a mídia da Fase 0 na tela
+
+**Data:** 2026-10-01 · **Ambiente:** Windows · Node v26.7.0 · pnpm 11.25.0
+**Relato de origem (dono do produto):** *"ele gerou mas nao apareceu"* — o pipeline da Fase 0 escreveu os
+ativos no disco e a interface continuou dizendo que nada tinha sido gerado.
+
+---
+
+## 1. O diagnóstico, medido
+
+| Medição | Comando | Resultado |
+|---|---|---|
+| Os arquivos existem | `Get-ChildItem -Recurse .rebeca\assets` | ✅ **20 arquivos** (13 registrados no manifesto + 7 derivados de `_montagem`) |
+| O manifesto existe e é coerente | leitura de `.rebeca/assets/luna/luna-ep-001/meta.json` | ✅ 13 ativos com duração, bytes, sha256, provedor, modelo e `simulated: true` |
+| A tela lê o disco? | `Select-String -Path src\data\*.ts -Pattern "fetch\(\|/api/"` | ❌ **0 ocorrências** — `src/data/client.ts` importa `./mock/db` |
+| Existe rota que sirva mídia? | `Get-ChildItem -Recurse api` | ❌ só `api/ai/{generate,settings,status,test}.ts` |
+| Quem alcança `server/media/`? | grep de `media/` em `api/`, `server/` e `.tools/` | ❌ só `.tools/render-episodio.mjs` (CLI) |
+| Existe gerador de thumbnail? | `.rebeca/canais/luna/spec-midia.json` | ❌ sem seção de thumbnail; nenhum `option-*` no repositório |
+| Existe Character Sheet / Brand Kit? | `Get-ChildItem .rebeca\brand` | ❌ a pasta não existe |
+
+**Conclusão:** o pipeline é uma CLI que grava arquivos; nada no app lia o disco. Não era um bug de
+exibição — era um **caminho inexistente** entre o pipeline e a tela.
+
+---
+
+## 2. O que foi construído (ponte disco → tela)
+
+| Camada | Arquivo | Papel |
+|---|---|---|
+| Contrato | `src/media/view.ts` | Tipos que atravessam servidor→navegador. `import type` só; sem caminho absoluto |
+| Leitura | `server/media/library.ts` | Lê o manifesto, **mede o disco** e resume por canal |
+| Rota | `server/media/http.ts` | `GET /api/media/episodes` · `GET /api/media/episode` |
+| Serverless | `api/media/episodes.ts`, `api/media/episode.ts` | As mesmas funções na Vercel (import com `.js`) |
+| Dev server | `server/media/vite-plugin.ts` + `vite.config.ts` | Mesma função em `pnpm dev`, antes do fallback de SPA |
+| Navegador | `src/media/client.ts`, `src/media/hooks.ts` | Transporte com detecção de resposta HTML, cache por canal |
+| Tela | `src/features/midia/MidiaPage.tsx` + rota `/c/:canal/midia` + item na barra lateral | Lista os ativos com rótulo honesto |
+
+---
+
+## 3. Verificação (comando + resultado observado)
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 — `.rebeca/evidencias/tsc-midia.txt` |
+| Suíte completa | `pnpm exec vitest run --reporter=verbose` | ✅ **240/240 em 24 arquivos**, exit 0, 100,66 s — `.rebeca/evidencias/vitest-midia.txt` |
+| Build de produção | `pnpm run build` | ✅ exit 0 — `1982 modules transformed`, html 2,01 kB · css 38,58 kB · js 499,80 kB |
+| Guarda de imports serverless | `src/__tests__/serverless-imports.test.ts` | ✅ agora cobre **6** entrypoints (era 4): as duas rotas novas entraram na rede que existe por causa do 500 |
+
+### 3.1 Prova ponta a ponta, ao vivo, com os arquivos reais
+
+Servidor no ar em `http://127.0.0.1:5173` (o Vite recarregou a config ao detectar a mudança em
+`vite.config.ts` — o log de inicialização imprimiu `[mídia] rotas locais ativas`).
+
+```
+GET /api/media/episodes?channelId=luna
+→ 200 {"available":true,"reason":null,"episodes":[{
+        "episodeId":"luna-ep-001","assetCount":13,"missingCount":0,
+        "totalBytes":15254021,"totalDurationMs":162201,
+        "totalCostUsd":0,"simulatedCount":13,"renderVersion":1,
+        "characterSheet":"ausente"}]}
+
+GET /api/media/episode?channelId=luna&episodeId=luna-ep-001
+→ 200  episodio=luna-ep-001 ativos=13 ausentes=0 simulados=13
+       renderVersion=1 bytes=15254021 duracao=162201ms custo=0
+       ativos NÃO simulados: 0
+```
+
+Amostra de ativos (o disco foi medido, não presumido):
+
+| stage | key | simulated | existsOnDisk | durationMs | bytes | providerId |
+|---|---|---|---|---|---|---|
+| animacao | cena-01 | true | true | 10267 | 1220964 | simulado-animacao |
+| animacao | cena-02 | true | true | 8067 | 1096728 | simulado-animacao |
+| animacao | cena-03 | true | true | 8700 | 827813 | simulado-animacao |
+| imagem | cena-01 | true | true | 0 | 133190 | simulado-imagem |
+
+### 3.2 Caminhos de erro, ao vivo
+
+| Pedido | Resposta |
+|---|---|
+| `/api/media/episodes` (sem `channelId`) | ✅ **400** `canal-obrigatorio` |
+| `/api/media/episode?...&episodeId=luna-ep-999` | ✅ **404** `episodio-sem-manifesto` |
+| `/api/media/episode?channelId=arquivo&episodeId=luna-ep-001` | ✅ **404** — **não revela que o episódio existe em outro canal** |
+| `/api/media/episodes?channelId=..%2Fetc` | ✅ **400** `segmento-invalido` (recusado antes de tocar o disco) |
+| `/api/media/qualquer?channelId=luna` | ✅ **404** `rota-desconhecida` |
+| `POST /api/media/episodes?channelId=luna` | ✅ **405** `metodo-nao-permitido` |
+| `/api/media/episodes?channelId=nao-existe` | ✅ **200** `available:false` **com o motivo**, não lista vazia |
+
+### 3.3 Prova adversarial por mutação (restauração verificada por sha256)
+
+Cada mutação foi aplicada, o teste correspondente teve de ficar **vermelho**, e o arquivo foi restaurado
+**byte a byte**.
+
+| Mutação | Arquivo | Teste | Resultado |
+|---|---|---|---|
+| A — `existsOnDisk` sempre `true` | `server/media/library.ts` | `media-library.test.ts` | ✅ **3 failed** / 16 passed |
+| B — sem a checagem de dono do manifesto | `server/media/library.ts` | `media-library.test.ts` | ✅ **1 failed** / 18 passed |
+| C — sem o aviso de provedor simulado | `src/features/midia/MidiaPage.tsx` | `midia.test.tsx` | ✅ **1 failed** / 5 passed |
+
+Restauração: `restaurado byte a byte: True` nas três. Nenhum `*.bak-mutacao` sobrou; nenhum `.js` solto
+em `api/`, `server/` ou `src/`.
+
+### 3.4 Testes novos (25)
+
+**`src/media/__tests__/media-library.test.ts` (19)** — ausência com motivo; contagem de ativos; ativo
+ausente do disco; ativo presente; **custo conta mesmo com o arquivo pago apagado**; nenhum caminho
+absoluto na resposta; episódio de outro canal invisível; manifesto com dono mentiroso recusado;
+travessia de caminho recusada; pasta sem manifesto ignorada; e as 9 asserções da rota HTTP.
+
+**`src/features/midia/__tests__/midia.test.tsx` (6)** — os ativos aparecem; o aviso de "prova de
+máquina, não arte publicável"; o rótulo de arquivo ausente; o motivo da ausência em vez de lista vazia
+muda; a mensagem do servidor no erro; e **nenhuma chamada a `/episode` quando o canal não tem mídia**.
+
+---
+
+## 4. Decisões tomadas (e por quê)
+
+1. **Nada inventa vínculo entre episódio e conteúdo.** O spec da Fase 0 descreve `luna-ep-001` como
+   *"Episódio sintético da Fase 0 (não é conteúdo do canal)"*. Não há vínculo declarado com nenhum item
+   da biblioteca, e ligá-los por semelhança de nome seria afirmar linhagem que ninguém declarou. A leitura
+   é **por canal**, e a tela diz com todas as letras que o episódio não é conteúdo do canal.
+2. **Duas semânticas de total, de propósito.** `bytes` e duração descrevem **o que está no disco agora**
+   (contam só os arquivos presentes); `custo` e procedência descrevem **o que aconteceu** (contam tudo o
+   que foi gerado). Apagar um arquivo não devolve o dinheiro gasto — um custo que some com o arquivo
+   seria um livro de custos que mente, e deixaria sem resposta justamente o caso do ativo perdido.
+   Esta distinção nasceu de um teste que falhou: a primeira versão somava a duração de um render apagado.
+3. **`ChannelScopeError` vira 400, não 500.** Canal malformado é pedido ruim; tratá-lo como falha do
+   servidor faria o humano procurar defeito no lugar errado.
+4. **404 sem revelar existência em outro canal.** Pedir um episódio no canal errado devolve "não existe
+   aqui", nunca "existe, mas é do outro canal".
+
+---
+
+## 5. Não verificado (declarado, não maquiado)
+
+1. **Nenhuma verificação visual.** Não há navegador automatizado nesta sessão: a conferência foi
+   estrutural (tipos, DOM nos testes, HTTP ao vivo). A olhada em `pnpm dev` continua sendo sua.
+2. **Em produção não há mídia para mostrar** — `.rebeca/assets/` está no `.gitignore` (linha 45). O
+   endpoint responde `available: false` com o motivo; isso foi verificado por teste e ao vivo para um
+   canal sem pasta, mas **não** em deploy real na Vercel.
+3. **As funções serverless `api/media/*` não foram executadas no runtime da Vercel.** Compartilham a
+   mesma função do dev server (exercitada por HTTP ao vivo) e passam pela guarda de imports com `.js`,
+   mas o cold start real não foi medido — é o mesmo item que segue aberto para a camada de IA.
+4. **Nenhum ativo real (não simulado) foi lido por esta tela.** Os 13 ativos da Fase 0 são todos
+   `simulated: true`; o caminho de um ativo pago da Stack A nunca passou por aqui.
+5. **A tela de Revisão continua mostrando o dado de exemplo para o vídeo.** O botão "Player" segue sendo
+   um espaço reservado, e agora existe um lugar onde a mídia de verdade pode ser vista. **Atualizado na
+   §6:** o cartão de estado da Revisão passou a ler a mídia do canal; o *player* é que continua
+   reservado, porque não existe player de vídeo no protótipo.
+
+---
+
+## 6. Segunda parte — o cartão da Revisão deixou de ser string fixa
+
+**Relato de origem (dono do produto), citando o cartão:** *"O que existe neste conteúdo … Nenhum vídeo,
+narração ou montagem gerados ainda … nao completo a secuencia"*.
+
+Ele estava certo de novo, e o defeito era do tipo oposto ao anterior: depois que o pipeline gravou 13
+ativos no disco, o cartão **continuou dizendo que nada tinha sido gerado**. A causa: aquelas linhas eram
+**strings fixas** no JSX — verdadeiras quando escritas, mentira depois. Cartão de estado que não consulta
+estado é legenda, e legenda envelhece mentindo.
+
+**O que mudou**
+
+| Antes | Agora |
+|---|---|
+| "Título, descrição e tags preparados" (fixo) | Derivado do `seo` do próprio conteúdo |
+| "{n} opções de thumbnail no plano — a arte ainda não existe" | Mantido: `ThumbnailOption` não tem campo de arte, então a arte realmente não existe |
+| "Nenhum vídeo, narração ou montagem gerados ainda" (fixo) | **Três estados distintos**, lidos de `GET /api/media/episodes` |
+| "A sua decisão vale sobre o que já existe; a mídia entra quando o pipeline gerar" | "…A mídia passa a constar aqui quando este conteúdo tiver um episódio gerado e ligado a ele" |
+
+**Os três estados da linha de mídia** — a distinção entre eles é o ponto:
+
+| Estado | Condição | O que a tela diz |
+|---|---|---|
+| **Não sei** | a leitura falhou | *"Não foi possível ler a mídia gerada deste canal agora… esta linha não afirma que não há vídeo"* |
+| **Existe** | o conteúdo tem `episodeId` e o manifesto existe | *"Mídia gerada: 13 ativos, 13 de provedor simulado · render v1"* + link |
+| **Existe no canal, mas não é deste conteúdo** | sem elo, e o canal tem episódios | *"O pipeline já gerou 13 ativos neste canal (luna-ep-001)… não está ligado a este conteúdo"* + link |
+| **Não existe** | sem elo, e o canal não tem mídia | *"Nenhum vídeo, narração ou montagem deste conteúdo foi gerado ainda"* |
+| **Elo quebrado** | tem `episodeId`, mas sem manifesto | *"aponta para o episódio luna-ep-777, mas não há manifesto dele neste ambiente"* |
+
+**O elo que faltava virou contrato:** `ContentItem.episodeId?` (`src/data/types.ts`), opcional e
+**ausente em todos os conteúdos** — porque o único episódio gerado é o sintético da Fase 0, que o spec
+descreve como *"não é conteúdo do canal"*. Ligar os dois seria afirmar linhagem que ninguém declarou.
+
+### Verificação
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Tela de Revisão | `pnpm exec vitest run src/features/revisao` | ✅ **11/11** (eram 7) |
+| Suíte completa | `pnpm exec vitest run` | ✅ **244/244 em 24 arquivos**, exit 0, 113,07 s — `.rebeca/evidencias/vitest-midia.txt` |
+| Build | `pnpm run build` | ✅ exit 0 — js 502,37 kB |
+| **Prova adversarial por mutação** | 2 mutações, restauração por sha256 | ✅ cartão ignorando a mídia do canal → **2 vermelhos** (os dois testes certos); elo conteúdo→episódio ignorado → **1 vermelho**; ambas restauradas byte a byte |
+
+**Teste que quebrou de verdade no caminho, e por que era um defeito do teste:** o teste de
+`criar-thumbnail` lia `fetchMock.mock.calls[0]` para achar o corpo do POST da IA. Quando o cartão passou
+a ler a mídia do canal, a **primeira** chamada de rede virou um GET sem corpo — e o teste caiu com
+`expected 'undefined' to contain 'criar-thumbnail'`. Ele estava medindo a ordem das consultas, não o que
+dizia medir. Corrigido para procurar a chamada **da IA** pelo corpo.
+
+### Não verificado (declarado)
+
+1. **Conferência visual** — continua não havendo navegador automatizado nesta sessão.
+2. **O ramo "ligado" não é exercitado por tela renderizada a partir do produto**, porque **nenhum
+   conteúdo tem episódio ligado** (e não deve ter). Ele é exercitado por teste que declara o elo **no dado
+   de exemplo do teste** e o desfaz no `afterEach` — o produto continua sem nenhum vínculo inventado.
+3. **Nada disso muda o portão de aprovação.** O cartão é leitura: aprovar, publicar e escolher thumbnail
+   continuam nas mesmas telas, e nenhum caminho novo escreve em conteúdo.
+

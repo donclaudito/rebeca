@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ChartColumn,
   Compass,
+  Film,
   LayoutDashboard,
   Layers,
   Library,
@@ -29,6 +30,7 @@ function channelNav(channelId: ChannelId): NavEntry[] {
     { to: `/c/${channelId}/conteudo`, label: 'Conteúdo', icon: <Library size={22} />, mobile: true },
     { to: `/c/${channelId}/calendario`, label: 'Calendário', icon: <CalendarDays size={22} />, mobile: true },
     { to: `/c/${channelId}/identidade`, label: 'Identidade', icon: <Palette size={22} />, mobile: false },
+    { to: `/c/${channelId}/midia`, label: 'Mídia gerada', icon: <Film size={22} />, mobile: false },
     { to: `/c/${channelId}/analytics`, label: 'Analytics', icon: <ChartColumn size={22} />, mobile: true },
     { to: `/c/${channelId}/monetizacao`, label: 'Monetização', icon: <Wallet size={22} />, mobile: true },
   ];

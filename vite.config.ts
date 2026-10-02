@@ -4,6 +4,8 @@ import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { aiDevServer } from './server/ai/vite-plugin';
+import { mediaDevServer } from './server/media/vite-plugin';
+import { authDevServer } from './server/auth/vite-plugin';
 
 /**
  * O watcher do Vite **derruba o processo** quando `fs.watch` falha com `EBUSY`/`EPERM`: o erro é
@@ -31,55 +33,57 @@ function watchErrorGuard(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), aiDevServer(), watchErrorGuard()],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+export default defineConfig(() => {
+  return {
+    plugins: [react(), tailwindcss(), authDevServer(), aiDevServer(), mediaDevServer(), watchErrorGuard()],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
     },
-  },
-  server: {
-    host: '127.0.0.1',
-    port: 5173,
-    strictPort: true,
-    watch: {
-      ignored: [
-        '**/.rebeca/**',
-        '**/.dsh/**',
-        '**/.tools/**',
-        '**/.pnpm-store/**',
-        '**/docs/**',
-        '**/imagens/**',
-        '**/dist/**',
-        '**/coverage/**',
-        // Gravação atômica: a ferramenta cria `<arquivo>.<pid>.<guid>.tmpdir/` ao lado do original.
-        // Sem esta linha, qualquer arquivo escrito na raiz ou em `src/` derruba o servidor.
-        '**/*.tmpdir/**',
-      ],
+    server: {
+      host: '127.0.0.1',
+      port: 5173,
+      strictPort: true,
+      watch: {
+        ignored: [
+          '**/.rebeca/**',
+          '**/.dsh/**',
+          '**/.tools/**',
+          '**/.pnpm-store/**',
+          '**/docs/**',
+          '**/imagens/**',
+          '**/dist/**',
+          '**/coverage/**',
+          // Gravação atômica: a ferramenta cria `<arquivo>.<pid>.<guid>.tmpdir/` ao lado do original.
+          // Sem esta linha, qualquer arquivo escrito na raiz ou em `src/` derruba o servidor.
+          '**/*.tmpdir/**',
+        ],
+      },
     },
-  },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./vitest.setup.ts'],
-    css: false,
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    // Os testes de tela (jsdom + React 19 + userEvent) levam de 3 a 5s **por teste** nesta máquina —
-    // o padrão de 5s deixava a suíte instável: rodadas seguidas falhavam em testes diferentes
-    // ("trocar de canal limpa o DOM…" 5.327ms numa, "não deixa aprovar sem thumbnail…" 4.509ms na
-    // seguinte) sem nenhuma asserção quebrada. Suíte que falha por tempo ensina o time a ignorar o
-    // vermelho, então o limite explícito é maior — e continua sendo um limite, não uma espera eterna.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
-    // `threads` em vez de `forks`: os testes não precisam de processo separado e o pool de threads
-    // dispensa IPC entre processos, que é o que trava em ambiente confinado.
-    pool: 'threads',
-    // Teto de workers. Esta máquina tem 6 processadores lógicos e a suíte tem 12 arquivos: sem teto,
-    // o pool sobrecarrega a máquina ~2× e o render de jsdom + React 19 estoura o limite do teste —
-    // a suíte falhava em arquivos DIFERENTES a cada rodada, sempre por tempo. Foi o que aconteceu
-    // três vezes com `revisao.test.tsx` e `channel-scope.test.tsx`, e cada uma passava isolada em
-    // menos de 7 s. Deixar o vermelho aleatório seria pior que não ter teste: ensina o time a
-    // ignorá-lo. O teto troca um pouco de velocidade por determinismo, que é o que a suíte precisa.
-    maxWorkers: 4,
-  },
+    test: {
+      environment: 'jsdom',
+      globals: true,
+      setupFiles: ['./vitest.setup.ts'],
+      css: false,
+      include: ['src/**/*.{test,spec}.{ts,tsx}'],
+      // Os testes de tela (jsdom + React 19 + userEvent) levam de 3 a 5s **por teste** nesta máquina —
+      // o padrão de 5s deixava a suíte instável: rodadas seguidas falhavam em testes diferentes
+      // ("trocar de canal limpa o DOM…" 5.327ms numa, "não deixa aprovar sem thumbnail…" 4.509ms na
+      // seguinte) sem nenhuma asserção quebrada. Suíte que falha por tempo ensina o time a ignorar o
+      // vermelho, então o limite explícito é maior — e continua sendo um limite, não uma espera eterna.
+      testTimeout: 20_000,
+      hookTimeout: 20_000,
+      // `threads` em vez de `forks`: os testes não precisam de processo separado e o pool de threads
+      // dispensa IPC entre processos, que é o que trava em ambiente confinado.
+      pool: 'threads',
+      // Teto de workers. Esta máquina tem 6 processadores lógicos e a suíte tem 12 arquivos: sem teto,
+      // o pool sobrecarrega a máquina ~2× e o render de jsdom + React 19 estoura o limite do teste —
+      // a suíte falhava em arquivos DIFERENTES a cada rodada, sempre por tempo. Foi o que aconteceu
+      // três vezes com `revisao.test.tsx` e `channel-scope.test.tsx`, e cada uma passava isolada em
+      // menos de 7 s. Deixar o vermelho aleatório seria pior que não ter teste: ensina o time a
+      // ignorá-lo. O teto troca um pouco de velocidade por determinismo, que é o que a suíte precisa.
+      maxWorkers: 4,
+    },
+  };
 });

@@ -26,7 +26,7 @@
           "value": "camera=(), microphone=(), geolocation=(), payment=()"
         },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
 
         {
           "key": "X-Robots-Tag",
@@ -35,7 +35,7 @@
 
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-qpRjRiAYTMBLET8G9KOyANYuFR15hjD791gTZufxShc='; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self' https://accounts.google.com/gsi/; script-src 'self' 'sha256-qpRjRiAYTMBLET8G9KOyANYuFR15hjD791gTZufxShc=' https://accounts.google.com/gsi/client; style-src 'self' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     }

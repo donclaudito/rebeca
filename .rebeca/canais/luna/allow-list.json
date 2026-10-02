@@ -1,0 +1,194 @@
+{
+  "canal": "luna",
+  "nome": "Luna e o Jardim das Cores",
+  "publico": "infantil",
+  "atualizadoEm": "2026-10-01",
+  "fonte": "ADR-005 (aceito pelo dono em 2026-10-01) + .rebeca/pesquisa/gerador-de-thumbnail-2026-10-01.md",
+  "regra": "Só `PERMITIDO` gera. `PROIBIDO` e `NAO-VERIFICADO` são recusados — provedor sem termo lido fica fora da lista, e é isso que impede o preço de justificar o fornecedor (ADR-005, item 1).",
+
+  "entradas": [
+    {
+      "fornecedor": "openai",
+      "modelo": "gpt-image-2.5-sunburst",
+      "finalidade": "thumbnail",
+      "status": "PERMITIDO",
+      "fundamento": "A OpenAI NAO proibe servir publico menor de 18: ela publica uma pagina oficial de orientacao (Under-18 guidance) que PREVE e regula esse caso: 'developers should implement additional safeguards when using our API to serve minors (under 18 years old)'. Exige nao processar dado pessoal de menor de 13 sem retencao zero, conteudo apropriado a idade, manter menores seguros, usar os modelos flagship atuais, e reserva-se o direito de auditar. Este canal NAO trata dado pessoal de crianca (geramos ilustracao; o publico assiste no YouTube). Entrega dimensao customizada multipla de 16: 1280x720 e valido, o tamanho exato da thumbnail, sem recorte.",
+      "fonteUrl": "https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance",
+      "fontePreco": "https://developers.openai.com/api/docs/pricing",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01",
+      "ressalva": "O preco publicado e POR TOKEN (imagem de saida US$ 30,00/1M no gpt-image-2.5), nao por imagem. O adapter declara um TETO conservador (US$ 0,20/imagem) para o portao de entrada e grava o custo REAL lido do usage da resposta. Exige verificacao de organizacao no painel da OpenAI."
+    },
+    {
+      "fornecedor": "simulado-thumbnail",
+      "modelo": "ffmpeg-lavfi-drawtext-thumb-2",
+      "finalidade": "thumbnail",
+      "status": "PERMITIDO",
+      "fundamento": "NAO e um fornecedor terceiro: nao ha chamada de rede, nao ha chave, nao ha contrato. O arquivo e gerado localmente pelo ffmpeg desta maquina (texto sobre fundo chapado), custo zero. A entrada e uma declaracao de PROCEDENCIA, nao de leitura de termo. O ativo sai marcado simulated=true e a tela diz que e prova de maquina, nao arte publicavel. Existe para a Fase 0 continuar executavel sem gastar e sem depender de terceiro.",
+      "fonteUrl": "https://ffmpeg.org/legal.html",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01",
+      "ressalva": "Nao ha excecao automatica para simulated=true de proposito: um provedor que se declarasse simulado passaria por cima da lista. Provedor real, mesmo que diga que nao cobra, tem de estar listado por nome."
+    },
+    {
+      "fornecedor": "simulado-imagem",
+      "modelo": "ffmpeg-lavfi-drawtext-2",
+      "finalidade": "imagem",
+      "status": "PERMITIDO",
+      "fundamento": "Geracao local por ffmpeg, sem terceiro, sem rede, sem chave, custo zero. Declaracao de procedencia (ver simulado-thumbnail).",
+      "fonteUrl": "https://ffmpeg.org/legal.html",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "simulado-animacao",
+      "modelo": "ffmpeg-zoompan-1",
+      "finalidade": "animacao",
+      "status": "PERMITIDO",
+      "fundamento": "Geracao local por ffmpeg, sem terceiro, sem rede, sem chave, custo zero. Declaracao de procedencia.",
+      "fonteUrl": "https://ffmpeg.org/legal.html",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "simulado-voz",
+      "modelo": "ffmpeg-tom-1",
+      "finalidade": "voz",
+      "status": "PERMITIDO",
+      "fundamento": "Tom de verificacao gerado localmente por ffmpeg — nao e narracao nem voz sintetica de terceiro. Sem rede, sem chave, custo zero.",
+      "fonteUrl": "https://ffmpeg.org/legal.html",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "simulado-musica",
+      "modelo": "ffmpeg-tom-tremolo-1",
+      "finalidade": "musica",
+      "status": "PERMITIDO",
+      "fundamento": "Tom de verificacao gerado localmente por ffmpeg — nao e trilha de terceiro. Sem rede, sem chave, custo zero.",
+      "fonteUrl": "https://ffmpeg.org/legal.html",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "minimax",
+      "modelo": "image-01",
+      "finalidade": "thumbnail",
+      "status": "PERMITIDO",
+      "fundamento": "NENHUMA cláusula sobre público-alvo ou sobre gerar imagem que represente menor, nos documentos oficiais lidos. As duas menções de idade são sobre o TITULAR da conta (ToS: 'if you are under 18, please read this Agreement with a guardian'; Privacy §7: 'Our Services is not intended for children under 16 years of age'), não sobre a audiência do produto. Entrega 16:9 em 1280x720 nativo — o tamanho exato da thumbnail — a US$ 0,0035 por imagem.",
+      "fonteUrl": "https://platform.minimax.io/docs/api-reference/image-generation-t2i",
+      "fontePreco": "https://platform.minimax.io/docs/guides/pricing-paygo",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01",
+      "ressalva": "Trechos de ToS/Privacy obtidos com extrator de terceiro sobre a página oficial (renderizada por JS). Reler no navegador antes de tratar como requisito contratual."
+    },
+    {
+      "fornecedor": "minimax",
+      "modelo": "MiniMax-H3-768P",
+      "finalidade": "video",
+      "status": "PERMITIDO",
+      "fundamento": "Nenhuma cláusula sobre público-alvo ou output representando menor, em 4 documentos. Condição do ADR-005: marcar de forma proeminente o uso de deep synthesis technology no conteúdo gerado.",
+      "fonteUrl": "https://platform.minimax.io/protocol/terms-of-service",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "luma",
+      "modelo": "photon",
+      "finalidade": "thumbnail",
+      "status": "PERMITIDO",
+      "fundamento": "Silêncio total sobre público-alvo nos documentos oficiais. O que existe é sobre o TITULAR (ToS §3.3: 'Users under 13 are not authorized') e sobre conteúdo proibido ('exploiting or harming children'). Único dos dois com garantia escrita de no-train — mas só no tier Provisioned Throughput.",
+      "fonteUrl": "https://lumalabs.ai/legal/terms-of-service",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01",
+      "ressalva": "Custa ~12x mais que a MiniMax e nao entrega 1280x720 nativo (pixels exatos por proporcao NAO VERIFICADOS)."
+    },
+    {
+      "fornecedor": "flux",
+      "modelo": "FLUX.2-klein",
+      "finalidade": "imagem",
+      "status": "NAO-VERIFICADO",
+      "fundamento": "A Stack A aprovada no ADR-005 inclui este modelo de imagem, mas a Black Forest Labs NAO aparece na tabela de allow-list daquele ADR — o modelo de imagem da stack aprovada nunca teve termo lido registrado. Lacuna encontrada em 2026-10-01. O ToS da BFL nao tem clausula de publico-alvo (revisado 2026-08-01), mas treina com o conteudo por padrao (opt-out so por e-mail) e os pesos sao licenciados por assinatura com limite de dominios.",
+      "fonteUrl": "https://bfl.ai/legal/terms-of-service",
+      "fonteLicenca": "https://bfl.ai/licensing",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": null,
+      "aprovadoEm": null
+    },
+    {
+      "fornecedor": "google",
+      "modelo": "*",
+      "finalidade": "*",
+      "status": "PROIBIDO",
+      "fundamento": "Clausula literal na secao 'Age Requirements' dos Gemini API Additional Terms: 'You also will not use the Services as part of a website, application, or other service ... that is directed towards or is likely to be accessed by individuals under the age of 18.' Vale para Veo, Imagen, TTS e para a familia de geracao de imagem (Nano Banana). Repetida com redacao mais ampla no §20(d) dos Google Cloud Service Specific Terms. Confirmada de novo em 2026-10-01, inclusive para o tier gratuito — que ainda acrescenta uso do conteudo para treino.",
+      "fonteUrl": "https://ai.google.dev/gemini-api/terms",
+      "lidoEm": "2026-10-01",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "pika",
+      "modelo": "*",
+      "finalidade": "*",
+      "status": "PROIBIDO",
+      "fundamento": "AUP: 'You must not upload any images that depict or appear to depict individuals under the age of 18' — e o pipeline e image-to-video com referencia de personagem crianca.",
+      "fonteUrl": "https://pika.art/terms",
+      "lidoEm": "2026-09-30",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "kling",
+      "modelo": "*",
+      "finalidade": "*",
+      "status": "PROIBIDO",
+      "fundamento": "Dois documentos oficiais se contradizem sobre uso comercial; um exige rotular o output com a marca 'Kling AI'. O preco mais baixo foi medido e NAO refutou o bloqueio.",
+      "fonteUrl": "https://app.klingai.com/global/dev/document-api",
+      "lidoEm": "2026-09-30",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "cartesia",
+      "modelo": "*",
+      "finalidade": "*",
+      "status": "PROIBIDO",
+      "fundamento": "AUP veda output que represente individuos menores de 18.",
+      "fonteUrl": "https://cartesia.ai/legal/acceptable-use",
+      "lidoEm": "2026-09-30",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "elevenlabs",
+      "modelo": "*",
+      "finalidade": "*",
+      "status": "PROIBIDO",
+      "fundamento": "PUP 9(r): 'bundled solutions that target anyone under the age of 13'; vozes infantis nao podem ser adicionadas.",
+      "fonteUrl": "https://elevenlabs.io/terms-of-use",
+      "lidoEm": "2026-09-30",
+      "aprovadoPor": "humano:dono-do-produto",
+      "aprovadoEm": "2026-10-01"
+    },
+    {
+      "fornecedor": "alibaba",
+      "modelo": "wan",
+      "finalidade": "*",
+      "status": "NAO-VERIFICADO",
+      "fundamento": "Falta a secao §4.45+ dos Product Terms; as anteriores nao restringem. Fora da lista ate a leitura fechar.",
+      "fonteUrl": "https://www.alibabacloud.com/help/en/legal",
+      "lidoEm": "2026-09-30",
+      "aprovadoPor": null,
+      "aprovadoEm": null
+    }
+  ]
+}

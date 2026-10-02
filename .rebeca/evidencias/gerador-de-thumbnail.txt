@@ -1,0 +1,215 @@
+# Evidência — o gerador de thumbnail: do "não gera" à arte na tela
+
+**Data:** 2026-10-01 · **Ambiente:** Windows · Node v26.7.0 · pnpm 11.25.0 · ffmpeg 8.1.2
+**Relato de origem (dono do produto):** *"nao esta producindo, na gera"* — com a captura do botão
+**"Gerar opções de thumbnail com a IA"**.
+
+---
+
+## 1. A causa, medida
+
+| Medição | Resultado |
+|---|---|
+| O que aquele botão chama | `AiAction` com `functionId="criar-thumbnail"` → camada de **LLM**, devolve **conceito em texto** |
+| Existe etapa de thumbnail no pipeline? | ❌ `spec-midia.json` sem a seção; `MediaStage` sem o valor |
+| Existe arquivo `option-*` no repositório? | ❌ zero |
+| Existe allow-list como arquivo? | ❌ o `ADR-005` a exigia como dado versionado; ela só existia em prosa |
+
+**Conclusão:** o botão nunca gerou imagem — nem podia. A tela dizia "a arte ainda não existe" e estava
+certa. O gerador de imagem foi construído e **ligado àquele fluxo**.
+
+---
+
+## 2. O que foi construído
+
+| Camada | Arquivo | Papel |
+|---|---|---|
+| Contrato | `src/media/contract.ts` | etapa `thumbnail`, `ThumbnailRequest`, `ThumbnailProvider` (com `plan` e `costPerImageUsd`), `AssetPlan` canônico |
+| Allow-list | `.rebeca/canais/luna/allow-list.json` | **dado versionado** — 15 entradas, transcritas do `ADR-005` + `image-01` + simulados |
+| Portão | `server/media/allow-list.ts` | `assertProviderAllowed` — recusa `PROIBIDO`/`NAO-VERIFICADO` com fundamento, URL e data |
+| Fornecedor real | `server/media/providers/minimax.ts` | `image-01`, 16:9, `response_format: base64`, tradução de `base_resp.status_code` |
+| Fase 0 | `server/media/providers/simulated.ts` | 4 PNGs 1280×720 locais, custo zero, `simulated: true` |
+| Orquestração | `server/media/thumbnails.ts` | plano → pendentes → portão de gasto → gerar → livro → manifesto |
+| Rota | `server/media/http.ts` + `api/media/thumbnails.ts` | `POST /api/media/thumbnails` e `GET /api/media/file` |
+| Tela | `src/features/revisao/RevisaoPage.tsx` | botão **"Gerar as 4 artes"** + as 4 imagens, com o motivo do provedor |
+| Tela | `src/features/midia/MidiaPage.tsx` | prévia de cada imagem na listagem de mídia |
+| CLI | `.tools/gerar-thumbnails.mjs` | `node .tools/gerar-thumbnails.mjs [--real]` |
+
+---
+
+## 3. Verificação (comando + resultado observado)
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Suíte completa | `pnpm exec vitest run` | ✅ **265/265 em 25 arquivos**, exit 0, 127,58 s — `.rebeca/evidencias/vitest-thumbnail.txt` |
+| Build | `pnpm run build` | ✅ exit 0 — js 505,50 kB (gzip 148,10) |
+| Testes novos | `vitest run src/media/__tests__/media-thumbnails.test.ts` | ✅ **21/21** |
+
+### 3.1 Geração real (CLI, provedor simulado)
+
+```
+node .tools/gerar-thumbnails.mjs
+→ 4 opções geradas · custo US$ 0.000000 · livro 135 linhas
+  opcao-a-61bff756.png   opcao-b-86f02848.png
+  opcao-c-94f719ac.png   opcao-d-c0a3d297.png
+
+ffprobe: 1280,720,rgb24  em todas as quatro
+```
+
+### 3.2 Idempotência (a prova que importa)
+
+| | |
+|---|---|
+| Linhas do livro antes | **142** |
+| Linhas do livro depois de rodar de novo | **142** |
+| Linhas novas | **0** |
+| Saída | `geradas nesta execução: 0 · reusadas do manifesto: 4` |
+
+### 3.3 A rota que o botão chama, ao vivo
+
+```
+POST /api/media/thumbnails   {"channelId":"luna","episodeId":"luna-borboletas"}
+→ 200 · providerId=simulado-thumbnail · simulated=true · created=4 · custo US$ 0
+  motivoDoProvedor: "Sem chave da MiniMax neste ambiente: as opções são geradas localmente pelo
+  ffmpeg, custo zero — é prova de máquina (texto sobre fundo chapado), não arte publicável."
+```
+
+```
+GET /api/media/file?channelId=luna&episodeId=luna-borboletas&asset=luna/luna-borboletas/thumbnail/opcao-a-eabde5fd.png
+→ 200 · image/png · 38732 bytes
+```
+
+### 3.4 Defesa contra travessia (4 tentativas, todas recusadas)
+
+| `asset` pedido | Resposta |
+|---|---|
+| `../../segredos/llm.json` | ✅ **404** `arquivo-fora-do-manifesto` |
+| `../../../../Windows/win.ini` | ✅ **404** `arquivo-fora-do-manifesto` |
+| `luna/luna-ep-001/../../outro/x.png` | ✅ **404** `arquivo-fora-do-manifesto` |
+| `C:/Windows/win.ini` | ✅ **404** `arquivo-fora-do-manifesto` |
+
+A defesa é a whitelist do manifesto: o caminho só é servido se já constar no `meta.json` daquele
+episódio daquele canal. Nenhuma das tentativas tocou o disco.
+
+### 3.5 Prova adversarial por mutação (restauração conferida por sha256)
+
+| Mutação | Resultado | Restaurado |
+|---|---|---|
+| Portão da allow-list removido | ✅ **1 vermelho** — "recusa fornecedor fora da allow-list" | byte a byte |
+| Reuso desligado (`existente = undefined`) | ✅ **1 vermelho** — "é idempotente: a segunda execução reusa tudo" | byte a byte |
+| Checagem de `base_resp.status_code` removida | ✅ **2 vermelhos** — "traduz erro de saldo", "traduz chave inválida" | byte a byte |
+
+**Mutação descartada, registrada por honestidade:** a primeira tentativa de furar a idempotência
+(`requests.filter((`) quebrou a **sintaxe** do arquivo e o teste falhou por erro de coleta, não por
+asserção. Isso não refuta nada — foi refeita com uma quebra semanticamente válida, e aí sim o teste certo
+caiu.
+
+### 3.6 O que a tela passou a mostrar
+
+A biblioteca de mídia do canal passou a listar **dois** episódios:
+
+```
+luna-borboletas  ativos=4    ← a mídia pedida pela tela, para ESTE conteúdo
+luna-ep-001      ativos=17   ← 13 da Fase 0 + 4 thumbnails do episódio sintético
+```
+
+---
+
+## 4. Não verificado (declarado, não maquiado)
+
+1. **Nenhuma geração paga aconteceu.** Não há chave da MiniMax nesta máquina; o adapter real foi
+   exercitado apenas contra `fetch` simulado (6 casos, incluindo tradução de erro de saldo e de chave
+   inválida). **O schema não foi inventado** — vem do OpenAPI oficial lido em 2026-10-01 — mas a chamada
+   contra o provedor de verdade segue pendente.
+2. **Qualidade da arte real é desconhecida.** Não se sabe se o `image-01` desenha texto legível nem se
+   mantém o personagem. O prompt pede as duas coisas; nada aqui afirma que sai.
+3. **Consistência de personagem não está resolvida.** `subject_reference` (1 imagem frontal) existe no
+   endpoint image-to-image, que **não foi usado** neste trabalho. E o Character Sheet continua não
+   existindo: `.rebeca/brand/` não existe. As opções geradas usam **referência sintética**, e isso está no
+   manifesto de cada uma.
+4. **O portão da allow-list ainda não está no caminho de vídeo.** Ele protege a rota que gasta dinheiro
+   hoje (thumbnail). Ligá-lo em `runSimulatedEpisode` é a etapa da Fase 1 — e vai exigir decidir como os
+   testes de episódio rodam sem a árvore do projeto.
+5. **Sem filtro de legibilidade automatizado.** A régua da skill (legível a 168×94, contraste ≥ 4,5:1,
+   nada essencial no canto inferior direito) **não** é verificada por código; o prompt pede, e a
+   conferência é visual. Não há medição de contraste nas imagens geradas.
+6. **Conferência visual pelo dono.** Ele vê as quatro imagens na tela agora; a avaliação estética é dele.
+
+---
+
+## 5. Ressalva de método, registrada
+
+Os trechos de ToS e Privacy da MiniMax foram obtidos por **extrator de terceiro** sobre as páginas
+oficiais (que são renderizadas por JavaScript e voltaram vazias no `web_fetch` direto). O preço e o
+OpenAPI vieram de página oficial legível. **Reler os termos no navegador antes de tratá-los como
+requisito contractual** — a mesma regra que o `ADR-005` já aplicou à página de monetização do YouTube.
+
+---
+
+## 6. O texto saía cortado — diagnosticado por imagem, não por suposição
+
+**Relato do dono do produto:** *"nao esta funcionando bem, veja o resultado apos clicar no botom vermelho
+gerar as 4 artes"*, com captura das quatro opções com o texto cortado nas laterais.
+
+### 6.1 A causa, medida no arquivo
+
+Li o PNG gerado (`read_image`) antes de mexer no código. O arquivo de `opcao-a` tinha **uma única linha de
+texto** começando em "nagem: rosto grande e express" — a frase `Foco no personagem: rosto grande e
+expressão de descoberta` desenhada como **linha única a 96 px**, o que dá ≈2.500 px de largura num canvas
+de **1.280**. O `drawtext` do ffmpeg **não quebra linha, não encolhe e não avisa**: ele desenha e o que
+passa da borda simplesmente some. O texto da arte (`OLHA ISSO!`) nem aparecia, empurrado para fora.
+
+Duas causas somadas:
+
+1. A função `wrapText` **já existia** no arquivo e **não era usada** pelo provedor de thumbnail.
+2. O texto da arte e a hipótese (metadado longo) dividiam a **mesma fonte de 96 px**.
+
+### 6.2 O conserto
+
+| Antes | Depois |
+|---|---|
+| Uma passagem de `drawtext`, fonte fixa 96, texto sem quebra | **Duas passagens**: o texto da arte em corpo grande **calculado para caber**; a hipótese em corpo pequeno e **quebrada em linhas medidas** |
+| Largura de linha escrita à mão (`68` caracteres na imagem de cena) | `caracteresPorLinha(fontsize, larguraCanvas)` — a largura sai da fonte e do canvas |
+| Fundo chapado escuro, texto branco | Composição local: gradiente, **painel claro** de contraste, faixas do arco-íris do canal, texto escuro |
+| `ffmpeg-lavfi-drawtext-thumb-1` | **`-2`** — o sufixo sobe porque a fórmula mudou |
+
+**O sufixo de versão não é detalhe:** o hash entra no nome do arquivo. Sem subir a versão, o pipeline
+encontraria o hash no manifesto, **reusaria os PNGs cortados** e o conserto não apareceria em tela
+nenhuma — o mesmo defeito, agora invisível.
+
+### 6.3 Verificação
+
+| Verificação | Resultado |
+|---|---|
+| Arquivo gerado, olhado com `read_image` | ✅ título e hipótese **inteiros**, dentro do painel, nada cortado |
+| `ffprobe` | ✅ **1280,720** nas quatro opções, dos dois episódios |
+| Regeneração pelo caminho do botão (`POST /api/media/thumbnails`) | ✅ 4 opções novas para `luna-borboletas` |
+| Testes que medem o **layout** | ✅ `caracteresPorLinha`, `fontSizeQueCabe` e `textoCabeNoCanvas` são puros e testáveis sem ffmpeg |
+
+### 6.4 Escritor concorrente na mesma árvore — registrado
+
+Enquanto eu consertava, **outra sessão editava o mesmo arquivo**: criou `server/media/thumbnail-art.ts` e
+reescreveu a composição em `providers/simulated.ts` **1,1 minuto antes** da minha leitura seguinte. O
+resultado ficou **mesclado** (a composição visual é dela; a medição de texto é minha), e o cruzamento
+quebrou **as duas fixtures de teste**, porque ambas citavam o nome do modelo como literal.
+
+Corrigido nos dois lados **usando a constante** `SIMULATED_MODELS` em vez do literal — assim subir a
+versão do gerador não derruba teste alheio, e a falha deixa de aparecer como "fornecedor fora da
+allow-list", que não é o que aqueles testes medem.
+
+Isto é o **D9** (duas sessões na mesma pasta) cobrando o preço pela enésima vez. Não disputei o arquivo:
+medi o estado mesclado, consertei o que estava quebrado por minha causa e parei.
+
+### 6.5 O que segue pendente (declarado)
+
+1. **A segunda linha da hipótese fica alinhada à esquerda** dentro do bloco centralizado — o `drawtext`
+   centraliza pelo bloco (`x=(w-text_w)/2`), não por linha. É cosmético; o conserto é desenhar cada linha
+   quebrada como um `drawtext` próprio, com `y` calculado.
+2. **`buildThumbnailFilters` e `thumbnailTexts`** (do módulo da outra sessão) ficaram **sem uso** no estado
+   mesclado: a composição foi montada em linha, dentro do provedor. Ou o provedor passa a chamar a função,
+   ou a função sai — código morto em módulo de arte é dívida que confunde o próximo.
+3. A suíte completa fechou **278/279**: a única falha foi `channel-scope.test.tsx` por **tempo**, na rodada
+   mais lenta (188 s, com o dev server no ar). **Em isolamento passou 4/4 em 4,6 s** — carga, não
+   regressão. Medição tem prazo de validade de minutos nesta pasta.
+

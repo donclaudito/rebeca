@@ -27,6 +27,46 @@
 > ganhou o botão **▥** no masthead. Estado em `src/app/shell.tsx`, fechamento da direita por
 > `data-rail-right` + `.ams-split` no CSS, teste próprio em `src/app/__tests__/barras-laterais.test.tsx`.
 > Detalhe e trade-offs no adendo do `ADR-009`.
+>
+> **Atualização desta sessão — "ele gerou mas não apareceu" (2026-10-01):** o pipeline da Fase 0 havia
+> gravado 13 ativos reais no disco (com `meta.json` completo) e a interface continuava dizendo que nada
+> fora gerado, porque **nenhuma tela lia o disco** — `src/data/client.ts` importa o banco de exemplo e não
+> faz um único `fetch`. Foi criada a ponte que faltava (`src/media/view.ts`, `server/media/library.ts`,
+> as rotas `GET /api/media/episodes` e `GET /api/media/episode`, e a tela **Mídia gerada** em
+> `/c/:canal/midia`). Ver a seção "Ele gerou mas não apareceu" e `.rebeca/evidencias/midia-na-tela.txt`.
+>
+> **Atualização desta sessão — o gerador de thumbnail (2026-10-01):** o botão "Gerar opções de thumbnail
+> com a IA" chamava a camada de **LLM**, que devolve conceito em texto — **nunca gerou imagem**. O dono
+> relatou *"não está produzindo, não gera"* e estava certo. Passou a existir o gerador de verdade:
+> etapa `thumbnail` no pipeline, **allow-list de fornecedor por canal como dado executável**, adapter real
+> **MiniMax `image-01`** (16:9 → 1280×720 nativo, US$ 0,0035/imagem) e o botão **"Gerar as 4 artes"** na
+> tela de Revisão. Decisão e alternativas em **`ADR-012`**; evidência em
+> `.rebeca/evidencias/gerador-de-thumbnail.txt`.
+>
+> **Atualização desta sessão — o portão de fornecedor chegou ao caminho de vídeo (2026-10-01):** o dono
+> pediu para usar o **Gemini Omni 1.1 Flash** ("Omni 1.1") como motor de vídeo no canal infantil. O
+> modelo existe e foi conferido na doc oficial — mas a **allow-list que o próprio dono aprovou o veda**
+> (`google / * / * → PROIBIDO`, cláusula literal de *Age Requirements* dos Gemini API Additional Terms,
+> relida na fonte). A resposta não foi só "não": a apuração encontrou que **o portão existia e protegia
+> apenas a rota de thumbnail** — o caminho de vídeo, ~96% do custo de um episódio, atravessava sem
+> consulta. Fechado. Ver `ADR-013` e a seção "O portão de fornecedor chegou ao caminho de vídeo".
+>
+> **Atualização desta sessão — o custo deixou de ser inventado e o roteiro ganhou botão (2026-10-02):**
+> o dono apontou o espaço do vídeo e disse *"esta função não funciona, usa ai para gerar video"*. Estava
+> certo duas vezes: não havia botão, e o rótulo **"Custo real US$ 42,80"** era o `costUsd` do arquivo de
+> **exemplo** enquanto o livro somava **US$ 0,3956** — 108× de diferença. Agora existe a rota
+> `GET /api/media/custos` (soma real do livro, por etapa) e a etapa **Criar** tem os botões de roteiro e
+> storyboard. Ver "O custo deixou de ser inventado…". **A `criar-roteiro` não cabia no teto de 90 s** —
+> ver a seção seguinte.
+>
+> **Atualização desta sessão — autenticação implementada (Parte 2 do `ADR-014`, 2026-10-02):** o app
+> deixou de ser público. Todas as rotas de `api/**` exigem **ID token do Google** verificado no
+> servidor, com lista de acesso por **`sub`** — e **nenhuma** responde quando falta configuração
+> (falha fechada). O cliente entra pelo botão do Google, guarda o token **só em memória** e o envia em
+> cada chamada; sem login, o portão mostra a tela de entrada no lugar das telas. O CSP e o COOP do
+> `vercel.json` foram corrigidos conforme a documentação oficial (a integração **quebraria** com os
+> valores antigos). Ver a seção "Autenticação das rotas de IA e mídia — Parte 2 implementada" e o
+> adendo do `ADR-014`.
 
 ## Fase atual
 
@@ -70,6 +110,10 @@ real com o YouTube e o primeiro caminho vertical ponta a ponta com dado de verda
 | Repositório git | ✅ **privado** em `github.com/donclaudito/rebeca`, branch `main` — ver "Publicação na nuvem" |
 | **Linguagem visual do YouTube** | ✅ `ADR-009` + `docs/03` reescrito — ver "Verificação — linguagem visual do YouTube" |
 | **Ícone do app** | ✅ arte do dono: master em `imagens/icone-app-original.png`, servidos em `public/icone-{32,48,96,180}.png`, favicon e masthead |
+| **Mídia gerada visível na tela** | ✅ `/c/:canal/midia` — lê o manifesto real (`.rebeca/assets/<canal>/<episódio>/meta.json`), mede o disco ativo por ativo e rotula o que é simulado. `src/media/view.ts` · `server/media/library.ts` · `server/media/http.ts` · `src/features/midia/MidiaPage.tsx` |
+| **Gerador de thumbnail** | ✅ `POST /api/media/thumbnails` — 4 opções com hipóteses distintas, 1280×720, allow-list de fornecedor por canal, idempotência e custo real no livro. Adapter real MiniMax `image-01` (US$ 0,0035/imagem) + Fase 0 local. Botão **"Gerar as 4 artes"** na Revisão. Ver `ADR-012` |
+| **Allow-list de fornecedor** | ✅ virou **dado executável**: `.rebeca/canais/luna/allow-list.json` (15 entradas) + `server/media/allow-list.ts`. O `ADR-005` a exigia desde 2026-10-01 e ela só existia em prosa |
+| **Portão de fornecedor no caminho de VÍDEO** | ✅ `runSimulatedEpisode` consulta a allow-list **antes do ffmpeg e antes do gasto**, e mesmo com cache quente. Fechou o furo de ~96% do custo do episódio (antes só a rota de thumbnail era protegida). `ProviderIdentity` (`id`+`model`) nas 4 interfaces de mídia. Ver `ADR-013` |
 
 ## Verificação — linguagem visual do YouTube + ícone do app (2026-10-01)
 
@@ -756,6 +800,172 @@ obrigatório** quando o provedor for MiniMax, **Character Sheet** (a referência
 seleção do trecho de gancho para o Short (hoje o Short é o episódio inteiro quando ele é curto) e o
 job longo fora do request HTTP (**D1**).
 
+## "Ele gerou mas não apareceu" — a mídia da Fase 0 chegou à tela (2026-10-01)
+
+Relato do dono do produto, depois de citar o que a interface dizia (*"Nenhum vídeo, narração ou montagem
+gerados ainda"*): *"ele gerou mas nao apareceu"*. **Estava certo, e a causa foi medida — não era bug de
+exibição, era um caminho que não existia.**
+
+O pipeline F0 gravou 13 ativos reais em `.rebeca/assets/luna/luna-ep-001/` e o `meta.json` com provedor,
+modelo, hash e duração por ativo. Mas: `src/data/client.ts` importa `./mock/db` e **não faz um único
+`fetch`** (grep por `fetch(|/api/` em `src/data/*.ts` → 0); `api/` tinha só as 4 rotas de IA; e o único
+caminho que alcançava `server/media/` era a CLI `.tools/render-episodio.mjs`. O pipeline escrevia no
+disco e nada no app lia o disco.
+
+**O que passou a existir** (nada foi gasto: os 13 ativos continuam com `custo_usd=0`):
+
+| Camada | Arquivo |
+|---|---|
+| Contrato (navegador ↔ servidor) | `src/media/view.ts` — `import type` só, sem caminho absoluto |
+| Leitura do manifesto, com disco **medido** | `server/media/library.ts` |
+| Rota | `server/media/http.ts` → `GET /api/media/episodes` · `GET /api/media/episode` |
+| Serverless | `api/media/episodes.ts`, `api/media/episode.ts` (import com `.js`) |
+| Dev server | `server/media/vite-plugin.ts` + `vite.config.ts` |
+| Navegador | `src/media/client.ts`, `src/media/hooks.ts` |
+| Tela | `src/features/midia/MidiaPage.tsx` + rota `/c/:canal/midia` + item **Mídia gerada** na barra lateral |
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 — `.rebeca/evidencias/tsc-midia.txt` |
+| Suíte completa | `pnpm exec vitest run` | ✅ **240/240 em 24 arquivos**, exit 0, 100,66 s — `.rebeca/evidencias/vitest-midia.txt` |
+| Build | `pnpm run build` | ✅ exit 0 — 1982 módulos · css 38,58 kB · js 499,80 kB |
+| **Ao vivo, com os arquivos reais** | `GET /api/media/episode?channelId=luna&episodeId=luna-ep-001` | ✅ **13 ativos, 0 ausentes, 13 simulados, 15.254.021 bytes, 162,201 ms, custo US$ 0** |
+| **Caminhos de erro ao vivo** | idem para os 7 pedidos inválidos | ✅ sem canal → **400**; episódio inexistente → **404**; episódio de outro canal → **404** sem revelar que existe lá; `..%2Fetc` → **400**; rota desconhecida → **404**; POST → **405**; canal sem pasta → **200 `available:false` com motivo** |
+| **Prova adversarial por mutação** | 3 mutações, restauração conferida por sha256 | ✅ `existsOnDisk` sempre `true` → **3 vermelhos**; sem a checagem de dono do manifesto → **1 vermelho**; sem o aviso de simulado na tela → **1 vermelho**; as três restauradas byte a byte |
+| Guarda que faltava | `src/__tests__/serverless-imports.test.ts` | ✅ passou a cobrir **6** entrypoints (era 4) — as rotas novas entraram na rede criada por causa do 500 |
+
+**Decisões que valem registro:**
+
+1. **Nada inventa vínculo entre episódio e conteúdo.** O spec da Fase 0 diz, literalmente, *"Episódio
+   sintético da Fase 0 (não é conteúdo do canal)"*. Não existe vínculo declarado com nenhum item da
+   biblioteca, e ligar os dois por semelhança de nome seria afirmar linhagem que ninguém declarou. A
+   leitura é **por canal**, e a tela diz que o episódio não é conteúdo do canal.
+2. **Duas semânticas de total, de propósito:** `bytes` e duração descrevem **o que está no disco agora**
+   (só arquivos presentes); custo e procedência descrevem **o que aconteceu** (tudo que foi gerado).
+   Apagar um arquivo não devolve o dinheiro gasto. **Esta distinção nasceu de um teste que ficou
+   vermelho** — a primeira versão somava a duração de um render apagado, o que faria a tela dizer "27 s
+   de vídeo" sem haver vídeo para abrir.
+3. **A tela é de leitura.** Aprovar, publicar e escolher thumbnail continuam nas telas de Revisão e
+   Conteúdo — aqui não se decide nada (invariante nº 1 intacto).
+
+**Não verificado (declarado):** conferência **visual** (não há navegador automatizado nesta sessão);
+`api/media/*` **não** foi executada no runtime da Vercel (compartilha a função exercitada por HTTP, mas o
+cold start real não foi medido); em produção **não há mídia alguma** para mostrar, porque
+`.rebeca/assets/` está no `.gitignore` — o endpoint responde `available:false` com o motivo, e isso foi
+verificado por teste e para um canal sem pasta, **não** em deploy real; e **nenhum ativo não simulado**
+(os 13 da Fase 0 são todos `simulated: true`) passou por esta tela. Registro completo em
+`.rebeca/evidencias/midia-na-tela.txt`.
+
+**Uma armadilha do ambiente, de novo:** o `pnpm run dev` que iniciei **falhou com "Port 5173 is already in
+use"** — já havia um servidor na porta, de sessão anterior. A prova ao vivo funcionou assim mesmo porque
+**o Vite recarrega o `vite.config.ts` sozinho** ao detectar a mudança, e o servidor antigo passou a
+atender `/api/media/*`. Vale saber: o log de inicialização que importa (`[mídia] rotas locais ativas`) é do
+processo que **subiu**, não do que está atendendo.
+
+### Segunda parte — o cartão da Revisão deixou de ser string fixa (mesmo dia)
+
+Relato seguinte do dono, citando o cartão: *"O que existe neste conteúdo … Nenhum vídeo, narração ou
+montagem gerados ainda … nao completo a secuencia"*. **Certo de novo, e o defeito era do tipo oposto ao
+anterior:** depois que o pipeline gravou 13 ativos, o cartão **continuou dizendo que nada tinha sido
+gerado**. A causa era a mesma família da primeira: aquelas linhas eram **strings fixas** no JSX —
+verdadeiras quando escritas, mentira depois. Cartão de estado que não consulta estado é legenda.
+
+| Antes (fixo) | Agora (derivado) |
+|---|---|
+| "Título, descrição e tags preparados" | do `seo` do próprio conteúdo — e avisa quando está incompleto |
+| "Nenhum vídeo, narração ou montagem gerados ainda" | **três estados lidos de `GET /api/media/episodes`** (ver abaixo) |
+| "a mídia entra quando o pipeline gerar" | "…quando este conteúdo tiver um episódio gerado **e ligado a ele**" |
+| "{n} opções de thumbnail — a arte ainda não existe" | mantido: `ThumbnailOption` não tem campo de arte, então a arte não existe mesmo |
+
+**Os estados da linha de mídia — a distinção entre eles é o ponto:**
+
+| Estado | O que a tela diz |
+|---|---|
+| **Não sei** (leitura falhou) | *"Não foi possível ler a mídia gerada deste canal agora… esta linha não afirma que não há vídeo"* |
+| **Existe** (`episodeId` ligado + manifesto) | *"Mídia gerada: 13 ativos, 13 de provedor simulado · render v1"* + link |
+| **Existe no canal, não é deste conteúdo** | *"O pipeline já gerou 13 ativos neste canal (luna-ep-001)… não está ligado a este conteúdo"* + link |
+| **Não existe** | *"Nenhum vídeo, narração ou montagem deste conteúdo foi gerado ainda"* |
+| **Elo quebrado** | *"aponta para o episódio luna-ep-777, mas não há manifesto dele neste ambiente"* |
+
+**O elo que faltava virou contrato:** `ContentItem.episodeId?` (`src/data/types.ts`) — opcional e
+**ausente em todos os conteúdos da biblioteca**, porque o único episódio gerado é o sintético da Fase 0,
+que o spec descreve como *"não é conteúdo do canal"*. Ligar os dois seria afirmar linhagem que ninguém
+declarou — a mesma regra que impede a tela de se apropriar do episódio de ninguém.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos · Tela de Revisão | `pnpm exec tsc --noEmit` · `vitest run src/features/revisao` | ✅ exit 0 · **11/11** (eram 7) |
+| Suíte · build | `pnpm exec vitest run` · `pnpm run build` | ✅ **244/244 em 24 arquivos** (eram 240) · build exit 0 — `.rebeca/evidencias/vitest-midia.txt` |
+| **Prova adversarial por mutação** | 2 mutações, restauração por sha256 | ✅ cartão ignorando a mídia do canal → **2 vermelhos** (exatamente os testes certos); elo ignorado → **1 vermelho**; ambas restauradas byte a byte |
+
+**Defeito que o próprio trabalho revelou — e era do teste:** o teste de `criar-thumbnail` procurava o
+corpo do POST em `fetchMock.mock.calls[0]`. Quando o cartão passou a ler a mídia, a **primeira** chamada
+virou um GET sem corpo e o teste caiu com `expected 'undefined' to contain 'criar-thumbnail'`. Ele media
+a **ordem** das consultas, não o que dizia medir. Corrigido para achar a chamada da IA pelo corpo.
+
+**Não verificado:** o ramo "ligado" do cartão **não** é exercitado por tela renderizada a partir do
+produto (nenhum conteúdo tem episódio — e não deve ter); ele é exercitado por teste que declara o elo no
+**dado de exemplo do teste** e o desfaz no `afterEach`, de modo que o produto segue sem vínculo
+inventado. E a conferência visual continua pendente do dono.
+
+## "Não está produzindo, não gera" — o gerador de thumbnail (2026-10-01)
+
+Terceiro relato do dono na mesma tela, com captura do botão **"Gerar opções de thumbnail com a IA"**.
+Certo de novo, e a causa era estrutural: **aquele botão chama a camada de LLM** (`criar-thumbnail`), que
+devolve **conceito em texto** — ele nunca gerou imagem, nem podia. O dono clicava esperando arte.
+
+**O que passou a existir** (decisão e alternativas em **`ADR-012`**, aceito pelo dono nesta sessão;
+apuração em `.rebeca/pesquisa/gerador-de-thumbnail-2026-10-01.md`):
+
+| Camada | Arquivo |
+|---|---|
+| Contrato: etapa `thumbnail`, `ThumbnailProvider` com `plan` e `costPerImageUsd` | `src/media/contract.ts` |
+| **Allow-list como dado versionado** (15 entradas) | `.rebeca/canais/luna/allow-list.json` |
+| Portão de fornecedor | `server/media/allow-list.ts` |
+| Adapter real **MiniMax `image-01`** (16:9 → 1280×720 nativo, US$ 0,0035/imagem) | `server/media/providers/minimax.ts` |
+| Fase 0: 4 PNGs locais, custo zero | `server/media/providers/simulated.ts` |
+| Orquestração: plano → pendentes → portão → gerar → livro → manifesto | `server/media/thumbnails.ts` |
+| `POST /api/media/thumbnails` e `GET /api/media/file` | `server/media/http.ts` + `api/media/*` |
+| Botão **"Gerar as 4 artes"** + as 4 imagens na tela | `src/features/revisao/RevisaoPage.tsx` |
+| Prévia de cada imagem na listagem | `src/features/midia/MidiaPage.tsx` |
+| CLI | `.tools/gerar-thumbnails.mjs` |
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos · suíte · build | `tsc` · `vitest run` · `pnpm run build` | ✅ exit 0 · **265/265 em 25 arquivos** (eram 244) · build exit 0 |
+| **Geração real (CLI, simulado)** | `node .tools/gerar-thumbnails.mjs` | ✅ **4 arquivos**, `ffprobe` **1280,720,rgb24**, custo US$ 0 |
+| **Idempotência** | rodar de novo | ✅ livro **142 → 142 linhas**, `geradas 0 · reusadas 4` |
+| **A rota que o botão chama, ao vivo** | `POST /api/media/thumbnails` | ✅ 200 · `simulated=true` · `created=4` · com o **motivo do provedor** (sem chave → arte simulada, dito na tela) |
+| Imagem servida | `GET /api/media/file?...` | ✅ **200 `image/png` 38732 bytes** |
+| **Travessia de caminho** | 4 tentativas (`../../segredos/llm.json`, `win.ini`, `C:/…`) | ✅ **404** nas quatro — a defesa é a whitelist do manifesto, não a sanitização |
+| **Prova adversarial por mutação** | 3 mutações, restauração por sha256 | ✅ portão da allow-list removido → **1 vermelho**; reuso desligado → **1 vermelho** (o teste de idempotência); `base_resp.status_code` não checado → **2 vermelhos** |
+
+**Três lacunas de processo que a apuração encontrou — e que valem mais que o código:**
+
+1. **A allow-list do `ADR-005` nunca existiu como arquivo.** O ADR dizia "dado versionado, com URL, data de
+   leitura, trecho citado e aprovador" — e isso morava só em prosa, sem ninguém conseguir executá-lo.
+   Agora existe, e o portão **recusa** `PROIBIDO` e `NAO-VERIFICADO` citando o fundamento na mensagem.
+2. **A Stack A aprovada inclui "FLUX.2 klein" para imagem, mas a Black Forest Labs não está na tabela de
+   allow-list daquele ADR.** O modelo de imagem da stack aprovada **nunca teve termo lido registrado**.
+   Entrou como `NAO-VERIFICADO` — declarado, não presumido.
+3. **O portão do provedor simulado é por nome, não por `simulated: true`.** Exceção automática deixaria um
+   provedor real passar pela lista declarando-se simulado — o mesmo padrão de furo que o `rebeca-qa` achou
+   no `ADR-010`.
+
+**Ruído registrado:** a primeira rodada da suíte completa reprovou **um** teste por tempo (162 s com o dev
+server no ar disputando CPU). Em isolamento o arquivo passou **11/11**, e a segunda rodada completa passou
+**265/265 em 127 s**. É o mesmo fenômeno de carga já documentado aqui em 2026-10-01 — o dono estava com o
+app aberto, e o servidor não foi derrubado.
+
+**Não verificado (declarado):** **nenhuma geração paga aconteceu** — não há chave da MiniMax nesta máquina,
+e o adapter real só foi exercitado contra `fetch` simulado (6 casos, incluindo erro de saldo e chave
+inválida); o schema **não** foi inventado (vem do OpenAPI oficial lido hoje), mas a chamada real segue
+pendente. A qualidade da arte real é desconhecida: não se sabe se o `image-01` desenha texto legível nem se
+mantém o personagem. **A consistência de personagem não está resolvida** — `subject_reference` existe no
+endpoint image-to-image (não usado) e o Character Sheet continua não existindo. E o portão da allow-list
+ainda **não** está no caminho de vídeo (`runSimulatedEpisode`): ele protege a rota que gasta dinheiro hoje.
+Registro completo em `.rebeca/evidencias/gerador-de-thumbnail.txt`.
+
 ## Verificação independente dos preços — contraprova do `ADR-005` (2026-10-01)
 
 Dossiê em **`.rebeca/pesquisa/provedores-midia-e-voz-2026-10-01.md`**. A coleta **confirmou a Stack A**
@@ -942,7 +1152,7 @@ orquestra ser considerada confiável para trabalho de produção.
 | D8 | Ratificar em ADR a stack já presente no `package.json` (Vite + React 19 + React Query + react-router) ou trocar | `rebeca-arquiteto`, `rebeca-react` | humano |
 | D9 | A frente paralela continua em paralelo, ou passa a operar **através desta orquestra** (com `rebeca-arquiteto` → `rebeca-qa` antes de merge)? | todo o projeto | humano |
 | D10 | **"Medir" (seção 7 do PDF) promete RPM, horários e temas — e a Analytics API não entrega os três.** Derivar dentro do Rebeca (RPM = receita ÷ views; horário e tema por agregação própria) ou mudar a promessa do `docs/00` §3.8? | `rebeca-youtube`, `rebeca-analytics` | humano |
-| D11 | **Qual fornecedor de LLM pode atender o canal infantil?** O Google está **vedado** por cláusula literal (Gemini Additional Terms, "Age Requirements"); a DeepSeek tem cláusula (§3.4(8)) que pode alcançar o caso da Luna e a **leitura jurídica está pendente**; a Anthropic permite com salvaguardas. Enquanto não houver leitura jurídica, o default do produto é conservador. Ver `ADR-006` | `rebeca-lgpd`, `rebeca-infantil`, `rebeca-seguranca` | humano |
+| D11 | **Qual fornecedor de LLM pode atender o canal infantil?** O Google está **vedado** por cláusula literal (Gemini Additional Terms, "Age Requirements"); a DeepSeek tem cláusula (§3.4(8)) que pode alcançar o caso da Luna e a **leitura jurídica está pendente**; a Anthropic permite com salvaguardas. Enquanto não houver leitura jurídica, o default do produto é conservador. Ver `ADR-006`. **Em 2026-10-01 o dono pediu o Gemini Omni 1.1 Flash para vídeo; a resposta foi não, pela mesma cláusula (relida na fonte), e o pedido não alterou a decisão — ver `ADR-013`** | `rebeca-lgpd`, `rebeca-infantil`, `rebeca-seguranca` | humano |
 | D12 | **O teto de gasto de LLM aprovado nesta sessão** (US$ 0,05 por chamada, US$ 1,00 por dia) é revogável pelo dono. Está em `src/ai/limits.ts`, não em variável de ambiente, para que mudá-lo exija revisão | toda a camada de IA | humano |
 
 ## Aprovações pendentes
@@ -1022,6 +1232,223 @@ antecedência, comportamento no disparo), duração máxima de vídeo, resoluç�
 playlist, o que o YouTube faz com a declaração MFK, e **o corpo da maioria das páginas
 `support.google.com`** — o fetch direto devolve só o título; a de monetização foi obtida por extrator
 de terceiro e as demais (`/answer/10774223`, `/answer/6162278`, `/answer/9528076`) seguem não lidas.
+
+## Autenticação das rotas de IA e mídia — Parte 2 implementada (2026-10-02)
+
+O dono entregou o **Client ID** do Google (Parte 1 do runbook) e pediu a **Parte 2**. O `ADR-014` já
+estava aceito e o runbook escrito; esta sessão escreveu o código. Nada foi gasto: nenhuma chamada paga
+aconteceu (a verificação inteira roda com verificador de token injetado e provedor simulado).
+
+**O que existe agora** (o detalhe e as consequências estão no **adendo do `ADR-014`**):
+
+| Camada | Arquivos |
+|---|---|
+| Contrato compartilhado | `src/auth/contract.ts` |
+| Verificação e política | `server/auth/verify.ts` (biblioteca oficial + `aud`/`iss`/`exp`/`sub`), `server/auth/access.ts` (lista de `sub`), `server/auth/config.ts` |
+| Ponto único da guarda | `server/auth/guard.ts` — `authenticateRequest` (401) e `authorizeRequest` (401/403/429/503) |
+| Limite de uso | `server/auth/rate-limit.ts` (janela deslizante por `sub`, em código) |
+| Rotas de autenticação | `server/auth/http.ts`, `server/auth/vite-plugin.ts`, `api/auth/config.ts`, `api/auth/me.ts` |
+| Guarda aplicada | `server/ai/http.ts`, `server/media/http.ts`, os 8 wrappers de `api/**` e os 2 plugins do Vite |
+| Cliente | `src/auth/{token,client,google,context,LoginGate,MediaImage}.ts(x)` |
+| Ligação na interface | `src/App.tsx` (portão), `src/ai/client.ts`, `src/media/client.ts`, `RevisaoPage`, `MidiaPage`, `ConfiguracoesPage` |
+| Cabeçalhos | `vercel.json` — CSP com os quatro endereços do Google + COOP `same-origin-allow-popups` |
+| Auditoria de gasto | coluna `identidade_sub` no livro (`server/ai/ledger.ts`, `server/media/ledger.ts`), aditiva e no fim |
+| Ambiente | ponte explícita de `.env` em `vite.config.ts` (só as 2 chaves da autenticação) e sessão de teste em `vitest.setup.ts` |
+| Dependência nova | `google-auth-library@11.1.0` (a recomendada pela doc oficial para verificar o ID token em Node) |
+
+**Verificação (comando + resultado observado):**
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Suíte completa | `pnpm exec vitest run` | ✅ **391/391 em 34 arquivos**, exit 0 (medida **depois** das correções do `QA-014`) |
+| Testes da autenticação | `pnpm exec vitest run src/auth` | ✅ **77/77 em 4 arquivos** — inclui a reprodução do `rebeca-qa`, agora verde |
+| Build de produção | `pnpm run build` | ✅ exit 0 — css 39,21 kB (gzip 8,55) · js 530,10 kB (gzip 155,78) |
+| **Cold start em condição de produção** | JS compilado com `tsc --ignoreConfig` **fora** do repositório + junção para `node_modules`, `VERCEL=1`, cwd fora do projeto | ✅ **sem `GOOGLE_CLIENT_ID`:** `config` **200** (`clientId:null`) e **503** em IA e mídia (**falha fechada**) · **com** a variável: **401 `token-ausente`** — inclusive nas cascas com corpo inválido (era 400 antes da correção do defeito 1) |
+| **A verificação real de assinatura roda** | `fetch` das chaves públicas do Google a partir do JS compilado | ✅ **HTTP 200, 2 chaves** — e o token falso recebeu **401 `token-invalido`** com as chaves de verdade na mão: a recusa foi de **assinatura**, não de rede |
+| **Biblioteca do servidor fora do bundle do navegador** | grep em `dist/assets/*.js` | ✅ **0 ocorrências** de `gaxios`, `OAuth2Client` e `google-auth-library`; `accounts.google.com/gsi/client` presente (a constante pública) |
+| Segredo em texto claro | `python .tools/scan_secrets.py --history` | ✅ limpo em **659 blobs** (árvore + histórico); 6 achados ignorados pelo baseline revisado |
+| Árvore sem `.js` solto | `git status --porcelain api server src` filtrado por `.js` | ✅ nenhum (a armadilha de deixar JS compilado ao lado do TS já custou caro uma vez) |
+
+**Defeitos e armadilhas encontrados durante a implementação** (todos no adendo do ADR, com o detalhe):
+
+1. **`/api/media/file` não podia mais alimentar `<img src>`.** A rota passou a exigir cabeçalho, e o
+   navegador não manda cabeçalho em `src`. As três prévias de arte do app quebrariam **em silêncio**.
+   Saída: `MediaImage` busca com `fetch`, exibe de `blob:` e revoga no desmonte.
+2. **A biblioteca oficial ecoa o token na mensagem de erro** (`Wrong number of segments in token:
+   <token>`). Isso poria a credencial no corpo da resposta. Toda falha vira motivo fixo, com teste que
+   serializa o corpo e afirma que o token não aparece.
+3. **31 testes de tela ficaram vermelhos** — e a causa era o próprio acerto da entrega: as páginas
+   chamam as camadas de IA e de mídia, que agora **recusam** sem sessão. Resolvido com uma sessão de
+   teste declarada em `vitest.setup.ts`; a fronteira (sem login nada é chamado, 401 derruba, 403 não
+   derruba) tem arquivo próprio, que limpa a sessão de propósito.
+4. **A coluna nova do livro quebrou um teste que afirmava o cabeçalho exato** (`media-custo.test.ts`).
+   Atualizado, e o caso ganhou a asserção que faltava: no caminho sem sessão a célula é **vazia**.
+5. **O Vite não injeta `.env` em `process.env`** (conferido na implementação instalada). Sem ponte,
+   quem copiasse o `.env.example` veria "falta `GOOGLE_CLIENT_ID`" **com o valor na frente**. A ponte
+   copia **duas** chaves, não todas: chave de provedor dentro do processo é como um teste topa com
+   credencial paga.
+6. **Divergência do runbook corrigida:** ele afirmava que `/api/ai/status` continuaria **200**; com a
+   decisão aplicada como está escrita, ela responde **401** como as outras. O runbook foi corrigido.
+7. **`GET /api/media/file` não existia como função serverless.** Era atendido só pelo plugin do
+   servidor de desenvolvimento: na Vercel a requisição cairia no rewrite de SPA e devolveria **HTML
+   com 200** — o navegador tentaria ler HTML como imagem, e o sintoma ("a prévia não aparece") só
+   apareceria publicado. CRIADO `api/media/file.ts`, com a mesma função compartilhada e a mesma
+   guarda, e incluído na guarda de imports (11 entrypoints conferidos agora).
+8. **O dono usou o app e o console dele achou o que a minha suíte não via:** o aviso
+   `[GSI_LOGGER] google.accounts.id.initialize() is called multiple times` — o `StrictMode` do React 19
+   remonta o efeito e o botão do Google era inicializado a cada montagem, com `renderButton`
+   **acrescentando** iframe em vez de substituir. Corrigido (`initialize` uma vez por cliente + o
+   callback lendo o handler **atual**; `replaceChildren()` antes de desenhar) e coberto por 5 testes
+   novos em `src/auth/__tests__/google.test.ts`. **Nenhum teste meu exercitava a remontagem do botão:**
+   o defeito só existia no navegador — quem o trouxe foi o uso real, não a suíte. O outro aviso do
+   console (`Cross-Origin-Opener-Policy policy would block the window.postMessage call`) **não é
+   nosso**: medido que o servidor de desenvolvimento não envia COOP nenhum, e o login funcionou; em
+   produção o valor é `same-origin-allow-popups`, o que a doc prescreve. Registrado para não virar
+   achismo.
+9. **A ponte do `.env` mentia em silêncio — e o sintoma era "conta não autorizada".** Este é o defeito
+   que custou mais caro em idas e voltas com o dono. A ponte copiava `.env` → `process.env` na
+   avaliação do `vite.config.ts`, com a regra "o ambiente vence o arquivo". Como o Vite **não reavalia**
+   a configuração quando o `.env` muda, editar a lista de acesso **não tinha efeito nenhum**: o
+   processo continuava com o valor antigo, escrito pela própria ponte. Medido com valor sentinela:
+   `GET /api/auth/config` devolvia o valor antigo 7 s depois da edição. Na tela, isso aparecia como
+   **"conta ainda não autorizada"** — defeito de encanamento disfarçado de defeito de acesso, que manda
+   procurar no lugar errado. **Corrigido**: `server/dev-env.ts` lê o arquivo **na hora do uso** (cache
+   por `mtime`), então editar o `.env` vale na requisição seguinte, sem reiniciar; o arquivo é ignorado
+   em teste (`VITEST`) e em produção (`VERCEL`). **Provado ao vivo**: sentinela aplicada em **3 s** com
+   o servidor no ar, e restaurada em seguida. 6 testes em `src/__tests__/dev-env.test.ts`.
+   **Lição de método:** duas correções minhas falharam antes de o mecanismo real aparecer; o que o fez
+   aparecer foi um **experimento com valor observável** (sentinela + endpoint público), não a leitura
+   do código.
+10. **A CAUSA FINAL ERA MINHA, E ERA A PIOR DE TODAS: eu transcrevi os `sub` errado, a olho, das
+   capturas de tela do dono.** Duas listas foram configuradas com números de 21 dígitos que **existem**,
+   mas são de outras contas — a lista parecia correta, o servidor respondia "2 contas autorizadas", e a
+   tela recusava a conta com o `sub` "certo" na mão. Não era encanamento, não era COOP, não era FedCM,
+   não era cache: eram **dois dígitos trocados** por quem escreveu o arquivo.
+   **Como apareceu** (e é o método que fica): um instrumento de diagnóstico no plugin de
+   desenvolvimento imprimiu, no console do servidor, o `sub` que o Google mandou **com os códigos de
+   cada caractere** e a lista comparada. Em uma linha ficou visível:
+   `sub recebido "107886939461400534744"` contra `lista "197886939461400534744"` — o segundo dígito,
+   `0` contra `9`. A lista foi regravada com os valores **lidos da máquina**, e o instrumento ficou no
+   `server/auth/vite-plugin.ts` (só no dev, só quando a conta é recusada): autorizar uma conta nova
+   passou a ser **copiar do terminal**, nunca digitar.
+   **Regra que entra no projeto:** identificador (`sub`, id, hash, token) **nunca** se transcreve à mão
+   de imagem, print ou PDF — copia-se da fonte. Vinte e um dígitos em fonte pequena é exatamente o tipo
+   de dado que a vista completa sem perceber.
+   **Defesa que ficou no código, independente disso:** `limparIdentificador` (`server/auth/access.ts`)
+   remove caracteres invisíveis (largura zero, espaço não separável, BOM) dos **dois lados** da
+   comparação — colar um `sub` de um log ou de um PDF é por onde esse lixo entra, e ele tem o mesmo
+   efeito de uma recusa inexplicável. Coberto por teste em `guard.test.ts` ("tolera caractere
+   INVISÍVEL no sub"), com o contrapeso de que um `sub` desconhecido continua recusado.
+
+**Não verificado (declarado, não maquiado):**
+
+1. **Um token real do Google nunca foi aceito nem recusado aqui.** O lado negativo foi exercitado com
+   as chaves públicas reais (token forjado → 401); o lado positivo exige um login de verdade, que só o
+   dono faz no navegador. **Não verificado:** que um ID token legítimo seja aceito.
+2. **O pop-up/One Tap em navegador real não foi observado.** CSP e COOP foram corrigidos conforme a
+   documentação oficial (relida em 2026-10-02), mas quem confirma é o login do dono.
+3. **O runtime da Vercel não foi executado.** O cold start foi simulado localmente, com o mesmo
+   procedimento que pegou o defeito de import uma vez — não é o runtime de produção.
+4. **O rate limit é por instância do processo.** Em serverless, cada invocação pode nascer com o
+   contador zerado. Está escrito no código; limite compartilhado exige banco (D1, aberta).
+5. **Duas sessões de agente escreveram na mesma árvore durante a implementação** (o dono confirmou que
+   a outra estava ativa). Uma delas adaptou `src/media/__tests__/media-custos.test.ts` ao contrato
+   novo enquanto eu escrevia o servidor. Nada foi perdido — os arquivos se encaixaram (ela usou o
+   mesmo módulo de apoio) —, mas **a árvore não estava quieta**, e por isso **nada foi commitado**.
+
+## Revisão adversarial da autenticação — `rebeca-qa`: REFUTADO PARCIALMENTE, e corrigido (2026-10-02)
+
+Relatório em **`docs/qa/QA-014-autenticacao-google.md`** (com a resposta do produtor no topo) e a
+reprodução em `src/auth/__tests__/qa-refutacao.test.tsx`, que ficou no repositório **verde** — os casos
+que ele escreveu para falhar passaram a medir a correção.
+
+**O que resistiu a tudo (é o que importa):** não se gasta a chave paga sem identidade válida e
+autorizada. Nenhum ataque de header furou (duplicado, array, NBSP, `Basic`, token cru, 9005
+caracteres sem tocar o verificador); nenhum token vazou no corpo do erro — inclusive forçando o
+caminho em que a `google-auth-library` **ecoa o valor recebido**; token forjado com `kid` real do
+Google foi recusado **pelas chaves reais**; o livro de custos ficou intacto em 401/403/429, com
+controle positivo de que o mecanismo grava; a migração do livro é aditiva e a soma continua certa; e
+uma enxurrada de 712 identidades não zerou o contador de quem abusava.
+
+**Dois defeitos reais (gravidade média), corrigidos:**
+
+1. **A guarda não era a primeira checagem nas quatro cascas serverless que leem corpo**
+   (`api/ai/generate.ts`, `api/ai/test.ts`, `api/ai/settings.ts`, `api/media/thumbnails.ts`): com o
+   corpo lido **antes** da guarda, requisição **sem credencial nenhuma** recebia `400` em vez de `401`,
+   e o processo ainda analisava até 256 KB de quem não se identificou. Correção: o corpo passou a ser
+   passado como **função** e é lido **dentro** do roteador, depois de `authorizeRequest` — nas quatro
+   cascas, nos dois plugins do Vite e nas três assinaturas de roteador. Efeito colateral bom: o `413`
+   de corpo grande demais deixou de ser reescrito como `400`.
+2. **`MediaImage` aceitava `200` com `text/html` como imagem** — o `index.html` do rewrite de SPA
+   virava `blob:` e ia para o `<img>`, produzindo imagem quebrada **em silêncio**, exatamente o
+   sintoma que o componente existe para eliminar. Correção: exige `content-type: image/...`.
+
+**Quatro observações de gravidade baixa, todas atendidas:** duas cotas de uso independentes (leitura
+240/min, geração 20/min — antes uma cota só, e uma tela com 13 prévias chegava perto do teto e recebia
+`429` em `GET`, que não gasta nada); o pai do GIS no `default-src` (fallback que a doc oficial pede); a
+**contagem** de identidades autorizadas saiu da rota pública (ficou só em `/api/auth/me`, depois de o
+token ser verificado) e a mensagem de 403 deixou de dizer quantas entradas da lista não parecem `sub`;
+e o `redact` no único ponto de saída que não o tinha.
+
+**A lição de método, registrada porque vai se repetir:** o defeito 1 não era furo de segurança — era a
+**ordem de duas linhas**, e sobreviveu à minha leitura do arquivo, ao `tsc`, à suíte inteira e a um
+teste que eu escrevi para "provar o 401". Todos os meus casos chamavam o **roteador** direto; o defeito
+morava no único pedaço que eu não exercitei — a **casca**. Testar a camada de baixo e chamar de prova do
+caminho de cima é o buraco por onde ele passou.
+
+## Revisão por especialista em Google Sign-In (2026-10-02) — e onde eu estava errado
+
+O dono pediu, com razão, um especialista. O subagente dedicado entregou
+`.rebeca/pesquisa/gsis-diagnostico-2026-10-02.md`, e o resultado **corrigiu três coisas minhas**:
+
+1. **COOP:** eu tratei o aviso como ruído inofensivo por decreto. A doc oficial de Setup diz que, **com
+   FedCM desligado**, COOP mal configurado *"breaks communication between windows, leading to a blank
+   pop-up window or similar bugs"*. Continua não sendo a causa **provada** aqui (o texto é condicional,
+   o dev não enviava COOP nenhum, e a credencial chegou duas vezes), mas eu não tinha base para
+   chamá-lo de inofensivo. **Ação:** o dev server passou a mandar
+   `Cross-Origin-Opener-Policy: same-origin-allow-popups` e `Referrer-Policy: no-referrer-when-downgrade`
+   (os valores que a doc pede para http + localhost) — dev e produção agora dizem a mesma coisa.
+2. **`use_fedcm_for_button` foi revertido.** Eu o liguei para fugir do aviso; ele é a **única variável
+   que mudou** entre os dois logins que entregaram credencial e o sintoma "clique e nada acontece", e
+   tem armadilha documentada (a jornada FedCM termina em POST para o *login endpoint*; no modo popup +
+   `callback` o `login_uri` é ignorado, e o padrão vira um POST para a própria página — 404 no Vite,
+   **sem erro no console**). Trocar o que funcionava para fugir de um aviso foi o erro.
+3. **Eu li o sintoma errado, e isso custou horas:** a tela com e-mail + `sub` é a de conta **NÃO
+   autorizada** — o sucesso é o app. As duas vezes em que escrevi "o login funcionou" provaram o
+   **encanamento**, não a **autorização**. E como `/api/auth/me` responde **200** para conta fora da
+   lista, esse estado aparece **sem nenhum erro vermelho** — o que explica "não entra e o console só tem
+   o aviso de COOP".
+
+**Medição que fecha o estado atual:** com um diagnóstico temporário (já removido e conferido), o
+servidor no ar respondeu `listaTamanho: 2` e **`probeNaLista: true`** para o `sub` da conta do dono —
+os 21 dígitos batem um a um. Ou seja: **a conta dele É autorizada no servidor que está no ar agora**;
+o relato de recusa veio de uma tentativa contra o servidor antigo (de ontem) ou anterior à correção da
+lista. **Ficou no produto**, como instrumento permanente: o relógio de 15 s do `click_listener` e a
+linha de contagem na tela de entrada — o teste de 1 minuto que separa as cinco causas possíveis (A–E),
+sem precisar abrir o console.
+
+**Não verificado:** o `rebeca-qa` também não conseguiu (e declarou) que um token **legítimo** seja
+aceito — isso exige um login real; e ele mediu a suíte com um desvio de ambiente, pedindo confirmação
+com `pnpm test` puro, que foi feito nesta árvore depois das correções (números na tabela de
+verificação acima e em `.rebeca/evidencias/autenticacao-google.txt`).
+
+**Próximo passo imediato (é do dono, e nada disso depende de código):**
+
+1. **Parte 3 do runbook** — Vercel → Settings → Environment Variables: `GOOGLE_CLIENT_ID`,
+   `REBECA_ALLOWED_SUBS` e a chave do provedor. Sem `GOOGLE_CLIENT_ID` o app publicado responde
+   **503** em tudo (falha fechada, de propósito).
+2. **Login local** (`pnpm dev`): a tela de entrada mostra o `sub` da conta; ele vai para
+   `REBECA_ALLOWED_SUBS` (no `.env` local e na Vercel). É o caminho que destrava o primeiro acesso.
+3. **Parte 4** — conferir no navegador: sem login nenhuma tela abre; com login autorizado a geração
+   funciona e a linha de custo sai com o `sub` na última coluna.
+
+**Achado que corrige uma promessa do próprio `ADR-014` (registrado no §9 do adendo):** a versão
+publicada **não** passa a gerar só por estar autenticada. O teto diário depende de livro de custos
+durável, que não existe em serverless (achado `QA-006 #1`), então **a geração paga continua recusada
+com 403** em produção até haver banco (decisão **D1**) ou até o aceite explícito de
+`REBECA_ALLOW_NO_LEDGER=1` — que significa gastar sem teto diário efetivo. São travas diferentes (quem
+pode gastar × quanto se pode gastar), e autenticar resolveu só a primeira.
 
 ## Publicação na nuvem — **publicada e verificada em produção** (2026-09-30)
 
@@ -1302,4 +1729,318 @@ diferente do que já estava registrado (que era só lentidão de teste):
 e virou risco de integridade. Enquanto ela estiver aberta, **um escritor só por vez**: ou a frente
 paralela entra na orquestra, ou cada frente trabalha em branch própria. Numeração de ADR e o
 `estado.md` não são arquivos que aceitam dois escritores simultâneos.
+
+## O portão de fornecedor chegou ao caminho de vídeo — e o Gemini Omni foi recusado (2026-10-01)
+
+**O pedido do dono.** Usar o **Gemini Omni 1.1 Flash** ("Omni 1.1", `gemini-omni-1.1-flash`) como motor de
+vídeo, porque o Google o está oferecendo gratuitamente, para desenhos animados 2D/3D no canal infantil.
+O objetivo declarado era **não provocar censura** da plataforma.
+
+**A resposta foi não, e o motivo não é opinião de agente.** A allow-list do canal — aprovada pelo próprio
+dono em 2026-10-01 — traz `google / * / * → PROIBIDO`, com o fundamento na cláusula literal de *Age
+Requirements* dos Gemini API Additional Terms: *"You also will not use the Services as part of a website,
+application, or other service … that is directed towards or is likely to be accessed by individuals under
+the age of 18."* Relida na fonte oficial nesta sessão; a página traz `last updated 2026-04-28`.
+([ai.google.dev/gemini-api/terms](https://ai.google.dev/gemini-api/terms)) O tier **gratuito piora** o
+quadro: em serviço não pago o Google usa o conteúdo enviado e as respostas para treinar, **revisores
+humanos podem ler e anotar** entrada e saída, e os termos instruem a não enviar informação sensível.
+
+**Duas correções factuais que valem mais que o código:**
+
+1. **A premissa estava invertida.** "Parecer real" **aumenta** o atrito, não reduz: desde maio/2026 o
+   YouTube joga o rótulo de IA **para cima do player** quando o conteúdo é fotorrealista, e o esconde na
+   descrição quando é **animação** — além de detectar IA automaticamente e manter a divulgação
+   **permanente** para conteúdo de ferramentas próprias (Veo/Dream Screen).
+   ([blog.youtube](https://blog.youtube/news-and-events/improving-ai-labels-viewers-creators/)) Existe
+   pressão ativa para **banir "Made for Kids" gerado por IA**
+   ([Fairplay + AFT + MAMA + Haidt, abril/2026](https://me.mashable.com/tech/69197/youtube-ai-slop-is-a-generational-threat-child-safety-experts-warn-in-new-petition)).
+   O dono escolheu, na mesma conversa, **personagem estilizado 2D/3D 100% fictício** — o caminho de menor
+   risco. Ficou registrado o limite que não se negocia: **nenhuma imagem, semelhança ou voz de criança real
+   identificável**, e nada desenhado para escapar de detecção.
+2. **O trabalho real não era integrar o Omni — era fechar um furo.** O portão da allow-list existia desde
+   o `ADR-012` e protegia **uma única rota: a de thumbnail**. O caminho de vídeo, **~96% do custo de um
+   episódio**, atravessava **sem consulta**: trocar o provedor de vídeo por um `PROIBIDO` ou
+   `NAO-VERIFICADO` **geraria normalmente, com dinheiro real**. A política valia para a etapa barata e não
+   valia para a cara. Este arquivo já registrava a lacuna — ela foi fechada agora.
+
+**Causa-raiz, e por que ela não era óbvia:** as quatro interfaces de mídia declaravam `id` e `simulated`,
+mas **não declaravam `model`** — e a allow-list é chaveada por `(fornecedor, modelo, finalidade)`. Sem o
+modelo, **o pipeline não tinha como perguntar**. Só `ThumbnailProvider` declarava `model`, e é exatamente
+por isso que só o caminho de thumbnail tinha portão.
+
+| Camada | Arquivo |
+|---|---|
+| `ProviderIdentity` (`id` + `model`) nas quatro interfaces de mídia | `src/media/contract.ts` |
+| Os quatro provedores simulados declaram o modelo | `server/media/providers/simulated.ts` |
+| Portão no topo de `runSimulatedEpisode`, antes do ffmpeg e antes do gasto | `server/media/simulated-episode.ts` |
+| Suíte hermética + 3 testes novos do portão | `src/media/__tests__/media-render.test.ts` |
+| Decisão, alternativas e consequências | `.rebeca/decisoes/ADR-013-portao-de-fornecedor-no-caminho-de-video.md` |
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Testes do caminho de vídeo | `pnpm exec vitest run src/media/__tests__/media-render.test.ts --reporter=verbose` | ✅ **6/6** (eram 3) — `.rebeca/evidencias/portao-fornecedor-video.txt` |
+| Suíte completa (isolada, sem servidor no ar) | `pnpm exec vitest run` | ✅ **273/273 em 26 arquivos**, exit 0, 149,83 s — `.rebeca/evidencias/vitest-portao-fornecedor.txt` |
+| Build de produção | `pnpm run build` | ✅ exit 0 — 1982 módulos · css 38,71 kB · js 505,50 kB — `.rebeca/evidencias/build-portao-fornecedor.txt` |
+| **CLI real com a allow-list de PRODUÇÃO** | `node .tools/render-episodio.mjs` | ✅ passou o portão · **0 gerados**, 13 reusados · longo 1920×1080@30, Short 1080×1920 — `.rebeca/evidencias/portao-fornecedor-cli.txt` |
+| **Prova adversarial por mutação** | remover o bloco do portão e rodar os testes novos | ✅ **3 vermelhos, os 3 certos**; restaurado **byte a byte** (sha256 `CC508C94…` idêntico) — `.rebeca/evidencias/portao-fornecedor-mutacao.txt` |
+
+**Os três vermelhos da mutação, cada um pelo motivo certo:** (1) fornecedor `PROIBIDO` — o episódio
+**gerou** com o Google quando o portão sumiu; (2) canal sem allow-list — "não configurado" virou
+"liberado"; (3) cache quente — a reexecução passou como passe livre.
+
+**Duas decisões de desenho que valem registro:**
+
+1. **O portão vem antes do portão de gasto.** O `ADR-005` diz literalmente que a allow-list existe para
+   **"impedir o preço de justificar o fornecedor"**. Invertida a ordem, um provedor barato seria
+   comparado com o teto antes de alguém perguntar se pode operar naquele canal.
+2. **O portão roda mesmo quando tudo seria reusado.** É política, não gasto — e a reexecução é o caminho
+   mais comum do pipeline. Um portão que se desliga quando o cache acerta some justamente aí. Há teste
+   próprio para isso, com o cache quente de verdade.
+
+**Um teste existente mudou de motivo, e isso foi dito em voz alta.** O teste "recusa gerar com provedor
+PAGO e sem estimativa" usava um provedor falso que **não estava** na allow-list; com o portão novo ele
+seria recusado por **política**, e o teste ficaria verde **pelo motivo errado**. O provedor falso passou a
+ser `PERMITIDO` de propósito, com o comentário explicando por quê.
+
+**Achado que a implementação expôs — e que precisa de decisão do dono.** A allow-list grava a entrada de
+vídeo real como `minimax / MiniMax-H3-768P / finalidade **video**`, enquanto a etapa do pipeline se chama
+**`animacao`**. Como o casamento é exato, **trocar o provedor de vídeo para a Stack A aprovada hoje é
+recusado**. É o default conservador funcionando (recusar > permitir), mas é um bloqueio real: renomear a
+entrada ou acrescentar a finalidade `animacao` à mesma aprovação. **Não foi feito** — é dado aprovado por
+humano, e corrigir política em silêncio é pior que recusar.
+
+**Não verificado (declarado, não maquiado):**
+
+1. **A revisão adversarial do `rebeca-qa` não foi executada** sobre esta entrega.
+2. **O bloqueio do Google não passou por advogado.** A cláusula é literal e foi conferida na fonte, mas é
+   interpretação contratual — a **D11** segue aberta, e é dela que depende qualquer reabertura.
+3. **Nenhum provedor pago real foi exercitado.** O portão foi provado com provedores simulados e com um
+   provedor falso injetado; não há chave da MiniMax nesta máquina.
+4. **Não existe rota HTTP que rode o episódio** — o caminho de vídeo só é alcançável pela CLI. O portão
+   não foi exercitado por requisição, e ninguém pode disparar geração de vídeo pela interface (é a D1).
+5. **A reconciliação `video` × `animacao`** na allow-list é decisão humana pendente.
+6. **Duas sessões na mesma árvore (D9):** `server/media/paths.ts` aparece modificado no `git status` e
+   **não foi tocado por esta entrega**; `allow-list.ts`, `thumbnails.ts`, `minimax.ts`, `http.ts`,
+   `library.ts`, `vite-plugin.ts` e vários testes de mídia seguem **não commitados** de sessões
+   anteriores. **Nada foi commitado.**
+
+## O custo deixou de ser inventado, e a etapa Criar ganhou botão (2026-10-02)
+
+**O relato, com captura de tela.** O dono apontou o espaço do vídeo na tela de Revisão — *"Prévia do
+vídeo · 8:12 planejados / nenhum vídeo foi gerado ainda"*, com **"Custo real US$ 42,80"** logo abaixo — e
+disse: *"esta função nao funciona, usa ai para gerar video"*.
+
+**Ele estava certo por dois motivos, e o segundo é pior que o primeiro.**
+
+1. **Não havia função.** `RevisaoPage.tsx` tinha um `ArtSlot` com `note="nenhum vídeo foi gerado ainda"`:
+   string fixa, sem botão, sem player, sem rota. `api/media/` só tinha `episodes`, `episode` e
+   `thumbnails` — nenhuma rota gera vídeo.
+2. **O "Custo real" era inventado.** `costUsd: 42.8` é literal em `src/data/mock/db.ts:170`. O livro de
+   custos, para o mesmo conteúdo, somava **US$ 0,3956**. **108× de diferença**, com rótulo de verdade, na
+   tela em que a decisão é humana.
+
+**O que passou a existir:**
+
+| Camada | Arquivo |
+|---|---|
+| `contentSpend()` — soma real do livro, por etapa | `server/media/ledger.ts` |
+| `GET /api/media/custos?channelId=&contentId=` | `server/media/http.ts` + `api/media/custos.ts` (+ guarda em `serverless-imports.test.ts`) |
+| `fetchContentCost` / `useContentCost` (chave com canal **e** conteúdo) | `src/media/client.ts` · `src/media/hooks.ts` · `src/media/view.ts` |
+| `formatUsdCost` — não arredonda custo de API para "US$ 0,00" | `src/lib/format.ts` |
+| Tipos `Roteiro`, `RoteiroBloco`, `Cena`, `Storyboard` no conteúdo | `src/data/types.ts` |
+| `saveRoteiro` / `saveStoryboard` (por `patchArtifact`) | `src/data/client.ts` |
+| Seção **"Roteiro e cenas"** (etapa 1) com os dois `AiAction` | `src/features/revisao/RevisaoPage.tsx` |
+
+**Três decisões que valem registro:**
+
+1. **"Não sei" continua sendo diferente de "gastei zero".** Sem spec de mídia não dá para filtrar o
+   livro (ele guarda o **nome** do canal, não o id), e a resposta é `ledgerAvailable: false` com motivo.
+   Trocar isso por zero seria substituir um número inventado por outro.
+2. **Gravar roteiro descarta o storyboard.** As cenas foram derivadas de um roteiro que deixou de
+   existir; mantê-las seria estado mentiroso — o mesmo motivo pelo qual `proposeThumbnails` limpa a
+   escolha anterior. E `saveStoryboard` **recusa** sem roteiro: cena sem narração de origem é linhagem
+   inventada.
+3. **O slot do vídeo deixou de ser frase fixa.** Agora ele é derivado e nomeia o que falta — *"falta o
+   roteiro; as cenas do storyboard; um provedor de vídeo real"*. Era exatamente essa a queixa: a frase
+   não dizia **o que** faltava.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `pnpm exec tsc --noEmit` | ✅ exit 0 |
+| Testes novos (livro + roteiro/cenas) | `pnpm exec vitest run src/data/__tests__/roteiro-cenas.test.ts src/media/__tests__/media-custos.test.ts src/__tests__/serverless-imports.test.ts` | ✅ **21/21** — `.rebeca/evidencias/roteiro-cenas-custo.txt` |
+| Tela de Revisão | `pnpm exec vitest run src/features/revisao` | ✅ **15/15** (eram 11) — `.rebeca/evidencias/vitest-revisao-custo.txt` |
+| **Custo real AO VIVO** | `GET /api/media/custos?channelId=luna&contentId=luna-borboletas` | ✅ `totalUsd 0.42574`, 71 lançamentos, por etapa (`criar` 0,3749 · `revisar` 0,0344 · `thumbnail` 0,0164) |
+| Suíte completa, isolada | `pnpm exec vitest run` | ⚠️ **6 falhas** na rodada com a máquina carregada; os **3 arquivos passam 26/26** logo depois, isolados — contenção de CPU, não defeito |
+
+**Defeito real encontrado pelos próprios testes (corrigido):** a primeira versão da tela fazia
+`custoReal.data.byStage.length` sem conferir a forma da resposta. Com o servidor devolvendo outra coisa,
+o `.length` estourou **dentro do render** e a tela de Revisão ficou **em branco** — oito testes vermelhos
+por consequência. Normalizado na fronteira (`custo`, `custoDisponivel`, `custoEtapas`).
+
+**Não verificado:** nenhuma geração de vídeo real (o provedor de vídeo da Stack A continua sem adapter);
+o `docs/04` §5 não foi revisado para descrever a nova rota; a reconciliação `video` × `animacao` da
+allow-list segue pendente (é o que impede trocar o provedor de vídeo para a Stack A).
+
+## `criar-roteiro` não cabia no teto de 90 s — medido, e corrigido na configuração (2026-10-02)
+
+**O dono clicou no botão novo e recebeu erro.** *"porque nao funcionou?"* — e a resposta não podia ser
+conjectura.
+
+**Reprodução pelo HTTP, três vezes, com `curl.exe`:**
+
+```
+HTTP=504   tempo=90.241751s
+{"code":"provedor","message":"O provedor demorou mais de 90 s e a chamada foi cancelada. Nada foi
+ gerado e nada foi cobrado — … escolha um modelo mais rápido para esta função…",
+ "detail":"tempo esgotado na chamada ao provedor","retryable":true}
+```
+
+**Zero linhas** para `criar-roteiro` no livro — e **zero** linhas `(falhou)` em livro nenhum. O "Nada foi
+gerado" da tela era verdade.
+
+**A causa:** o teto de **90 000 ms** (`AI_LIMITS.requestTimeoutMs`, `src/ai/limits.ts:33`, aplicado em
+`server/ai/handler.ts:837`) contra a função **mais pesada do registro** — `criar-roteiro` pede o roteiro
+inteiro de um episódio de 8:12 numa resposta só (até 40 blocos, narração de 1.200 caracteres cada,
+`maxOutputTokens: 4000`) — apontada para o nível `criativo`, que resolve para **`gpt-6.1-sol`, um modelo
+de raciocínio**.
+
+**Correção aplicada — configuração, não código** (autorizada pelo dono nesta sessão):
+
+```
+PUT /api/ai/settings  {"functionModels":{"criar-roteiro":"openai:gpt-6-luna"}}
+→ {"changed":["função criar-roteiro: openai:gpt-6-luna"]}
+```
+
+| Verificação | Resultado |
+|---|---|
+| `criar-roteiro` com `gpt-6-luna` | ✅ **HTTP 200 em 60,03 s** · 24 blocos · 2.140 in / 7.305 out |
+| Custo real | ✅ **US$ 0,0038665**, `costSource: real`, gravado como `criar-roteiro@v1` |
+| `criar-cena` com o modelo atual (`gpt-6.1-sol`) | ✅ **HTTP 200 em 37,97 s** — **medido, não suposto**: não precisava mudar |
+
+**O que isso NÃO resolve, e é o mais importante:**
+
+1. **60 s de um teto de 90 s** — só 33% de folga. Um episódio mais longo, ou a máquina sob carga, e o
+   timeout volta. Isto é paliativo, não conserto: `criar-roteiro` é **job**, não request (D1).
+2. **`criar-cena` devolveu UMA cena para um vídeo de 492 s.** O schema permite de 1 a 60 e o modelo
+   escolheu 1. O storyboard sai inutilizável — defeito de qualidade, não de tempo.
+3. **O próprio modelo denunciou a falta do Character Sheet**, por escrito, na saída: *"Luna é a
+   personagem fictícia do canal; seus traços oficiais de cor, formato, roupa e marca não foram
+   fornecidos e dependem de referência antes da geração"*, e o `promptImagem` saiu literalmente como
+   *"Luna, the fictional channel character **whose appearance requires the missing official
+   reference**"*. O bloqueador nº 2 da animação deixou de ser afirmação do projeto e passou a ser
+   afirmação do modelo.
+
+**Não verificado:** a mensagem que o dono viu na tela (**"O provedor de IA não respondeu como
+esperado"**) vem de um ramo **diferente** (`providers.ts:176`, `catch` que não reconhece o aborto; ou
+`:189`, erro HTTP do provedor) — nas três reproduções eu caí sempre no ramo do tempo esgotado. **Não sei
+qual ramo a tentativa dele atingiu, e a razão de não saber é um defeito:** a tela esconde o campo
+`detail` (`AiComponent/AiAction.tsx` diz, em comentário, que o detalhe "não é exibido"), e é ele que
+responde *por quê*. Registro completo em `.rebeca/evidencias/roteiro-nao-funcionou.txt`.
+
+**Configuração da máquina alterada nesta sessão:** `.rebeca/segredos/llm.json` agora tem
+`functionModels: {"criar-roteiro":"openai:gpt-6-luna"}`. Desfazer é uma chamada (`…: null`). O backup
+temporário do arquivo foi **removido** para não deixar segunda cópia da chave em disco (`.rebeca/segredos/`
+é ignorado pelo git — conferido com `git check-ignore`).
+
+## **HTTP 502 em `/api/ai/generate` — a causa raiz é o teto de tokens das funções da etapa Criar (2026-10-02)**
+
+O dono colou o erro do console do navegador: `502 (Bad Gateway)` em `/api/ai/generate`. A tela esconde o
+`detail`; capturado por HTTP direto:
+
+```
+functionId=criar-cena  →  HTTP 502  em 119,97 s
+  code   : schema-invalido
+  detail : $: esperado objeto, veio undefined
+  message: A resposta não passou na validação do contrato e a correção automática não resolveu.
+```
+
+**O número que fecha a conta está no livro:** todas as falhas de `criar-cena` têm
+**`tokens_out = 6000`** — e `6000 = 2 × 3000`, porque a linha soma a tentativa que falhou com a de
+reparo. Teto batendo, dos dois lados.
+
+| Peça | Valor |
+|---|---|
+| Teto de saída pedido por `criar-cena` / `criar-roteiro` | **3000** / **4000** (`src/ai/contract.ts`) |
+| O orçamento é o menor entre função, prompt e modelo | `server/ai/handler.ts:520` → `outputTokenBudget` (`catalog.ts:459`) |
+| O que o schema **exige** | até **60 cenas**, cada uma com `promptImagem` de 1200 e `descricao` de 500 caracteres (`src/ai/schemas.ts:316`) |
+
+Um storyboard de 24 blocos, no formato que o próprio schema manda produzir, **não cabe em 3000 tokens**.
+O modelo trunca, o handler tenta reparar, trunca de novo, e sai **502** depois de ~120 s — **cobrando as
+duas tentativas**.
+
+**Duas consequências, e a segunda é pior que a primeira:**
+
+1. **Dinheiro queimado.** As três falhas custaram **US$ 0,2127** — 21% do teto diário de US$ 1,00
+   (`spentTodayUsd` foi de 0,3794 para 0,4752 durante a reprodução). Nada aproveitado.
+2. **Quando "passa", passa errado.** A execução bem-sucedida emitiu **1 cena** em 1388 tokens — o modelo
+   "cabe" no teto emitindo quase nada. **Storyboard de uma cena para um vídeo de 492 s é inútil.** O
+   mesmo teto produz o erro *e* o resultado vazio; não são dois defeitos.
+
+**Isso reclassifica o conserto anterior:** trocar `criar-roteiro` para `gpt-6-luna` resolveu o **sintoma
+de tempo** (o 200 veio com 7305 tokens somados — ele também truncou e reparou, e desta vez a segunda
+tentativa fechou o JSON). **O teto continua errado nas duas funções.**
+
+**O conserto de verdade é gerar por lotes:** `criar-cena` recebe poucos blocos e devolve poucas cenas, e a
+tela orquestra N chamadas com progresso. Aumentar o teto não resolve — dezenas de milhares de tokens
+estouram o teto por chamada (US$ 0,05) e os 90 s. Muda contrato, prompt (`criar-cena@v2`, versionado com
+hash), schema e tela — e é o mesmo problema de job longo da D1.
+
+Evidência: `.rebeca/evidencias/502-criar-cena-teto-de-tokens.txt`.
+
+## **`criar-cena` passou a trabalhar por lotes — o 502 fechado, com medição antes e depois (2026-10-02)**
+
+Conserto escolhido pelo dono entre quatro opções. O desenho estava errado, não o número: uma função que
+recebe N blocos e devolve N cenas não escala dentro de um teto de saída **e** de tempo.
+
+**O que mudou:**
+
+| Camada | Antes → Depois |
+|---|---|
+| Schema de entrada (`src/ai/schemas.ts`) | `blocos` até **40** → até **3** |
+| Schema de saída | `cenas` até **60** → até **4** |
+| Prompt | `criar-cena@v1` → **`criar-cena@v2`** (a v1 foi removida: o gerador recusa duas versões ativas do mesmo `prompt_id`) |
+| Contrato (`src/ai/contract.ts`) | `promptVersion: 2`, `maxOutputTokens: 3000 → 4000`, `purpose` declara o lote |
+| Tela (`RevisaoPage.tsx`) | `AiAction` de chamada única → **laço de lotes** com progresso em pt-BR e gravação **a cada lote** |
+
+**Medição antes × depois, a mesma função:**
+
+| | Antes | Depois |
+|---|---|---|
+| Entrada | 24 blocos numa chamada | 3 blocos por chamada |
+| Resultado | ❌ **HTTP 502** `schema-invalido` | ✅ **HTTP 200** |
+| Tempo | **119,97 s** | **23,47 s** |
+| `tokens_out` | **6000** (teto 3000, duas tentativas somadas) | **950** (teto 4000) |
+| Cenas devolvidas | **0** — e **1** quando "passava" | **3** (uma por bloco) |
+| Custo | **US$ 0,0708 por tentativa falha** | **US$ 0,0124** |
+
+Projeção para o roteiro de 24 blocos: **8 lotes ≈ US$ 0,10 e ~3 min, com 24 cenas**. Antes: US$ 0,21 por
+**zero** cenas.
+
+**Três decisões que valem registro:**
+
+1. **A tela grava a cada lote.** Se o quarto lote falhar, as três cenas já pagas estão no conteúdo em vez
+   de virarem prejuízo — mesmo princípio do manifesto de mídia, que grava os ativos pagos antes do render.
+   É também o que permite sair da tela e voltar.
+2. **`numero` é reatribuído pela posição**, não lido da resposta: dois lotes devolveriam `numero: 1` cada,
+   e chave repetida quebraria a lista na tela. Há teste para isso.
+3. **A v1 do prompt foi apagada, não arquivada ao lado.** `build_prompts.mjs:99` **falha** se o mesmo
+   `prompt_id` aparecer em dois arquivos — "só uma versão pode estar ativa". O changelog da v2 preserva a
+   história da v1.
+
+| Verificação | Resultado |
+|---|---|
+| Tipos · prompts em sincronia | ✅ `tsc` exit 0 · `build_prompts.mjs --check` OK (15 prompts) |
+| Cadeado do schema | ✅ **7/7** (`src/ai/__tests__/lote-de-cenas.test.ts`) — o lote de 24 blocos que causou o 502 é **recusado**, e o de 3 é aceito |
+| Tela por lotes | ✅ **1** teste novo: 7 blocos → **3 chamadas**, nenhuma com mais de 3 blocos; 7 cenas gravadas, `numero` 1..7 |
+| Suíte de IA + Revisão + dados | ✅ **122/122** |
+| **Ao vivo, um lote de 3 blocos** | ✅ **200 em 23,47 s · 3 cenas · 950 tokens · US$ 0,0124** — `.rebeca/evidencias/lote-ao-vivo.json` |
+
+**Não verificado:** os 8 lotes do roteiro completo em sequência (só um lote foi pago ao vivo); a
+qualidade das cenas em si — o `descricao` da v1 denunciava a falta do Character Sheet, e a v2 pede que o
+modelo **diga isso na descrição** em vez de inventar traços, o que ainda não foi conferido numa cena real
+desta versão; e o custo diário, que com 8 lotes fica perto do teto de US$ 1,00 se o modelo continuar
+sendo o de raciocínio (`gpt-6.1-sol`). Trocar `criar-cena` para `gpt-6-luna` — como foi feito em
+`criar-roteiro` — derrubaria o custo do lote de US$ 0,0124 para a casa dos milésimos; **não foi feito**,
+é decisão do dono.
 

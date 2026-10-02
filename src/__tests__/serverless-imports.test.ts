@@ -14,7 +14,7 @@
  * aceita os dois formatos, e o Vite resolve `.js` → `.ts` (por isso o dev server continua
  * funcionando). Sem este teste, o defeito só reaparece no ar — foi exatamente o que aconteceu.
  *
- * O que ele faz: percorre o grafo REAL a partir dos quatro entrypoints que a Vercel executa, segue
+ * O que ele faz: percorre o grafo REAL a partir dos entrypoints que a Vercel executa (`api/**`), segue
  * todo import relativo (estático, `import type`, `import()` dinâmico, `export ... from`) e exige
  * duas coisas de cada um: (1) extensão explícita `.js`; (2) que o arquivo de destino exista — como
  * `.ts` no repositório (o builder renomeia para `.js`).
@@ -34,12 +34,28 @@ import { describe, expect, it } from 'vitest';
  */
 const ROOT = process.cwd();
 
-/** Os quatro arquivos que a Vercel transforma em função. */
-const ENTRYPOINTS = [
-  'api/ai/generate.ts',
-  'api/ai/settings.ts',
-  'api/ai/status.ts',
-  'api/ai/test.ts',
+/** Os arquivos que a Vercel transforma em função, e o módulo compartilhado que cada um tem de alcançar. */
+const ENTRYPOINTS: ReadonlyArray<{ readonly path: string; readonly shared: string }> = [
+  { path: 'api/ai/generate.ts', shared: '../../server/ai/http.js' },
+  { path: 'api/ai/settings.ts', shared: '../../server/ai/http.js' },
+  { path: 'api/ai/status.ts', shared: '../../server/ai/http.js' },
+  { path: 'api/ai/test.ts', shared: '../../server/ai/http.js' },
+  // Rotas da mídia gerada. Entraram na guarda no mesmo dia em que foram criadas: rota nova fora do
+  // grafo conferido é rota que pode ganhar um import sem extensão e só quebrar no ar.
+  { path: 'api/media/custos.ts', shared: '../../server/media/http.js' },
+  { path: 'api/media/episode.ts', shared: '../../server/media/http.js' },
+  { path: 'api/media/episodes.ts', shared: '../../server/media/http.js' },
+  // A rota que serve a arte em si. **Faltava** — o caminho era atendido só pelo plugin do Vite, e em
+  // produção a requisição cairia no rewrite de SPA e devolveria HTML com status 200 (o navegador
+  // tentaria ler HTML como imagem). Rota que o cliente usa e que não virou função é o mesmo defeito
+  // de paridade dev↔produção, na direção contrária.
+  { path: 'api/media/file.ts', shared: '../../server/media/http.js' },
+  { path: 'api/media/thumbnails.ts', shared: '../../server/media/http.js' },
+  // Rotas de autenticação (`ADR-014`). A de `config` é pública; a de `me` exige token. As duas entram
+  // na guarda: a verificação do ID token acontece no servidor, então um import sem extensão aqui
+  // derrubaria **o login inteiro** no ar — o app publicado não abriria para ninguém.
+  { path: 'api/auth/config.ts', shared: '../../server/auth/http.js' },
+  { path: 'api/auth/me.ts', shared: '../../server/auth/http.js' },
 ];
 
 /**
@@ -86,7 +102,7 @@ function resolveTarget(file: string, specifier: string): string | null {
 function walkGraph(): { files: string[]; imports: ImportFound[] } {
   const visited = new Set<string>();
   const imports: ImportFound[] = [];
-  const queue = ENTRYPOINTS.map((entry) => join(ROOT, entry));
+  const queue = ENTRYPOINTS.map((entry) => join(ROOT, entry.path));
 
   while (queue.length > 0) {
     const file = queue.pop();
@@ -106,12 +122,12 @@ function walkGraph(): { files: string[]; imports: ImportFound[] } {
 describe('grafo executado pela Vercel (api/** e server/**)', () => {
   const { files, imports } = walkGraph();
 
-  it('alcança o grafo real a partir dos quatro entrypoints', () => {
+  it('alcança o grafo real a partir dos entrypoints da Vercel', () => {
     // Sanidade do próprio teste: se o regex parar de casar, isto falha em vez de passar vazio.
     expect(
-      ENTRYPOINTS.filter((entry) => existsSync(join(ROOT, entry))),
-      `não achei api/ai/*.ts a partir de "${ROOT}" — rode a suíte da raiz do projeto`,
-    ).toHaveLength(4);
+      ENTRYPOINTS.filter((entry) => existsSync(join(ROOT, entry.path))).map((entry) => entry.path),
+      `não achei os entrypoints de api/ a partir de "${ROOT}" — rode a suíte da raiz do projeto`,
+    ).toEqual(ENTRYPOINTS.map((entry) => entry.path));
     expect(files.length).toBeGreaterThanOrEqual(14);
     expect(imports.length).toBeGreaterThanOrEqual(35);
   });
@@ -138,11 +154,13 @@ describe('grafo executado pela Vercel (api/** e server/**)', () => {
     expect(quebrados).toEqual([]);
   });
 
-  it('os entrypoints da Vercel ficam dentro de api/ai/ e importam a camada compartilhada com .js', () => {
+  it('cada entrypoint da Vercel importa a camada compartilhada com extensão .js', () => {
     for (const entry of ENTRYPOINTS) {
-      const imports = findRelativeImports(join(ROOT, entry));
-      expect(imports.length, `${entry} não importa nada — o teste perdeu o valor`).toBeGreaterThan(0);
-      expect(imports.map((found) => found.specifier)).toContain('../../server/ai/http.js');
+      const imports = findRelativeImports(join(ROOT, entry.path));
+      expect(imports.length, `${entry.path} não importa nada — o teste perdeu o valor`).toBeGreaterThan(0);
+      expect(imports.map((found) => found.specifier), `${entry.path} não alcança ${entry.shared}`).toContain(
+        entry.shared,
+      );
     }
   });
 });

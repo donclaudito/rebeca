@@ -42,6 +42,7 @@ import {
   type RealProviderId,
 } from './catalog.js';
 import { findServerChannel, type ServerChannel } from './channels.js';
+import type { AuthenticatedIdentity } from '../../src/auth/contract.js';
 import { recordCost, spentTodayUsd, ledgerPath, ledgerDisplayPath } from './ledger.js';
 import { buildMessages, extractJson } from './prompt.js';
 import { PROVIDERS, PROVIDER_ENV, type ProviderId } from './providers.js';
@@ -417,6 +418,14 @@ interface AttemptAccumulator {
 export interface HandleOptions {
   /** Injetado nos testes para fixar o "agora" (preço de pico da DeepSeek e data do livro). */
   readonly now?: Date;
+  /**
+   * Identidade autenticada que disparou a geração (`ADR-014`).
+   *
+   * Vem da guarda (`server/auth/guard.ts`), nunca do corpo da requisição: o cliente não escolhe quem
+   * é. Serve para o livro de custos registrar **quem** gastou — sem isso o gasto é de "alguém com o
+   * endereço", que era exatamente o problema antes da autenticação.
+   */
+  readonly identity?: AuthenticatedIdentity;
   /** Injetado nos testes para observar a chamada sem rede. */
   readonly transport?: (call: {
     provider: ProviderId;
@@ -674,6 +683,7 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
           tempoMin: 0,
           promptId: `${spec.promptId}@v${spec.promptVersion}`,
           data: todayLocal(now),
+          ...(options.identity === undefined ? {} : { identidadeSub: options.identity.sub }),
         });
 
     return {
@@ -711,6 +721,7 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
         tempoMin: 0,
         promptId: `${spec.promptId}@v${spec.promptVersion} (falhou)`,
         data: todayLocal(now),
+        ...(options.identity === undefined ? {} : { identidadeSub: options.identity.sub }),
       });
     }
 
@@ -1103,7 +1114,11 @@ export function handleSaveSettings(body: unknown, now: Date = new Date()): AiSet
  * mesmas travas de custo; e o custo **real** aparece no resultado e vai para o livro — teste pago é
  * gasto como qualquer outro.
  */
-export async function handleTestProvider(body: unknown, now: Date = new Date()): Promise<ProviderTestResult> {
+export async function handleTestProvider(
+  body: unknown,
+  now: Date = new Date(),
+  identity?: AuthenticatedIdentity,
+): Promise<ProviderTestResult> {
   const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
   const provider = typeof record['provider'] === 'string' ? record['provider'].trim() : '';
 
@@ -1242,6 +1257,7 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
         tempoMin: 0,
         promptId: 'teste-de-conexao',
         data: todayLocal(now),
+        ...(identity === undefined ? {} : { identidadeSub: identity.sub }),
       });
     }
 

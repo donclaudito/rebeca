@@ -154,6 +154,67 @@ export interface ApprovalRecord {
   scheduledAt: string | null;
 }
 
+/**
+ * Um bloco do roteiro — a saída de `criar-roteiro`, gravada no conteúdo.
+ *
+ * Existe porque a etapa **Criar** não tinha onde guardar o que a IA escreve: `ContentItem` só tinha SEO
+ * e thumbnails, então "gerar o vídeo" não tinha de onde partir. Sem roteiro e sem cena, **nenhum**
+ * provedor de vídeo tem o que animar — e a tela de Revisão dizia "nenhum vídeo foi gerado ainda" sem
+ * dizer que o que faltava era o roteiro.
+ */
+export interface RoteiroBloco {
+  ordem: number;
+  tempoInicioSeg: number;
+  tempoFimSeg: number;
+  narracao: string;
+  acao: string;
+  emocao: string;
+}
+
+/**
+ * O roteiro em blocos, com **procedência**.
+ *
+ * `simulated` e `promptId` viajam junto de propósito: uma proposta gerada sem chave configurada é
+ * simulação com a mesma forma da real, e a tela precisa poder dizer isso. Roteiro simulado apresentado
+ * como roteiro real seria mentira de produto — e este é o insumo do vídeo.
+ */
+export interface Roteiro {
+  titulo: string;
+  logline: string;
+  moral: string;
+  blocos: RoteiroBloco[];
+  /** ISO 8601 do instante em que a IA respondeu. */
+  geradoEm: string;
+  promptId: string;
+  simulated: boolean;
+}
+
+/**
+ * Uma cena do storyboard — saída de `criar-cena`.
+ *
+ * É a **entrada** que o pipeline de mídia vai consumir (imagem → animação → montagem): `promptImagem` e
+ * `seed` são exatamente o que a etapa de imagem precisa para ser determinística. Enquanto isto não
+ * existir, a Fase 1 não começa.
+ */
+export interface Cena {
+  numero: number;
+  duracaoSeg: number;
+  descricao: string;
+  enquadramento: string;
+  paleta: string[];
+  promptImagem: string;
+  negativePrompt: string;
+  seed: number;
+}
+
+/** O storyboard inteiro, com a mesma procedência do roteiro que o originou. */
+export interface Storyboard {
+  cenas: Cena[];
+  geradoEm: string;
+  promptId: string;
+  simulated: boolean;
+}
+
 export interface ContentItem {
   id: string;
   channelId: ChannelId;
@@ -176,6 +237,29 @@ export interface ContentItem {
   metrics: ContentMetrics | null;
   /** Motivo da última rejeição humana — alimenta o "aprender com rejeições". */
   rejectedReason: string | null;
+  /**
+   * O episódio de mídia gerado **deste** conteúdo, quando existe.
+   *
+   * É o elo que faltava entre a etapa Criar (mídia) e o conteúdo: sem ele, o cartão "O que existe neste
+   * conteúdo" não tinha como saber se a mídia já saiu do pipeline, e **afirmava "nenhum vídeo gerado"
+   * mesmo com 13 ativos no disco**. O elo é declarado, nunca inferido: ligar conteúdo e episódio por
+   * semelhança de nome faria a tela afirmar uma linhagem que ninguém declarou.
+   *
+   * **Ausente hoje, e isso é a verdade:** o único episódio gerado (`luna-ep-001`) é o episódio sintético
+   * da Fase 0, que o próprio spec descreve como "não é conteúdo do canal". Nenhum conteúdo da biblioteca
+   * tem episódio — enquanto isso, o cartão diz exatamente isso em vez de fingir.
+   */
+  episodeId?: string;
+  /**
+   * O roteiro que a IA escreveu para este conteúdo, quando já existe.
+   *
+   * Opcional e **ausente em todo o dado de exemplo**, de propósito: nenhum conteúdo da biblioteca teve
+   * roteiro gerado, e inventar um faria a tela afirmar que a etapa Criar aconteceu. Ausente = não gerado,
+   * e a tela diz exatamente isso em vez de mostrar um roteiro de mentira.
+   */
+  roteiro?: Roteiro;
+  /** O storyboard derivado do roteiro. Mesma regra: ausente = não gerado. */
+  storyboard?: Storyboard;
   /**
    * Aprovação humana vigente. `null` = nada aprovado, ou a aprovação foi invalidada porque o
    * conteúdo mudou depois dela. Sem aprovação vigente, `assertPublishable` recusa publicar.

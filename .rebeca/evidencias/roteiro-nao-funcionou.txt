@@ -1,0 +1,115 @@
+# Por que "Escrever o roteiro com a IA" não funcionou — medição, não conjectura
+
+Data: 2026-10-02 · Ambiente: Node v26.7.0 · pnpm 11.25.0 · dev server em `http://127.0.0.1:5173`
+
+## O sintoma relatado
+
+O dono clicou em **"Escrever o roteiro com a IA"** (a função `criar-roteiro`, recém-ligada à tela de
+Revisão) e a tela respondeu:
+
+> **A IA não conseguiu responder**
+> O provedor de IA não respondeu como esperado. Nada foi gerado e nada foi publicado.
+
+## Reprodução — o mesmo pedido, pelo HTTP
+
+```
+POST http://127.0.0.1:5173/api/ai/generate
+{ "functionId": "criar-roteiro", "channelId": "luna",
+  "input": { "tema": "Borboletas e cores",
+             "angulo": "Uma borboleta pousa no nariz da Luna.",
+             "gancho": "Uma borboleta pousa no nariz da Luna.",
+             "formato": "video", "duracaoSeg": 492,
+             "idadeAlvo": "3 a 5 anos", "personagens": ["Luna"], "valores": [] },
+  "options": { "contentId": "luna-borboletas" } }
+```
+
+Resultado observado, **três vezes**, com `curl.exe`:
+
+```
+HTTP=504   tempo=90.241751s
+{"code":"provedor",
+ "message":"O provedor demorou mais de 90 s e a chamada foi cancelada. Nada foi gerado e nada foi
+            cobrado — tente de novo ou escolha um modelo mais rápido para esta função
+            (Configurações → Inteligência artificial → Modelo por função).",
+ "detail":"tempo esgotado na chamada ao provedor",
+ "retryable":true}
+```
+
+## O livro de custos: nada foi cobrado
+
+```
+$ (Select-String .rebeca/custos.csv -Pattern 'criar-roteiro' | Measure-Object).Count
+0
+$ (Select-String .rebeca/custos.csv -Pattern '(falhou)' | Measure-Object).Count
+0
+```
+
+**Zero linhas** para `criar-roteiro` — e nenhuma linha `(falhou)` em livro nenhum. O "Nada foi gerado"
+da tela é verdade, e o dinheiro **não** foi gasto.
+
+## A causa
+
+| Peça | Valor | Onde |
+|---|---|---|
+| Teto de tempo por chamada | **90 000 ms** | `src/ai/limits.ts:33` (`requestTimeoutMs`) |
+| Onde o teto é aplicado | `setTimeout(() => controller.abort(), …)` | `server/ai/handler.ts:837` |
+| Onde vira 504 | `providerError` / `AiError(…, 504)` | `server/ai/providers.ts:161-176` |
+| Nível da função | `criativo` | `src/ai/contract.ts:154` (`criar-roteiro`) |
+| Modelo que o nível `criativo` resolve | **`openai:gpt-6.1-sol`** | `GET /api/ai/status` |
+
+`criar-roteiro` é a função mais pesada do registro: pede o **roteiro inteiro** de um episódio de
+8:12 numa resposta só — `maxOutputTokens: 4000`, blocos com narração de até 1 200 caracteres,
+3 a 40 blocos (`src/ai/schemas.ts:281-313`) — e está apontada para um **modelo de raciocínio**.
+
+Para comparar, no mesmo dia e no mesmo canal, o livro mostra:
+
+| Função | Modelo | tokens_out | Resultado |
+|---|---|---|---|
+| `criar-seo` | `gpt-6-luna` (rápido) | 331 | completou |
+| `criar-thumbnail` | `gpt-6.1-sol` (raciocínio) | 1 483 | completou |
+| `revisar-qualidade` | `gpt-6.1-sol` | 522 | completou |
+| **`criar-roteiro`** | `gpt-6.1-sol` | — | **90 s e cancelado** |
+
+## O que NÃO consegui reproduzir — declarado, não maquiado
+
+A mensagem que o dono viu na tela (**"O provedor de IA não respondeu como esperado. Nada foi gerado e
+nada foi publicado."**) **não é** a mensagem do tempo esgotado. Ela é produzida em um ramo diferente:
+
+- `server/ai/providers.ts:82` — usada em `providerError('falha de rede', 504)` (linha 176), quando o
+  erro do `catch` **não** é reconhecido como `AbortError`; e
+- `server/ai/providers.ts:189` — `providerError(\`HTTP ${status} — ${safeProviderMessage(body)}\`)`,
+  quando o **provedor devolve erro HTTP** (ex.: 400 de schema inválido).
+
+Nas três reproduções eu caí **sempre** no ramo do tempo esgotado, cuja mensagem é específica e
+acionável. **Não sei qual dos dois ramos a tentativa do dono atingiu** — e a razão de não saber é um
+defeito por si só:
+
+> **A tela esconde o `detail`.** `src/components/ai/AiAction.tsx` mostra `mutation.error.message` e o
+> comentário diz, com todas as letras, que "o detalhe técnico fica em `detail` e não é exibido". É
+> exatamente o campo que responde *por que não funcionou*: `'tempo esgotado na chamada ao provedor'`,
+> `'HTTP 400 — invalid_request_error: …'`. Sem ele, o diagnóstico do dono e o meu param no mesmo lugar.
+
+## Caminhos, em ordem de custo
+
+1. **Imediato, sem código (recomendado):** apontar `criar-roteiro` para um modelo mais rápido em
+   **Configurações → Inteligência artificial → Modelo por função** (`gpt-6-luna` no lugar de
+   `gpt-6.1-sol`). É a função `functionModels` do `ADR-007`, já implementada e testada. **Não foi
+   feito aqui**: mexer na configuração de IA da máquina do dono é decisão dele.
+2. **Pequeno, em código:** reduzir o escopo da função (menos blocos por resposta, ou gerar por partes)
+   para caber no teto de 90 s. Muda o contrato da função e o prompt — exige revisão do
+   `rebeca-prompt-eng`.
+3. **Estrutural (D1):** `criar-roteiro` não deveria ser uma chamada HTTP síncrona. Um roteiro de
+   episódio longo é **job**, não request — é o mesmo problema que a geração de vídeo tem.
+4. **Não recomendado:** subir `AI_LIMITS.requestTimeoutMs`. O teto existe para caber em função
+   serverless, e `src/ai/limits.ts` está em código justamente para que mudá-lo exija revisão.
+
+## Evidência dos testes (mesma sessão)
+
+| Verificação | Resultado |
+|---|---|
+| Suíte completa | ⚠️ **6 falhas em 3 arquivos** — todas por tempo, com a máquina sob carga |
+| Os 3 arquivos, em isolamento | ✅ **26/26**, 32,81 s — `.rebeca/evidencias/vitest-falhas-suite.txt` |
+
+As 6 falhas foram **contenção de CPU**, não defeito: os mesmos três arquivos passam 26/26 isolados
+minutos depois. É o padrão que este repositório já documenta três vezes (6 processadores lógicos,
+`maxWorkers: 4`, suíte de 29 arquivos, com o dev server e o navegador do dono no ar ao mesmo tempo).

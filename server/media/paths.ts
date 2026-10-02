@@ -119,6 +119,7 @@ const STAGE_DIR: Readonly<Record<MediaStage, string>> = {
   musica: 'musica',
   render: 'render',
   legenda: 'render',
+  thumbnail: 'thumbnail',
 };
 
 const EXT = /^[a-z0-9]{2,5}$/;

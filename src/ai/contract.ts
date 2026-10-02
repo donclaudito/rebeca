@@ -162,13 +162,30 @@ export const AI_FUNCTIONS: Record<AiFunctionId, AiFunctionSpec> = {
   'criar-cena': {
     id: 'criar-cena',
     label: 'Gerar o storyboard',
-    purpose: 'Quebra o roteiro em cenas com enquadramento, paleta e prompt de imagem por cena.',
+    /*
+     * **Por lote, e isso é contrato, não preferência.**
+     *
+     * A v1 recebia o roteiro inteiro (`blocos` até 40) e devolvia o storyboard inteiro (`cenas` até 60).
+     * Medido em 2026-10-02: com o teto de saída, um roteiro de 24 blocos **não cabia**. O modelo truncava
+     * o JSON (a linha do livro registrou `tokens_out: 6000` = `2 × 3000`, as duas tentativas somadas), a
+     * correção automática truncava de novo, e a resposta era **HTTP 502 `schema-invalido`** depois de
+     * ~120 s. Três falhas custaram US$ 0,21 e não produziram nada.
+     *
+     * Pior: quando "passava", passava com **uma cena** para um vídeo de 492 s — o modelo caber no teto
+     * emitindo quase nada. O mesmo teto produzia o erro e o resultado vazio.
+     *
+     * Agora a entrada é de 1 a 3 blocos e a saída de 1 a 4 cenas (`src/ai/schemas.ts`), e **quem encadeia
+     * os lotes é a tela**. Cada resposta cabe no orçamento com folga para o raciocínio do modelo, e
+     * nenhuma chamada chega perto do teto de 90 s.
+     */
+    purpose:
+      'Quebra UM LOTE de até 3 blocos do roteiro em cenas, com enquadramento, paleta e prompt de imagem. A tela encadeia os lotes do episódio.',
     stage: 'criar',
     promptId: 'criar-cena',
-    promptVersion: 1,
+    promptVersion: 2,
     tier: 'criativo',
     outputSchema: 'criar-cena',
-    maxOutputTokens: 3000,
+    maxOutputTokens: 4000,
     effect: 'propoe-rascunho',
     requiresHumanApproval: true,
     childChannelOnly: false,

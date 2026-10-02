@@ -15,16 +15,13 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, routeAiRequest, sendJson } from '../../server/ai/http.js';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  try {
-    const body = await readJsonBody(req);
-    const result = await routeAiRequest('POST', '/api/ai/generate', body);
-    sendJson(res, result.status, result.body);
-  } catch (error) {
-    // `readJsonBody` pode lançar antes de existir rota; nada aqui carrega segredo.
-    const message =
-      error instanceof Error && error.name === 'AiError'
-        ? error.message
-        : 'Não foi possível ler o pedido. Nada foi gerado.';
-    sendJson(res, 400, { code: 'entrada-invalida', message, retryable: false });
-  }
+  /*
+   * O corpo é passado como **função**, não como valor: assim ele só é lido depois de a guarda de
+   * identidade aprovar. Lendo antes, uma requisição sem credencial recebia 400 (corpo inválido) em vez
+   * de 401, e o processo analisava corpo de quem não se identificou — defeito 1 do `QA-014`.
+   */
+  const result = await routeAiRequest('POST', '/api/ai/generate', () => readJsonBody(req), {
+    authorization: req.headers.authorization ?? null,
+  });
+  sendJson(res, result.status, result.body);
 }

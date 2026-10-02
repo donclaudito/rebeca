@@ -71,6 +71,14 @@ documento e código. Nenhum arquivo repete a lista de etapas à mão.
 
 Toda rota de canal carrega o `channelId` na URL — link sem canal é bug (skill `rebeca-react`, §2).
 
+> **Acesso (desde o `ADR-014`):** nenhuma destas telas abre sem sessão autorizada. Sem login, o app
+> mostra a tela de entrada no lugar das rotas — e **não** existe rota `/login`: o portão é o que se
+> renderiza, não um endereço a mais (endereço de login é um endereço a mais para contornar). Das rotas
+> de API, **uma** é pública — `GET /api/auth/config`, que devolve o Client ID (público por definição) —
+> e as demais exigem `Authorization: Bearer <ID token do Google>`: `GET /api/auth/me` prova a
+> identidade **sem** exigir que ela já esteja na lista de acesso (é por ela que a primeira conta se
+> autoriza), e as de IA e de mídia exigem identidade **e** autorização.
+
 ## 3. Funções declaradas nos modelos
 
 ### 3.1 Cartão de status do canal (modelo 1, canto superior direito)

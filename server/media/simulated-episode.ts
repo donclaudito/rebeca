@@ -3,20 +3,25 @@
  *
  * A ordem das operações **é** o desenho, e é a mesma que a Fase 1 vai usar:
  *
- *   spec do canal → **portões de gasto (antes de gerar)** → por cena: imagem + voz medida →
- *   plano de quadros → clipes → timeline → trilha → voz alinhada → manifesto → render (longo, Short,
- *   legenda) → custo real por ativo → **portões de gasto (com o custo medido)** → relatório
+ *   spec do canal → **portão de fornecedor (allow-list do canal)** → **portões de gasto (antes de
+ *   gerar)** → por cena: imagem + voz medida → plano de quadros → clipes → timeline → trilha → voz
+ *   alinhada → manifesto → render (longo, Short, legenda) → custo real por ativo → **portões de gasto
+ *   (com o custo medido)** → relatório
  *
- * Três decisões que valem explicação:
+ * Quatro decisões que valem explicação:
  *
- * 1. **Os portões vêm antes de gerar.** Trava que só descobre o gasto depois de pagar não é trava. Na Fase
- *    0 o custo estimado é `0` (ffmpeg local não cobra), então os portões passam — mas eles estão no
- *    caminho e são exercitados por teste com custo injetado, para não virarem código morto até o dia em
- *    que passam a importar.
- * 2. **Antes de chamar qualquer provedor, procura-se no manifesto.** Reusar é o comportamento normal de
+ * 1. **O portão de fornecedor vem primeiro, e antes do ffmpeg.** Ele é política, não gasto: pergunta se
+ *    o provedor pode operar neste canal antes de qualquer outra coisa. Estava faltando neste caminho —
+ *    protegia só a rota de thumbnail — e é o que impede um fornecedor vedado no canal infantil de gerar
+ *    aqui, que é onde está ~96% do custo do episódio.
+ * 2. **Os portões de gasto também vêm antes de gerar.** Trava que só descobre o gasto depois de pagar não
+ *    é trava. Na Fase 0 o custo estimado é `0` (ffmpeg local não cobra), então os portões passam — mas
+ *    eles estão no caminho e são exercitados por teste com custo injetado, para não virarem código morto
+ *    até o dia em que passam a importar.
+ * 3. **Antes de chamar qualquer provedor, procura-se no manifesto.** Reusar é o comportamento normal de
  *    uma reexecução; gerar de novo só quando o hash mudou. É o que faz a segunda execução não criar
  *    arquivo nem linha de custo.
- * 3. **O custo do episódio sai do livro, não de uma soma em memória.** Assim o número que o portão compara
+ * 4. **O custo do episódio sai do livro, não de uma soma em memória.** Assim o número que o portão compara
  *    com o teto é o mesmo que o negócio vai ler depois — inclusive quando parte dos ativos veio de execução
  *    anterior.
  *
@@ -38,6 +43,7 @@ import type {
   VideoRequest,
 } from '../../src/media/contract.js';
 import { assertEpisodeWithinBudget, LONG_RENDER_SPEC, MEDIA_LIMITS, MediaBudgetError } from '../../src/media/limits.js';
+import { assertProviderAllowed } from './allow-list.js';
 import { assertSpecMatchesCode, loadChannelMediaSpec, type ChannelMediaSpec } from './channel-spec.js';
 import { assertFfmpegAvailable, probeMedia, type LoudnessMeasurement, type LoudnormAnalysis, type MediaProbe } from './ffmpeg.js';
 import { assertMonthlyBudgetForNow, episodeSpendUsd, ledgerPath, ledgerRowCount, recordAssetCost } from './ledger.js';
@@ -288,6 +294,41 @@ export async function runSimulatedEpisode(
   // Na Fase 0 o pipeline roda no canal do próprio episódio. Divergir daqui é o cenário de vazamento que os
   // testes provocam — e que `paths.episodeDir` recusa.
   const scope = spec.channelId;
+
+  // --- PORTÃO DE FORNECEDOR (antes de tudo, inclusive do ffmpeg) --------------
+  /*
+   * Fecha o furo que o estado registrava em 2026-10-01: o portão da allow-list existia desde o gerador
+   * de thumbnail e protegia **só** aquela rota. O caminho de vídeo — que é ~96% do custo de um episódio
+   * — atravessava sem consulta nenhuma, e um fornecedor `PROIBIDO` ou `NAO-VERIFICADO` geraria
+   * normalmente, com dinheiro real. Era a política valendo para a etapa barata e não valendo para a cara.
+   *
+   * Ele vem **antes** do portão de custo, e a ordem é decisão, não acaso: o `ADR-005` diz literalmente
+   * que a allow-list existe para "impedir o preço de justificar o fornecedor". Invertida a ordem, um
+   * provedor barato seria comparado com o teto antes de alguém perguntar se ele pode operar neste canal.
+   *
+   * Roda **mesmo quando tudo seria reusado**. A checagem é de política, não de gasto, e um portão que
+   * se desliga quando o cache acerta é um portão que se desliga justamente na reexecução — que é o
+   * caminho mais comum do pipeline.
+   *
+   * A `finalidade` é o nome da **etapa** (`imagem`, `animacao`, `voz`, `musica`), porque é assim que a
+   * allow-list do canal está escrita hoje. Divergência conhecida e declarada: a entrada de vídeo real
+   * (`minimax` / `MiniMax-H3-768P`) está gravada com a finalidade `video`, não `animacao` — logo, trocar
+   * o provedor de vídeo hoje é **recusado** até essa reconciliação, que é decisão humana sobre arquivo
+   * aprovado por humano. Recusar é o default conservador do `ADR-005`; passar por cima seria o furo.
+   */
+  for (const alvo of [
+    { etapa: 'imagem', provider: providers.image },
+    { etapa: 'animacao', provider: providers.video },
+    { etapa: 'voz', provider: providers.tts },
+    { etapa: 'musica', provider: providers.music },
+  ] as const) {
+    assertProviderAllowed({
+      channelId: spec.channelId,
+      provider: alvo.provider.id,
+      model: alvo.provider.model,
+      purpose: alvo.etapa,
+    });
+  }
 
   assertFfmpegAvailable();
 

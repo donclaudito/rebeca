@@ -1,125 +1,242 @@
-data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por,tokens_in,tokens_out,prompt_id
+data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min,aprovado_por,tokens_in,tokens_out,prompt_id,identidade_sub
 # Registro obrigatorio de custo real por ativo gerado.
 # Regra do projeto: nenhuma decisao de conteudo esta completa sem o custo real.
 # Preencha uma linha por geracao paga (imagem, voz, musica, render, tokens de LLM).
 # "aprovado_por" e o humano que aprovou o gasto/publicacao; vazio = ainda nao aprovado.
 # Exemplo (nao e dado real, e apenas formato):
 # 2026-01-15,Luna e o Jardim das Cores,Luna e as Borboletas Coloridas,imagem,<provedor>,<modelo>,imagem,24,1.20,,humano
-2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-09-30,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1198,0.000227,0.000,humano:teto-aprovado,929,269,criar-seo@v1
-2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-09-30,Luna e o Jardim das Cores,—,criar,openai,gpt-6-luna,tokens,1240,0.000254,0.000,humano:teto-aprovado,916,324,criar-seo@v1
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,Arquivo Curioso,arq-ceu-laranja,criar,openai,gpt-6-luna,tokens,1259,0.000257,0.000,humano:teto-aprovado,932,327,criar-seo@v1
-2026-10-01,Arquivo Curioso,—,criar,openai,gpt-6.1-sol,tokens,1902,0.011228,0.000,humano:teto-aprovado,974,928,identidade-personagem@v1
-2026-10-01,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1690,0.009572,0.000,humano:teto-aprovado,916,774,pesquisar-tendencia@v1
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,68,0.000040,0.000,humano:teto-aprovado,46,22,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000028,0.000,humano:teto-aprovado,46,12,teste-de-conexao
-2026-10-01,Luna e o Jardim das Cores,luna-estrelas,medir,openai,gpt-6.1-sol,tokens,1333,0.005450,0.000,humano:teto-aprovado,985,348,medir-analise@v1
-2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1264,0.000249,0.000,humano:teto-aprovado,958,306,criar-seo@v1
-2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1724,0.008328,0.000,humano:teto-aprovado,1114,610,revisar-qualidade@v1
-2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1651,0.007150,0.000,humano:teto-aprovado,1170,481,revisar-infantil@v1
-2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1342,0.000300,0.000,humano:teto-aprovado,928,414,criar-seo@v1
-2026-10-01,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,1144,0.000201,0.000,humano:teto-aprovado,927,217,criar-seo@v1
-2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000028,0.000,humano:teto-aprovado,46,12,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1342,0.000300,0.000,humano:teto-aprovado,928,414,criar-seo@v1
-2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1274,0.000266,0.000,humano:teto-aprovado,928,346,criar-seo@v1
-2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,revisar,openai,gpt-6.1-sol,tokens,1649,0.007818,0.000,humano:teto-aprovado,1084,565,revisar-qualidade@v1
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.179,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.167,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.151,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.219,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.170,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.193,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.010,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,render:render-v1#f41dc259#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,render:render-v1#f41dc259#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,legenda:render-v1#f41dc259#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.010,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.298,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.199,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.189,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.009,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.203,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.167,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.175,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.129,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.112,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.114,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.070,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.107,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.110,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-estrelas,medir,openai,gpt-6.1-sol,tokens,1470,0.007292,0.000,humano:teto-aprovado,926,544,monetizacao-veredito@v1
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.220,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.199,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.180,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.009,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado
-2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2318,0.015868,0.000,humano:teto-aprovado,914,1404,criar-thumbnail@v1
-2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,63,0.000034,0.000,humano:teto-aprovado,46,17,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao
-2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2407,0.016758,0.000,humano:teto-aprovado,914,1493,criar-thumbnail@v1
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-09-30,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1198,0.000227,0.000,humano:teto-aprovado,929,269,criar-seo@v1,
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-09-30,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-09-30,Luna e o Jardim das Cores,—,criar,openai,gpt-6-luna,tokens,1240,0.000254,0.000,humano:teto-aprovado,916,324,criar-seo@v1,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,Arquivo Curioso,arq-ceu-laranja,criar,openai,gpt-6-luna,tokens,1259,0.000257,0.000,humano:teto-aprovado,932,327,criar-seo@v1,
+2026-10-01,Arquivo Curioso,—,criar,openai,gpt-6.1-sol,tokens,1902,0.011228,0.000,humano:teto-aprovado,974,928,identidade-personagem@v1,
+2026-10-01,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1690,0.009572,0.000,humano:teto-aprovado,916,774,pesquisar-tendencia@v1,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,68,0.000040,0.000,humano:teto-aprovado,46,22,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000028,0.000,humano:teto-aprovado,46,12,teste-de-conexao,
+2026-10-01,Luna e o Jardim das Cores,luna-estrelas,medir,openai,gpt-6.1-sol,tokens,1333,0.005450,0.000,humano:teto-aprovado,985,348,medir-analise@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1264,0.000249,0.000,humano:teto-aprovado,958,306,criar-seo@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1724,0.008328,0.000,humano:teto-aprovado,1114,610,revisar-qualidade@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1651,0.007150,0.000,humano:teto-aprovado,1170,481,revisar-infantil@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1342,0.000300,0.000,humano:teto-aprovado,928,414,criar-seo@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,1144,0.000201,0.000,humano:teto-aprovado,927,217,criar-seo@v1,
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000028,0.000,humano:teto-aprovado,46,12,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1342,0.000300,0.000,humano:teto-aprovado,928,414,criar-seo@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,criar,openai,gpt-6-luna,tokens,1274,0.000266,0.000,humano:teto-aprovado,928,346,criar-seo@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-arcoiris,revisar,openai,gpt-6.1-sol,tokens,1649,0.007818,0.000,humano:teto-aprovado,1084,565,revisar-qualidade@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.179,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.167,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.151,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.219,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.170,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.193,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.010,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,render:render-v1#f41dc259#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,render:render-v1#f41dc259#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.923,humano:teto-aprovado,0,0,legenda:render-v1#f41dc259#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.010,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.298,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.199,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.189,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.009,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.994,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.203,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.167,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.175,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.901,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.129,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.112,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.114,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.578,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.070,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.107,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.110,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,0.571,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-estrelas,medir,openai,gpt-6.1-sol,tokens,1470,0.007292,0.000,humano:teto-aprovado,926,544,monetizacao-veredito@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,imagem:criar-cena@v1#657ac48d#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,voz:criar-cena@v1#0ec2279e#10276ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,imagem:criar-cena@v1#713a2dce#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#f85f9b7b#8069ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,imagem,simulado-imagem,ffmpeg-lavfi-drawtext-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,imagem:criar-cena@v1#b9e9404f#0ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,voz,simulado-voz,ffmpeg-tom-1,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,voz:criar-cena@v1#3ed54c26#8690ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.220,humano:teto-aprovado,0,0,animacao:criar-cena@v1#b0a60c3f#10267ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.199,humano:teto-aprovado,0,0,animacao:criar-cena@v1#98edc8a9#8067ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,animacao,simulado-animacao,ffmpeg-zoompan-1,tokens,0,0.000000,0.180,humano:teto-aprovado,0,0,animacao:criar-cena@v1#c765a0d8#8700ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,musica,simulado-musica,ffmpeg-tom-tremolo-1,tokens,0,0.000000,0.009,humano:teto-aprovado,0,0,musica:criar-cena@v1#25595d3f#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,libx264-crf18-loudnorm2pass,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,render,ffmpeg,crop-vertical-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,render:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-ep-001,legenda,ffmpeg,srt-1,tokens,0,0.000000,1.114,humano:teto-aprovado,0,0,legenda:render-v1#f7fd0d55#27033ms#simulado,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2318,0.015868,0.000,humano:teto-aprovado,914,1404,criar-thumbnail@v1,
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,63,0.000034,0.000,humano:teto-aprovado,46,17,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2407,0.016758,0.000,humano:teto-aprovado,914,1493,criar-thumbnail@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2530,0.017988,0.000,humano:teto-aprovado,914,1616,criar-thumbnail@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2577,0.018458,0.000,humano:teto-aprovado,914,1663,criar-thumbnail@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2470,0.017388,0.000,humano:teto-aprovado,914,1556,criar-thumbnail@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1219,0.000226,0.000,humano:teto-aprovado,958,261,criar-seo@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2296,0.015648,0.000,humano:teto-aprovado,914,1382,criar-thumbnail@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1512,0.005760,0.000,humano:teto-aprovado,1170,342,revisar-infantil@v1,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2554,0.018228,0.000,humano:teto-aprovado,914,1640,criar-thumbnail@v1,
+2026-10-01,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,67,0.000019,0.000,humano:teto-aprovado,46,21,teste-de-conexao,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2496,0.017648,0.000,humano:teto-aprovado,914,1582,criar-thumbnail@v1,
+2026-10-01,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-01,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2442,0.017108,0.000,humano:teto-aprovado,914,1528,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.024,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#61bff756#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#86f02848#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#94f719ac#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#c0a3d297#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1303,0.000268,0.000,humano:teto-aprovado,958,345,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2342,0.016108,0.000,humano:teto-aprovado,914,1428,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1345,0.000289,0.000,humano:teto-aprovado,958,387,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2523,0.017918,0.000,humano:teto-aprovado,914,1609,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#eabde5fd#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#1625f6a0#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#41dbeb2c#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-1,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#68a8781e#0ms#simulado,
+2026-10-02,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2571,0.018398,0.000,humano:teto-aprovado,914,1657,criar-thumbnail@v1,
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,84,0.000059,0.000,humano:teto-aprovado,46,38,teste-de-conexao,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2320,0.015888,0.000,humano:teto-aprovado,914,1406,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2438,0.017068,0.000,humano:teto-aprovado,914,1524,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2342,0.016108,0.000,humano:teto-aprovado,914,1428,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2291,0.015598,0.000,humano:teto-aprovado,914,1377,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2391,0.016598,0.000,humano:teto-aprovado,914,1477,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.012,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ec84abf9#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ac36fd44#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#751f1044#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#6f20913f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ec84abf9#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ac36fd44#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#751f1044#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#6f20913f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.007,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#c1d4d0fa#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#3ed48e61#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.006,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#0ead93c4#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.010,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#815074f8#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1224,0.000229,0.000,humano:teto-aprovado,958,266,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2467,0.017358,0.000,humano:teto-aprovado,914,1553,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2369,0.016378,0.000,humano:teto-aprovado,914,1455,criar-thumbnail@v1,
+2026-10-02,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,67,0.000019,0.000,humano:teto-aprovado,46,21,teste-de-conexao,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,1969,0.011754,0.000,humano:teto-aprovado,992,977,identidade-personagem@v1,
+2026-10-02,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,62,0.000017,0.000,humano:teto-aprovado,46,16,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,
+2026-10-02,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1835,0.011022,0.000,humano:teto-aprovado,916,919,pesquisar-tendencia@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1255,0.000244,0.000,humano:teto-aprovado,958,297,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#fec0aa17#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#efd91909#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#42c5b105#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#cdbc555f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#e9776378#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b27c6618#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b8a6723f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.003,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#13624b89#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2384,0.016528,0.000,humano:teto-aprovado,914,1470,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.008,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#7b9da0af#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#0571dbd7#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.004,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#cc44d597#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.005,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#cad96e45#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#e9776378#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b27c6618#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b8a6723f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#13624b89#0ms#simulado,
+2026-10-02,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000014,0.000,humano:teto-aprovado,46,12,teste-de-conexao,
+2026-10-02,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,
+2026-10-02,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1843,0.011102,0.000,humano:teto-aprovado,916,927,pesquisar-tendencia@v1,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,1948,0.011544,0.000,humano:teto-aprovado,992,956,identidade-personagem@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2452,0.017208,0.000,humano:teto-aprovado,914,1538,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#5d59f349#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.002,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ce6364f1#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#73915495#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.001,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#ee13c66a#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#e9776378#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b27c6618#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b8a6723f#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,simulado-thumbnail,ffmpeg-lavfi-drawtext-thumb-2,tokens,0,0.000000,0.000,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#13624b89#0ms#simulado,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004070,0.219,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b6ab6873#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004095,0.217,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#762c15b4#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004125,0.227,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#cc248ae8#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004105,0.265,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#19d2fd51#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.003525,0.199,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#d2957dc8#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004080,0.316,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#b03bc501#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.003445,0.327,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#0dc58cd9#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,1166,0.000212,0.000,humano:teto-aprovado,927,239,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004105,0.208,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#893f9feb#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.003440,0.223,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#24fddfc2#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004135,0.212,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#fde7e765#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-ep-001,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.003525,0.197,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#915c4a33#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,thumbnail,openai,gpt-image-2.5-sunburst,tokens,0,0.004115,0.207,humano:teto-aprovado,0,0,thumbnail:criar-thumbnail@v1#31b90c78#0ms#real,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6.1-sol,tokens,2648,0.019184,0.000,humano:teto-aprovado,912,1736,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6.1-sol,tokens,2398,0.016684,0.000,humano:teto-aprovado,912,1486,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6.1-sol,tokens,2595,0.018654,0.000,humano:teto-aprovado,912,1683,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1636,0.007448,0.000,humano:teto-aprovado,1114,522,revisar-qualidade@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,revisar,openai,gpt-6.1-sol,tokens,1512,0.005760,0.000,humano:teto-aprovado,1170,342,revisar-infantil@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6-luna,tokens,1289,0.000261,0.000,humano:teto-aprovado,958,331,criar-seo@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-borboletas,criar,openai,gpt-6.1-sol,tokens,2397,0.016658,0.000,humano:teto-aprovado,914,1483,criar-thumbnail@v1,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6-luna,tokens,9445,0.003867,0.000,humano:teto-aprovado,2140,7305,criar-roteiro@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,4298,0.001738,0.000,humano:teto-aprovado,1028,3270,criar-roteiro@v1,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,4136,0.019376,0.000,humano:teto-aprovado,2748,1388,criar-cena@v1,
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6.1-sol,tokens,11414,0.070828,0.000,humano:teto-aprovado,5414,6000,criar-cena@v1 (falhou),
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6.1-sol,tokens,11414,0.070828,0.000,humano:teto-aprovado,5414,6000,criar-cena@v1 (falhou),
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6-luna,tokens,4675,0.001919,0.000,humano:teto-aprovado,1045,3630,criar-roteiro@v1,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,11546,0.071092,0.000,humano:teto-aprovado,5546,6000,criar-cena@v1 (falhou),
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,4180,0.001679,0.000,humano:teto-aprovado,1028,3152,criar-roteiro@v1,
+2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,2394,0.012388,0.000,humano:teto-aprovado,1444,950,criar-cena@v2,

@@ -320,9 +320,21 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
         formato: str({ enum: FORMAT }),
         personagens: arr(str({ maxLength: 80 }), { maxItems: 10 }),
         estiloVisual: str({ maxLength: 300 }),
+        /*
+         * **Lote, não episódio.**
+         *
+         * Era `maxItems: 40` — o roteiro inteiro numa chamada. Medido em 2026-10-02: com o teto de saída
+         * de 3000 tokens da função, o modelo truncava no meio do JSON, o handler tentava reparar,
+         * truncava de novo, e a resposta era **HTTP 502 `schema-invalido`** depois de ~120 s, com a linha
+         * do livro somando `2 × 3000` tokens. Quando "passava", passava com **uma cena** para um vídeo de
+         * 492 s: o mesmo teto produzia o erro e o resultado vazio.
+         *
+         * O teto de 3 blocos é o contrato: cada chamada devolve no máximo 4 cenas, o que cabe no
+         * orçamento de saída com folga para o raciocínio do modelo. Quem orquestra os lotes é a tela.
+         */
         blocos: arr(
           obj({ ordem: int(), narracao: str({ maxLength: 1200 }), acao: str({ maxLength: 600 }) }),
-          { minItems: 1, maxItems: 40 },
+          { minItems: 1, maxItems: 3 },
         ),
       }
     ),
@@ -341,7 +353,9 @@ export const FUNCTION_SCHEMAS: Record<string, FunctionSchema> = {
               seed: int({ minimum: 0, maximum: 2147483647 }),
             }
           ),
-          { minItems: 1, maxItems: 60 },
+          // Um lote de 3 blocos devolve 3 cenas; 4 é a folga para uma cena de transição. O teto de 60
+          // (episódio inteiro) era o que estourava o orçamento de saída.
+          { minItems: 1, maxItems: 4 },
         ),
       }
     ),

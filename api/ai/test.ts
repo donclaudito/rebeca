@@ -13,15 +13,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readJsonBody, routeAiRequest, sendJson } from '../../server/ai/http.js';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  try {
-    const body = await readJsonBody(req);
-    const result = await routeAiRequest('POST', '/api/ai/test', body);
-    sendJson(res, result.status, result.body);
-  } catch (error) {
-    const message =
-      error instanceof Error && error.message
-        ? error.message.slice(0, 300)
-        : 'Não foi possível ler o pedido de teste.';
-    sendJson(res, 400, { code: 'entrada-invalida', message, retryable: false });
-  }
+  // Corpo como função: lido **depois** da guarda (defeito 1 do `QA-014`).
+  const result = await routeAiRequest('POST', '/api/ai/test', () => readJsonBody(req), {
+    authorization: req.headers.authorization ?? null,
+  });
+  sendJson(res, result.status, result.body);
 }

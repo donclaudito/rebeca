@@ -244,6 +244,9 @@ describe('registro de custo no livro real (.rebeca/custos.csv via recordCost)', 
       'tokens_in',
       'tokens_out',
       'prompt_id',
+      // Acrescentada pelo `ADR-014`: **quem** disparou a geração paga. Entrou no fim, de forma
+      // aditiva, para não renomear nem reordenar nenhuma coluna antiga.
+      'identidade_sub',
     ]);
     expect(rows).toHaveLength(1);
 
@@ -256,6 +259,12 @@ describe('registro de custo no livro real (.rebeca/custos.csv via recordCost)', 
     expect(row[header.indexOf('custo_usd')]).toBe('0.000000');
     expect(row[header.indexOf('tokens_in')]).toBe('0');
     expect(row[header.indexOf('tempo_min')]).toBe('0.020');
+    /*
+     * O caminho do pipeline (CLI/ffmpeg) **não tem sessão**, e é assim que fica: célula vazia.
+     * Vazio significa "não sei quem", nunca "ninguém" — preencher com um valor inventado faria o
+     * livro responder errado à pergunta que ele existe para responder.
+     */
+    expect(row[header.indexOf('identidade_sub')]).toBe('');
     // Identidade do ativo no campo de texto: o cabeçalho não tem coluna de hash nem de duração.
     expect(row[header.indexOf('prompt_id')]).toContain('voz:criar-cena@v1#deadbeef#3714ms#simulado');
   });

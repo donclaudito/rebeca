@@ -16,6 +16,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { AiError, type AiErrorBody } from '../../src/ai/contract.js';
+import { authorizeRequest, type AuthContext } from '../auth/guard.js';
 import { handleGenerate, handleGetSettings, handleSaveSettings, handleStatus, handleTestProvider, redact } from './handler.js';
 
 /**
@@ -90,15 +91,51 @@ function toErrorResponse(error: unknown): RouteResult {
 }
 
 /**
- * Roteia a chamada. É o único ponto que decide o que existe e o que não existe na API de IA.
+ * Leitura do corpo da requisição, **adiada**.
+ *
+ * Por que uma função e não o corpo já lido: quem lê o corpo decide a resposta quando ele é inválido.
+ * Com a leitura feita **antes** da guarda (como estava), uma requisição **sem credencial nenhuma**
+ * recebia `400 entrada-invalida` — o contrato publicado deixava de ser "401 sem identidade" e passava
+ * a depender do corpo, e quem não se identificou ainda fazia o processo alocar e analisar até 256 KB.
+ * Achado do `rebeca-qa` (`QA-014`), com reprodução: `src/auth/__tests__/qa-refutacao.test.tsx`.
+ *
+ * Adiando a leitura, a guarda é a primeira coisa que roda em **qualquer** caminho, e o corpo só é
+ * tocado depois de a identidade estar provada e autorizada.
+ */
+export type CorpoDaRequisicao = () => Promise<unknown>;
+
+/**
+ * Opções do roteador de IA.
+ *
+ * `authorization` é o header cru da requisição; a guarda (`../auth/guard.js`) decide o que fazer com
+ * ele. `now` e `verify` existem para os testes fixarem o relógio e verificarem token sem rede.
+ */
+export interface AiRouteOptions extends AuthContext {
+  readonly now?: Date;
+}
+
+/** Rotas desta API que **gastam dinheiro** — recebem o limite de uso mais apertado. */
+const ROTAS_QUE_GASTAM: readonly string[] = ['/api/ai/generate', '/api/ai/test'];
+
+/**
+ * Roteia a chamada. É o único ponto que decide o que existe e o que não existe na API de IA — e,
+ * desde o `ADR-014`, também o único ponto em que **toda** rota desta API passa pela guarda de
+ * identidade. Ela vem antes do roteamento **e antes de ler o corpo**: uma rota nova escrita amanhã
+ * nasce protegida por estar atrás desta linha, e não por alguém lembrar de protegê-la.
  */
 export async function routeAiRequest(
   method: string,
   pathname: string,
-  body: unknown,
-  options: { now?: Date } = {},
+  lerCorpo: CorpoDaRequisicao,
+  options: AiRouteOptions = {},
 ): Promise<RouteResult> {
   try {
+    const auth = await authorizeRequest({
+      ...options,
+      costly: ROTAS_QUE_GASTAM.includes(pathname),
+    });
+    if (!auth.ok) return { status: auth.status, body: auth.body };
+
     if (pathname === '/api/ai/status') {
       if (method !== 'GET') {
         throw new AiError(
@@ -116,23 +153,29 @@ export async function routeAiRequest(
           405,
         );
       }
-      return { status: 200, body: await handleGenerate(body, options.now ? { now: options.now } : {}) };
+      return {
+        status: 200,
+        body: await handleGenerate(await lerCorpo(), {
+          ...(options.now === undefined ? {} : { now: options.now }),
+          identity: auth.identity,
+        }),
+      };
     }
 
     /*
      * Configuração de IA: segredos, endereços e escolha de modelo.
      *
      * A LEITURA nunca devolve valor de chave — só máscara e indicador de presença (ver
-     * `buildSettingsView`). A ESCRITA é recusada quando o app está publicado: rota pública que aceita
-     * chave de API de qualquer visitante é vulnerabilidade, não funcionalidade. Como não existe
-     * autenticação nesta fase (D3 aberta), a única defesa honesta é desligar por ambiente.
+     * `buildSettingsView`). A ESCRITA continua recusada quando o app está publicado
+     * (`settingsWritable()`), mesmo com autenticação ligada: quem entra passa a **usar** a chave, não
+     * a **ver** nem a **trocar**. O lugar do segredo é o gerenciador do servidor.
      */
     if (pathname === '/api/ai/settings') {
       if (method === 'GET') {
         return { status: 200, body: handleGetSettings() };
       }
       if (method === 'PUT' || method === 'POST') {
-        return { status: 200, body: handleSaveSettings(body, options.now ?? new Date()) };
+        return { status: 200, body: handleSaveSettings(await lerCorpo(), options.now ?? new Date()) };
       }
       throw new AiError(
         { code: 'entrada-invalida', message: 'Este endereço responde a GET e PUT.', retryable: false },
@@ -147,7 +190,10 @@ export async function routeAiRequest(
           405,
         );
       }
-      return { status: 200, body: await handleTestProvider(body, options.now ?? new Date()) };
+      return {
+        status: 200,
+        body: await handleTestProvider(await lerCorpo(), options.now ?? new Date(), auth.identity),
+      };
     }
 
     throw new AiError(

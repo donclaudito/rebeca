@@ -9,7 +9,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { routeAiRequest, sendJson } from '../../server/ai/http.js';
 
-export default async function handler(_req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const result = await routeAiRequest('GET', '/api/ai/status', undefined);
+export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  // GET não tem corpo: a função devolve `undefined` — o roteador nunca a chama nesta rota.
+  const result = await routeAiRequest('GET', '/api/ai/status', async () => undefined, {
+    authorization: req.headers.authorization ?? null,
+  });
   sendJson(res, result.status, result.body);
 }

@@ -65,6 +65,8 @@ export interface AssetCostInput {
   /** Tempo de **geração** do ativo, em minutos. É o significado real de `tempo_min` no livro. */
   readonly tempoMin: number;
   readonly now?: Date;
+  /** `sub` de quem pediu a geração, quando houve sessão (`ADR-014`). Ausente na CLI e na Fase 0. */
+  readonly identidadeSub?: string;
 }
 
 export function recordAssetCost(input: AssetCostInput): CostRecorded {
@@ -89,6 +91,7 @@ export function recordAssetCost(input: AssetCostInput): CostRecorded {
     tempoMin: input.tempoMin,
     promptId: `${input.stage}:${input.promptVersion}#${input.hash8}#${input.durationMs}ms#${input.simulated ? 'simulado' : 'real'}`,
     data: todayLocal(now),
+    ...(input.identidadeSub === undefined ? {} : { identidadeSub: input.identidadeSub }),
   });
 }
 
@@ -273,6 +276,95 @@ export function episodeSpendUsd(episodeId: string, channelName?: string): number
     total += costFromCell(raw, `na linha: ${row.join(',')}`);
   }
   return total;
+}
+
+/** Gasto de uma etapa do pipeline, lido do livro. `etapa` é vocabulário de produto — não é provedor. */
+export interface StageSpend {
+  readonly etapa: string;
+  readonly usd: number;
+  readonly linhas: number;
+}
+
+/**
+ * Gasto **real** de um conteúdo, lido do livro. É a resposta honesta para "quanto este conteúdo custou".
+ *
+ * Existe por causa de um número inventado na tela: a Revisão mostrava `costUsd` do **arquivo de
+ * exemplo** com o rótulo **"Custo real"** — US$ 42,80 para um conteúdo cujo livro soma **US$ 0,3956**.
+ * Cento e oito vezes de diferença, com cara de evidência, exatamente na tela em que a decisão é humana.
+ * Número inventado em lugar de decisão é pior que nenhum número.
+ *
+ * O filtro é por `(canal, conteudo)`. **`canal` no livro é o nome de exibição, não o id** — é o que
+ * `recordCost` grava — e por isso a função recebe o nome: quem tem o id resolve o nome antes (o spec de
+ * mídia do canal tem o `nome`), e quem não resolve responde "não sei" em vez de somar o canal errado.
+ *
+ * Não devolve provedor de propósito: a interface não mostra fornecedor (`docs/04` §5).
+ */
+export interface ContentSpend {
+  readonly contentId: string;
+  readonly channelName: string;
+  /** O livro existe **neste ambiente**? `false` = não dá para somar (e "não sei" ≠ "gastei zero"). */
+  readonly ledgerAvailable: boolean;
+  readonly totalUsd: number;
+  readonly rows: number;
+  readonly byStage: readonly StageSpend[];
+}
+
+export function contentSpend(channelName: string, contentId: string): ContentSpend {
+  const { exists, header, rows } = readLedger();
+  const vazio = {
+    contentId,
+    channelName,
+    ledgerAvailable: exists,
+    totalUsd: 0,
+    rows: 0,
+    byStage: [] as readonly StageSpend[],
+  };
+  if (!exists || header.length === 0) return vazio;
+
+  const canalIndex = header.indexOf('canal');
+  const conteudoIndex = header.indexOf('conteudo');
+  const etapaIndex = header.indexOf('etapa');
+  const custoIndex = header.indexOf('custo_usd');
+  if (conteudoIndex === -1 || custoIndex === -1) {
+    // Livro sem as colunas do contrato não responde "quanto custou". Devolver zero aqui seria o mesmo
+    // defeito que esta função existe para corrigir — só que com número em vez de silêncio.
+    throw new MediaBudgetError(
+      'custo-invalido',
+      `O livro de custos não tem as colunas esperadas ("conteudo", "custo_usd"). Cabeçalho lido: ${header.join(',') || '(vazio)'}.`,
+    );
+  }
+
+  let total = 0;
+  let linhas = 0;
+  const porEtapa = new Map<string, { usd: number; linhas: number }>();
+
+  for (const row of rows) {
+    if ((row[conteudoIndex] ?? '').trim() !== contentId) continue;
+    // Sem a coluna `canal`, soma-se só pelo conteúdo — e isso é dito em voz alta pela ausência de filtro,
+    // não escondido: um livro sem `canal` é schema Velho, não permissão para cruzar canais.
+    if (canalIndex !== -1 && (row[canalIndex] ?? '').trim() !== channelName) continue;
+
+    const usd = costFromCell((row[custoIndex] ?? '').trim(), `na linha: ${row.join(',')}`);
+    total += usd;
+    linhas += 1;
+
+    const etapa = (etapaIndex === -1 ? '' : (row[etapaIndex] ?? '').trim()) || 'nao-declarada';
+    const atual = porEtapa.get(etapa) ?? { usd: 0, linhas: 0 };
+    atual.usd += usd;
+    atual.linhas += 1;
+    porEtapa.set(etapa, atual);
+  }
+
+  return {
+    contentId,
+    channelName,
+    ledgerAvailable: true,
+    totalUsd: total,
+    rows: linhas,
+    byStage: [...porEtapa.entries()]
+      .map(([etapa, valor]) => ({ etapa, usd: valor.usd, linhas: valor.linhas }))
+      .sort((a, b) => b.usd - a.usd || a.etapa.localeCompare(b.etapa)),
+  };
 }
 
 /**

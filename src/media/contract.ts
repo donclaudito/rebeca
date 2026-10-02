@@ -18,7 +18,7 @@
  */
 
 /** Etapas do pipeline que produzem artefato. Espelha a cadeia da skill `rebeca-ia-video`. */
-export type MediaStage = 'imagem' | 'animacao' | 'voz' | 'musica' | 'render' | 'legenda';
+export type MediaStage = 'imagem' | 'animacao' | 'voz' | 'musica' | 'render' | 'legenda' | 'thumbnail';
 
 /** Perfil de saída. O Short não é "o longo menor": é recorte vertical do mesmo material. */
 export type RenderProfile = 'longo-16x9' | 'short-9x16';
@@ -244,12 +244,54 @@ export interface MusicRequest extends MediaRequestBase {
   readonly durationMs: number;
 }
 
+/**
+ * Pedido de uma opção de thumbnail.
+ *
+ * Por que uma etapa própria, e não "mais uma imagem de cena": a imagem de cena é 16:9 de vídeo, medida em
+ * duração e presa à timeline; a thumbnail é um **still 1280×720** com uma hipótese de atração, texto
+ * sobre a arte e critérios de legibilidade próprios (skill `rebeca-branding`). Misturar as duas faria a
+ * timeline tentar cronometrar uma thumbnail.
+ *
+ * `hypothesis` é a razão de existirem **quatro** opções em vez de uma: cada opção testa uma ideia
+ * diferente (foco no personagem, no objeto, no contraste, na expressão). Quatro variações do mesmo
+ * desenho não são quatro opções — são a mesma aposta repetida.
+ */
+export interface ThumbnailRequest extends MediaRequestBase {
+  /** Identificador curto da opção: `a`, `b`, `c`, `d`. Vira o sufixo do nome do arquivo. */
+  readonly optionId: string;
+  readonly prompt: string;
+  /** Texto que aparece **na arte**. Máximo de 3–4 palavras (legibilidade a 168×94). */
+  readonly textOnImage: string;
+  /** Qual hipótese esta opção testa. Vai ao manifesto: sem isso, "4 opções" não diz nada. */
+  readonly hypothesis: string;
+  readonly width: number;
+  readonly height: number;
+  readonly seed: number;
+}
+
 /* =============================================================================
    As quatro interfaces — o invariante nº 7 em forma de código
    ============================================================================= */
 
-export interface ImageProvider {
+/**
+ * O que o portão de fornecedor precisa saber, em qualquer provedor de mídia.
+ *
+ * `id` e `model` são **declarados pelo provedor** porque a allow-list do `ADR-005` é chaveada por
+ * `(fornecedor, modelo, finalidade)`. Sem o `model` aqui, o portão não teria o que consultar e cairia
+ * em `*` — exatamente a granularidade grossa que aquele ADR recusa. O `GeneratedAsset` também traz
+ * `model`, mas só **depois** de gerar: consultar a allow-list com ele chegaria tarde, com o dinheiro
+ * já gasto.
+ *
+ * Faltava nas quatro interfaces de mídia (só `ThumbnailProvider` tinha), e foi por isso que o portão
+ * de fornecedor ficou muito tempo **fora do caminho de vídeo**: o pipeline não tinha como perguntar.
+ * Achado de 2026-10-01, fechado aqui.
+ */
+export interface ProviderIdentity {
   readonly id: string;
+  readonly model: string;
+}
+
+export interface ImageProvider extends ProviderIdentity {
   /**
    * Este provedor **cobra**? O pipeline exige estimativa antes de gerar quando houver qualquer
    * provedor pago no conjunto: sem estimativa o portão de entrada não tem o que comparar com o teto e
@@ -259,28 +301,69 @@ export interface ImageProvider {
   render(input: ImageRequest): Promise<GeneratedAsset>;
 }
 
-export interface VideoProvider {
-  readonly id: string;
+export interface VideoProvider extends ProviderIdentity {
   readonly simulated: boolean;
   animate(input: VideoRequest): Promise<GeneratedAsset>;
 }
 
-export interface TtsProvider {
-  readonly id: string;
+export interface TtsProvider extends ProviderIdentity {
   readonly simulated: boolean;
   synthesize(input: TtsRequest): Promise<SpokenLine>;
 }
 
-export interface MusicProvider {
-  readonly id: string;
+export interface MusicProvider extends ProviderIdentity {
   readonly simulated: boolean;
   compose(input: MusicRequest): Promise<GeneratedAsset>;
 }
 
-/** O conjunto dos quatro, para o pipeline receber "um provedor de cada" sem saber qual é. */
+/**
+ * Plano de um ativo: onde ele vai nascer e qual é o hash da entrada — **sem gerar nada**.
+ *
+ * Existe porque o pipeline precisa saber **antes de gerar** se aquele ativo já existe: é a checagem que
+ * evita pagar duas vezes. Se o hash só fosse conhecido dentro de `generate()`, o pipeline teria de
+ * chamar o provedor para descobrir o nome do arquivo — e, com provedor pago, a chamada já teria custado.
+ */
+export interface AssetPlan {
+  readonly hash: string;
+  /** Fingerprint completo (64 hex) — vai ao manifesto para auditoria. */
+  readonly sha256: string;
+  readonly path: string;
+}
+
+/**
+ * Provedor de thumbnail.
+ *
+ * `costPerImageUsd` é declarado **no provedor**, não estimado pelo chamador: é o que permite ao portão
+ * de entrada calcular o gasto de N opções **antes** de chamar qualquer coisa. A lição vem do `ADR-010` —
+ * um portão que só descobre o custo depois de pagar é relatório, não portão, e o `rebeca-qa` já
+ * reproduziu isso com provedor de US$ 50 por ativo.
+ *
+ * `plan` separado de `generate` é o que torna a idempotência possível: o nome do arquivo é calculado
+ * **antes** de qualquer chamada de rede.
+ *
+ * Na Fase 0 `costPerImageUsd` é `0` e `simulated` é `true` — verdade, não placeholder.
+ */
+export interface ThumbnailProvider {
+  readonly id: string;
+  /**
+   * O modelo, **declarado pelo provedor** porque a allow-list é chaveada por `(fornecedor, modelo,
+   * finalidade, origem)` — sem ele aqui, o portão não teria o que consultar e cairia em `*`, que é
+   * exatamente a granularidade grossa que o `ADR-005` recusa.
+   */
+  readonly model: string;
+  readonly simulated: boolean;
+  readonly costPerImageUsd: number;
+  /** Onde o arquivo nasceria e qual seria o hash. Não toca a rede. */
+  plan(input: ThumbnailRequest): AssetPlan;
+  /** Gera **uma** opção. Quatro opções são quatro pedidos, com prompts e hipóteses diferentes. */
+  generate(input: ThumbnailRequest): Promise<GeneratedAsset>;
+}
+
+/** O conjunto dos provedores, para o pipeline receber "um de cada" sem saber qual é. */
 export interface MediaProviderSet {
   readonly image: ImageProvider;
   readonly video: VideoProvider;
   readonly tts: TtsProvider;
   readonly music: MusicProvider;
+  readonly thumbnail: ThumbnailProvider;
 }

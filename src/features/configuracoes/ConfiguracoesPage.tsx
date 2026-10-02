@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/primitives';
 import { YouTubeGlyph } from '@/components/icons';
 import { AiSettingsPanel } from './AiSettingsPanel';
+import { useAuth } from '@/auth/context';
 import { useAiStatus } from '@/ai/hooks';
 import { useChannelId } from '@/app/useChannel';
 import { resetStore } from '@/data/client';
@@ -23,6 +24,7 @@ export function ConfiguracoesPage() {
   const channelId = useChannelId();
   const channel = useChannel(channelId);
   const queryClient = useQueryClient();
+  const { identity, status, signOut } = useAuth();
 
   const resetExample = async () => {
     resetStore();
@@ -38,6 +40,46 @@ export function ConfiguracoesPage() {
 
       <div className="ams-split grid lg:grid-cols-12 gap-4" data-split="lg">
         <div className="ams-split__main lg:col-span-7 flex flex-col gap-4">
+          {/*
+            Quem está operando (`ADR-014`).
+
+            Esta tela é o caminho para o dono descobrir o próprio `sub`: ele entra com o Google, vê o
+            identificador aqui e coloca em `REBECA_ALLOWED_SUBS`. O `sub` não é segredo — é a
+            identidade de quem já está logado e é o que destrava o acesso. O que **nunca** aparece é a
+            lista de quem mais está autorizado, que vive só no servidor.
+          */}
+          <Card className="p-4">
+            <SectionHead title="Quem está operando" hint="identidade autenticada pelo Google, verificada no servidor" />
+            <dl className="grid sm:grid-cols-2 gap-3">
+              <Field label="Conta" value={identity?.email ?? identity?.name ?? '—'} />
+              <Field
+                label="Situação"
+                value={
+                  status === 'autorizado'
+                    ? 'autorizada a usar as rotas de IA e mídia'
+                    : status === 'nao-autorizado'
+                      ? 'autenticada, mas fora da lista de acesso'
+                      : 'sem sessão'
+                }
+              />
+            </dl>
+            <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-3">
+              Identificador (sub)
+            </p>
+            <code className="mt-1 block select-all break-all rounded border border-line bg-sunken px-2 py-1.5 text-[12px] ams-num text-ink">
+              {identity?.sub ?? '—'}
+            </code>
+            <p className="mt-2 text-[11px] text-ink-3">
+              É este valor — e não o e-mail — que vai em <code>REBECA_ALLOWED_SUBS</code> para autorizar
+              uma conta. O e-mail pode mudar de dono ao longo do tempo; o sub, não.
+            </p>
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <Button variant="ghost" onClick={signOut}>
+                Sair / trocar de conta
+              </Button>
+            </div>
+          </Card>
+
           <Card className="p-4">
             <SectionHead step={1} title="Canal" hint="identificação usada em toda a interface" />
             {channel.isLoading && <Skeleton className="h-[180px]" />}

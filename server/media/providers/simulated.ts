@@ -21,6 +21,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
+  AssetPlan,
   GeneratedAsset,
   ImageProvider,
   ImageRequest,
@@ -28,11 +29,25 @@ import type {
   MusicProvider,
   MusicRequest,
   SpokenLine,
+  ThumbnailProvider,
+  ThumbnailRequest,
   TtsProvider,
   TtsRequest,
   VideoProvider,
   VideoRequest,
 } from '../../../src/media/contract.js';
+
+import { buildBackdropFilters, buildThumbnailBackground, type LocalThumbnailLayout } from '../thumbnail-art.js';
+
+/**
+ * Reexportado porque este arquivo foi o dono do tipo até a Fase 1 precisar dele.
+ *
+ * O `AssetPlan` nasceu aqui (só o simulado planejava ativos). Quando o adapter pago da MiniMax passou a
+ * precisar do mesmo tipo, deixá-lo neste arquivo faria o provedor **real** importar do **simulado** — uma
+ * dependência invertida que só apareceria no dia da troca de fornecedor. O tipo foi para o contrato e
+ * esta linha mantém os importadores antigos funcionando.
+ */
+export type { AssetPlan };
 import { assetFingerprint } from '../hash.js';
 import { assetPath, ensureParentDir } from '../paths.js';
 import {
@@ -48,6 +63,7 @@ export const SIMULATED_PROVIDER_IDS = {
   video: 'simulado-animacao',
   tts: 'simulado-voz',
   music: 'simulado-musica',
+  thumbnail: 'simulado-thumbnail',
 } as const;
 
 /**
@@ -58,10 +74,14 @@ export const SIMULATED_PROVIDER_IDS = {
  * fórmula diferente faria o pipeline reusar arquivo gerado por outra regra.
  */
 export const SIMULATED_MODELS = {
-  image: 'ffmpeg-lavfi-drawtext-1',
+  image: 'ffmpeg-lavfi-drawtext-2',
   video: 'ffmpeg-zoompan-1',
   tts: 'ffmpeg-tom-1',
   music: 'ffmpeg-tom-tremolo-1',
+  // `-2`: a fórmula mudou (duas passagens de drawtext, fonte calculada em vez de fixa). O número **sobe**
+  // porque o hash entra no nome do arquivo — sem isso, o pipeline reusaria os PNGs cortados como se fossem
+  // o resultado da fórmula nova, e o conserto não apareceria em nenhuma tela.
+  thumbnail: 'ffmpeg-lavfi-drawtext-thumb-2',
 } as const;
 
 /**
@@ -144,6 +164,75 @@ export function wrapText(text: string, width = 46): string {
 }
 
 /**
+ * Fator de largura média por caractere.
+ *
+ * **0,68, e não 0,55** — a diferença foi medida na tela do dono do produto. A primeira versão usava 0,55,
+ * que é a média de texto em caixa mista; mas os títulos da thumbnail saem em **CAIXA ALTA** (o alfabeto
+ * maiúsculo é ~30% mais largo), e o cálculo dizia que "BORBOLETAS E COR" cabia a 132 px quando o desenho
+ * real ocupava ~1.430 px num canvas de 1.280. O `fontSizeQueCabe` então **não encolhia**, e o título
+ * transbordou o painel dos dois lados.
+ *
+ * O erro não era de precisão: era de **otimismo**. Estimar a largura **para menos** produz exatamente o
+ * defeito que a estimativa existe para evitar, e o ffmpeg não avisa — ele desenha fora do quadro em
+ * silêncio. Na dúvida, superestimar: o custo de uma fonte um pouco menor é cosmético; o de texto cortado
+ * é uma imagem inútil.
+ */
+const FATOR_LARGURA = 0.68;
+
+/**
+ * Largura média de um caractere, em pixels, para a fonte sans usada no `drawtext`.
+ *
+ * **Por que existe:** o `drawtext` do ffmpeg **não** recorta, não encolhe e não avisa — ele desenha, e o
+ * que passa da borda simplesmente some. Sem estimar a largura, o texto some **em silêncio**. Foi o que
+ * aconteceu duas vezes: uma hipótese de ~60 caracteres a 96 px virou linha de ~2.500 px num canvas de
+ * 1.280, e depois um título em caixa alta passou no cálculo e transbordou no desenho.
+ */
+export function larguraEstimadaDoTexto(texto: string, fontsize: number): number {
+  return texto.length * fontsize * FATOR_LARGURA;
+}
+
+/**
+ * Quantos caracteres cabem numa linha, com essa fonte, sobrando margem nas laterais.
+ *
+ * A margem de 6% por lado existe porque texto encostado na borda fica ilegível na régua da skill
+ * (`rebeca-branding`: legível a 168×94 px) — e porque o canto inferior direito é onde a plataforma
+ * sobrepõe a duração do vídeo.
+ */
+export function caracteresPorLinha(fontsize: number, larguraCanvas: number, margem = 0.06): number {
+  const util = larguraCanvas * (1 - 2 * margem);
+  return Math.max(8, Math.floor(util / (fontsize * 0.55)));
+}
+
+/**
+ * Maior tamanho de fonte (até `maximo`) em que o texto cabe na largura, **sem quebrar linha**.
+ *
+ * Existe para o texto da arte, que é curto por regra (3–4 palavras) e deve ficar grande — mas não a ponto
+ * de sair da tela. Se nem no mínimo couber, devolve o mínimo: nada aqui corta texto em silêncio, e o
+ * chamador tem como conferir com `textoCabeNoCanvas`.
+ */
+export function fontSizeQueCabe(
+  texto: string,
+  larguraCanvas: number,
+  maximo: number,
+  minimo = 28,
+  margem = 0.06,
+): number {
+  const util = larguraCanvas * (1 - 2 * margem);
+  for (let tamanho = maximo; tamanho > minimo; tamanho -= 2) {
+    if (larguraEstimadaDoTexto(texto, tamanho) <= util) return tamanho;
+  }
+  return minimo;
+}
+
+/** O texto inteiro cabe, linha por linha, na largura disponível? */
+export function textoCabeNoCanvas(texto: string, fontsize: number, larguraCanvas: number, margem = 0.06): boolean {
+  const util = larguraCanvas * (1 - 2 * margem);
+  return texto
+    .split('\n')
+    .every((linha) => larguraEstimadaDoTexto(linha, fontsize) <= util);
+}
+
+/**
  * Escreve o texto num arquivo temporário e devolve o caminho + a limpeza.
  *
  * O texto da cena vai por **arquivo** (`textfile=`), não por valor de opção. Motivo medido nesta sessão:
@@ -158,6 +247,27 @@ function withTextFile<T>(text: string, body: (file: string) => T): T {
   writeFileSync(file, `${text}\n`, 'utf8');
   try {
     return body(file);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Mesma ideia, com **vários** textos — cada um no seu arquivo.
+ *
+ * A thumbnail precisa de duas passagens de `drawtext` com tamanhos diferentes (o texto da arte grande, a
+ * hipótese pequena embaixo). Uma passagem só obrigaria as duas a dividir a mesma fonte, e foi assim que a
+ * hipótese longa empurrou o texto da arte para fora do quadro.
+ */
+function withTextFiles<T>(textos: readonly string[], body: (files: readonly string[]) => T): T {
+  const dir = mkdtempSync(join(tmpdir(), 'rebeca-textos-'));
+  const files = textos.map((texto, index) => {
+    const file = join(dir, `texto-${index}.txt`);
+    writeFileSync(file, `${texto}\n`, 'utf8');
+    return file;
+  });
+  try {
+    return body(files);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -201,17 +311,8 @@ function assertPng(path: string): void {
 /**
  * Plano de um ativo: onde ele vai nascer e qual é o hash da entrada.
  *
- * Existe separado do provedor porque o pipeline precisa saber **antes de gerar** se aquele ativo já
- * existe: é a checagem que evita pagar duas vezes. Deixar essa conta só dentro do `render()` faria o
- * pipeline chamar o provedor para descobrir o hash — e, com provedor pago, a chamada já teria custado.
+ * A definição canônica vive no contrato (`src/media/contract.ts`); este arquivo só reexporta.
  */
-export interface AssetPlan {
-  readonly hash: string;
-  /** Fingerprint completo (64 hex) — vai ao manifesto para auditoria. */
-  readonly sha256: string;
-  readonly path: string;
-}
-
 export function planImage(input: ImageRequest): AssetPlan {
   const sha256 = assetFingerprint({
     stage: 'imagem',
@@ -239,6 +340,7 @@ export function planImage(input: ImageRequest): AssetPlan {
 
 export const simulatedImageProvider: ImageProvider = {
   id: SIMULATED_PROVIDER_IDS.image,
+  model: SIMULATED_MODELS.image,
   simulated: true,
 
   async render(input: ImageRequest): Promise<GeneratedAsset> {
@@ -250,7 +352,15 @@ export const simulatedImageProvider: ImageProvider = {
     if (!isReadableFile(path)) {
       const color = SCENE_COLORS[input.seed % SCENE_COLORS.length] ?? SCENE_COLORS[0];
       const font = escapeFilterOptionValue(resolveFontFile());
-      const text = `${input.onScreenText}\n\n${wrapText(input.prompt, 68)}`;
+      /*
+       * A largura da linha é **calculada** a partir da fonte e do canvas.
+       *
+       * Estava fixa em 68 caracteres, e a 56 px isso dá ~2.100 px num canvas de 1.920: o mesmo corte
+       * silencioso que apareceu na thumbnail. Aqui o defeito era anterior e ninguém tinha visto, porque
+       * imagem de cena com texto de exemplo ninguém abre.
+       */
+      const fonte = 56;
+      const text = `${input.onScreenText}\n\n${wrapText(input.prompt, caracteresPorLinha(fonte, input.width))}`;
 
       ensureParentDir(path);
       withTextFile(text, (textFile) => {
@@ -266,7 +376,7 @@ export const simulatedImageProvider: ImageProvider = {
           '-frames:v',
           '1',
           '-vf',
-          `drawtext=fontfile=${font}:textfile=${escapeFilterOptionValue(textFile)}:expansion=none:fontcolor=white:fontsize=56:line_spacing=16:x=(w-text_w)/2:y=(h-text_h)/2`,
+          `drawtext=fontfile=${font}:textfile=${escapeFilterOptionValue(textFile)}:expansion=none:fontcolor=white:fontsize=${fonte}:line_spacing=16:x=(w-text_w)/2:y=(h-text_h)/2`,
           path,
         ]);
       });
@@ -317,6 +427,7 @@ export function planClip(input: VideoRequest): AssetPlan {
 
 export const simulatedVideoProvider: VideoProvider = {
   id: SIMULATED_PROVIDER_IDS.video,
+  model: SIMULATED_MODELS.video,
   simulated: true,
 
   async animate(input: VideoRequest): Promise<GeneratedAsset> {
@@ -415,6 +526,7 @@ export function planVoice(input: TtsRequest): AssetPlan {
 
 export const simulatedTtsProvider: TtsProvider = {
   id: SIMULATED_PROVIDER_IDS.tts,
+  model: SIMULATED_MODELS.tts,
   simulated: true,
 
   async synthesize(input: TtsRequest): Promise<SpokenLine> {
@@ -492,6 +604,7 @@ export function planMusic(input: MusicRequest): AssetPlan {
 
 export const simulatedMusicProvider: MusicProvider = {
   id: SIMULATED_PROVIDER_IDS.music,
+  model: SIMULATED_MODELS.music,
   simulated: true,
 
   async compose(input: MusicRequest): Promise<GeneratedAsset> {
@@ -546,7 +659,127 @@ export const simulatedMusicProvider: MusicProvider = {
 };
 
 /**
- * O conjunto dos quatro, para o pipeline receber "um provedor de cada".
+ * Thumbnail simulada — 1280×720 com o texto da arte desenhado, custo zero.
+ *
+ * Por que existe, se a Fase 1 já tem adapter real: sem ele, o caminho de **quatro opções** (numeração,
+ * hash por opção, idempotência, portão de custo, ida ao manifesto) nunca seria exercitado por teste sem
+ * gastar dinheiro. É o mesmo papel que o simulado cumpre no resto do pipeline: provar a máquina antes de
+ * ligar o cartão.
+ *
+ * O que ele **não** faz: arte. O PNG é o texto sobre um fundo chapado — serve para provar o encanamento e
+ * para o humano conferir legibilidade a 168×94, não para publicar. `simulated: true` diz isso no manifesto.
+ */
+export function planThumbnail(input: ThumbnailRequest): AssetPlan {
+  const sha256 = assetFingerprint({
+    stage: 'thumbnail',
+    promptVersion: input.promptVersion,
+    providerId: SIMULATED_PROVIDER_IDS.thumbnail,
+    model: SIMULATED_MODELS.thumbnail,
+    input: { optionId: input.optionId, prompt: input.prompt, textOnImage: input.textOnImage },
+    params: { width: input.width, height: input.height, seed: input.seed },
+  });
+  const hash = sha256.slice(0, 8);
+  return {
+    hash,
+    sha256,
+    path: assetPath({
+      scopeChannelId: input.scopeChannelId,
+      channelId: input.channelId,
+      episodeId: input.episodeId,
+      stage: 'thumbnail',
+      slug: `opcao-${input.optionId}`,
+      hash8: hash,
+      ext: 'png',
+    }),
+  };
+}
+
+export const simulatedThumbnailProvider: ThumbnailProvider = {
+  id: SIMULATED_PROVIDER_IDS.thumbnail,
+  model: SIMULATED_MODELS.thumbnail,
+  simulated: true,
+  costPerImageUsd: 0,
+
+  plan: planThumbnail,
+
+  async generate(input: ThumbnailRequest): Promise<GeneratedAsset> {
+    assertFfmpegAvailable();
+    const { hash, path } = planThumbnail(input);
+
+    if (!isReadableFile(path)) {
+      const font = escapeFilterOptionValue(resolveFontFile());
+      /*
+       * Camada visual (fundo, arco-íris do rodapé, painel claro) vem de `server/media/thumbnail-art.ts`;
+       * o **texto** continua com o cálculo deste arquivo (tamanho que cabe + quebra em linhas). O texto
+       * mudou de branco para escuro porque agora ele fica sobre um painel claro.
+       */
+      const layout: LocalThumbnailLayout = {
+        width: input.width,
+        height: input.height,
+        textOnImage: input.textOnImage,
+        hypothesis: input.hypothesis,
+        seed: input.seed,
+      };
+
+      /*
+       * Duas passagens de `drawtext`, com papéis diferentes — e a separação é o conserto.
+       *
+       * O texto da ARTE é curto por regra (3–4 palavras) e fica grande; o tamanho é **calculado** para
+       * caber, não escolhido no chute. A hipótese é **metadado para quem opera**, não texto de thumbnail:
+       * vai pequena e quebrada em linhas que cabem.
+       *
+       * Antes disto havia uma passagem só, com as duas coisas na mesma fonte de 96 px. A hipótese de ~60
+       * caracteres virou uma linha de ~2.500 px num canvas de 1.280, o `drawtext` desenhou sem reclamar, e
+       * o arquivo saiu cortado nas duas pontas — com o texto da arte fora do quadro.
+       */
+      const fonteArte = fontSizeQueCabe(input.textOnImage, input.width, 132, 48);
+      const fonteNota = 34;
+      const nota = wrapText(`(${input.optionId}) ${input.hypothesis}`, caracteresPorLinha(fonteNota, input.width));
+
+      ensureParentDir(path);
+      withTextFiles([input.textOnImage, nota], (arquivos) => {
+        const [arteFile, notaFile] = arquivos;
+        // `noUncheckedIndexedAccess` deixa os dois como `string | undefined`. Falhar alto é melhor que
+        // gerar um `textfile=` vazio e descobrir na imagem sem texto.
+        if (arteFile === undefined || notaFile === undefined) {
+          throw new FfmpegError('ffmpeg-falhou', 'Os arquivos de texto da thumbnail não foram criados.');
+        }
+        runFfmpegOrThrow([
+          '-y',
+          '-hide_banner',
+          '-loglevel',
+          'error',
+          '-f',
+          'lavfi',
+          '-i',
+          buildThumbnailBackground(layout),
+          '-frames:v',
+          '1',
+          '-vf',
+          [
+            ...buildBackdropFilters(layout),
+            `drawtext=fontfile=${font}:textfile=${escapeFilterOptionValue(arteFile)}:expansion=none:fontcolor=0x111827:fontsize=${fonteArte}:x=(w-text_w)/2:y=(h/2-text_h/2)-56`,
+            `drawtext=fontfile=${font}:textfile=${escapeFilterOptionValue(notaFile)}:expansion=none:fontcolor=0x475569:fontsize=${fonteNota}:line_spacing=12:x=(w-text_w)/2:y=(h/2)+64`,
+          ].join(','),
+          path,
+        ]);
+      });
+      assertPng(path);
+    }
+
+    return {
+      path,
+      providerId: SIMULATED_PROVIDER_IDS.thumbnail,
+      model: SIMULATED_MODELS.thumbnail,
+      costUsd: 0,
+      hash,
+      simulated: true,
+    };
+  },
+};
+
+/**
+ * O conjunto dos provedores, para o pipeline receber "um de cada".
  *
  * Trocar de provedor na Fase 1 é trocar **este objeto** — nenhuma outra linha do pipeline muda. É o
  * invariante nº 7 (provedores substituíveis) em forma executável.
@@ -556,4 +789,5 @@ export const SIMULATED_PROVIDERS: MediaProviderSet = {
   video: simulatedVideoProvider,
   tts: simulatedTtsProvider,
   music: simulatedMusicProvider,
+  thumbnail: simulatedThumbnailProvider,
 };

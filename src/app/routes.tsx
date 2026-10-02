@@ -5,6 +5,7 @@ import { ConteudoPage } from '@/features/conteudo/ConteudoPage';
 import { RevisaoPage } from '@/features/revisao/RevisaoPage';
 import { CalendarioPage } from '@/features/calendario/CalendarioPage';
 import { IdentidadePage } from '@/features/identidade/IdentidadePage';
+import { MidiaPage } from '@/features/midia/MidiaPage';
 import { AnalyticsPage } from '@/features/analytics/AnalyticsPage';
 import { MonetizacaoPage } from '@/features/monetizacao/MonetizacaoPage';
 import { ConfiguracoesPage } from '@/features/configuracoes/ConfiguracoesPage';
@@ -34,6 +35,7 @@ export function AppRoutes() {
         <Route path="revisao/:contentId" element={<RevisaoPage />} />
         <Route path="calendario" element={<CalendarioPage />} />
         <Route path="identidade" element={<IdentidadePage />} />
+        <Route path="midia" element={<MidiaPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="monetizacao" element={<MonetizacaoPage />} />
         <Route path="configuracoes" element={<ConfiguracoesPage />} />

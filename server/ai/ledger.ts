@@ -21,7 +21,14 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
-/** Cabeçalho canônico do livro de custos. As três últimas colunas foram acrescentadas para a IA. */
+/**
+ * Cabeçalho canônico do livro de custos.
+ *
+ * As três colunas de token foram acrescentadas para a IA; `identidade_sub` entrou com o `ADR-014`.
+ * Ela responde à pergunta que faltava ao livro: **quem** disparou a geração paga. Antes da
+ * autenticação a pergunta não tinha resposta possível — não havia identidade para registrar, e o
+ * gasto era de "alguém com o endereço". Célula vazia continua significando "não sei", nunca "ninguém".
+ */
 export const LEDGER_HEADER = [
   'data',
   'canal',
@@ -37,6 +44,7 @@ export const LEDGER_HEADER = [
   'tokens_in',
   'tokens_out',
   'prompt_id',
+  'identidade_sub',
 ] as const;
 
 export interface CostEntry {
@@ -52,6 +60,14 @@ export interface CostEntry {
   readonly promptId: string;
   /** ISO — dia do gasto, no fuso da máquina que executou. */
   readonly data: string;
+  /**
+   * `sub` do Google de quem disparou a geração (`ADR-014`), quando há identidade conhecida.
+   *
+   * É o **identificador**, não o e-mail: o e-mail muda ao longo do tempo e o `sub` não. Ausente na
+   * mídia gerada por CLI e no teste de conexão — nesses caminhos não existe sessão, e gravar um valor
+   * inventado ali seria pior que a célula vazia.
+   */
+  readonly identidadeSub?: string;
 }
 
 /** Onde o registro foi parar de fato. */
@@ -162,6 +178,7 @@ function toRow(entry: CostEntry): string {
     entry.tokensIn,
     entry.tokensOut,
     entry.promptId,
+    entry.identidadeSub ?? null,
   ];
   return cells.map(csvCell).join(',');
 }

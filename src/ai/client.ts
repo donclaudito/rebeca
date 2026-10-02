@@ -8,8 +8,20 @@
  */
 
 import { AiError, type AiErrorBody, type AiRequest, type AiResult, type AiSettingsPatch, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type ProviderTestResult } from './contract';
+import { notifySessionLost, requireAuthHeaders } from '../auth/token';
 
 const BASE = '/api/ai';
+
+/** Erro de sessão: a tela manda entrar de novo, e diz que **nada** foi gerado. */
+function erroDeSessao(message: string, status: number): AiError {
+  return new AiError({ code: 'nao-autorizado', message, retryable: false }, status);
+}
+
+/** Mensagem em pt-BR vinda do corpo do erro, com um texto de reserva. */
+function mensagemDoCorpo(body: unknown, reserva: string): string {
+  const record = (typeof body === 'object' && body !== null ? body : {}) as Record<string, unknown>;
+  return typeof record['message'] === 'string' ? record['message'] : reserva;
+}
 
 /** Converte uma resposta de erro do servidor no `AiError` do domínio. */
 function toAiError(status: number, body: unknown): AiError {
@@ -30,13 +42,32 @@ function toAiError(status: number, body: unknown): AiError {
   );
 }
 
+/**
+ * Requisição autenticada.
+ *
+ * O cabeçalho `Authorization` entra em **um** lugar (aqui), não em cada função: são oito chamadas
+ * nesta camada, e a que esquecesse o header viraria um 401 no meio do fluxo — com o usuário logado,
+ * olhando para uma tela que diz que ele não está.
+ */
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  let headers: Record<string, string>;
+  try {
+    headers = {
+      'content-type': 'application/json',
+      ...requireAuthHeaders(),
+      ...((init?.headers as Record<string, string> | undefined) ?? {}),
+    };
+  } catch {
+    // Sem sessão o pedido **não sai**: mandar anônimo só produziria 401 e uma mensagem pior.
+    throw erroDeSessao(
+      'Sua sessão terminou. Entre de novo com a sua conta Google para continuar. Nada foi gerado.',
+      401,
+    );
+  }
+
   let response: Response;
   try {
-    response = await fetch(`${BASE}${path}`, {
-      ...init,
-      headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
-    });
+    response = await fetch(`${BASE}${path}`, { ...init, headers });
   } catch {
     // Erro de rede: a mensagem não acusa o usuário nem sugere que o conteúdo foi gerado.
     throw new AiError(
@@ -56,6 +87,25 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     parsed = true;
   } catch {
     parsed = false;
+  }
+
+  /*
+   * 401 e 403 são tratados antes do erro genérico porque a ação de quem está na tela é diferente:
+   * 401 é "entre de novo" (a credencial expirou — a sessão em memória é descartada aqui, no único
+   * ponto por onde todas as chamadas passam); 403 é "esta conta não tem acesso", e a sessão continua
+   * válida — derrubá-la obrigaria a entrar de novo para receber o mesmo 403.
+   */
+  if (response.status === 401 || response.status === 403) {
+    if (response.status === 401) notifySessionLost();
+    throw erroDeSessao(
+      mensagemDoCorpo(
+        body,
+        response.status === 401
+          ? 'Sua credencial não foi aceita. Entre de novo com a sua conta Google. Nada foi gerado.'
+          : 'Esta conta não tem acesso a esta operação.',
+      ),
+      response.status,
+    );
   }
 
   if (!response.ok) throw toAiError(response.status, body);

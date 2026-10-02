@@ -12,6 +12,7 @@
 import type {
   ApprovalRecord,
   BrandKit,
+  Cena,
   Channel,
   ChannelId,
   ChannelKpis,
@@ -21,6 +22,8 @@ import type {
   ModuleState,
   PortfolioRow,
   Recommendation,
+  Roteiro,
+  Storyboard,
   ThumbnailOption,
   WeeklySlot,
 } from './types';
@@ -187,6 +190,28 @@ const REJECTION_MAX = 400;
 function normalizeSingleLine(raw: string): string {
   const semControle = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
   return semControle.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Texto longo vindo de fora: tira caractere de controle, normaliza espaços e corta no teto.
+ *
+ * Diferente de `normalizeSingleLine`, **preserva parágrafos** — a narração de um bloco é texto corrido, e
+ * colapsar tudo numa linha atrapalharia a leitura na tela. O que não passa é caractere de controle: ele
+ * viraria ruído no mesmo campo que depois alimenta prompt de imagem.
+ */
+function normalizeMultiline(raw: string, max: number): string {
+  const semControle = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '');
+  return semControle
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, max);
+}
+
+/** Inteiro seguro dentro de uma faixa. Valor não finito vindo de fora cai no mínimo, nunca em `NaN`. */
+function safeInt(raw: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(raw)));
 }
 
 function requireTitle(raw: unknown): string {
@@ -403,6 +428,82 @@ export const api = {
     return patchArtifact(channelId, contentId, {
       thumbnails: sane,
       selectedThumbnailId: null,
+    });
+  },
+
+  /**
+   * Grava o roteiro que a IA escreveu (`criar-roteiro`) — depois do clique humano em "Usar este roteiro".
+   *
+   * A IA **não** grava sozinha: o `AiAction` só mostra a proposta, e quem persiste é esta porta
+   * (invariante nº 1). Passa por `patchArtifact`, então gerar roteiro num conteúdo já aprovado **derruba a
+   * aprovação** — o que iria ao ar deixou de ser o que o humano aprovou.
+   *
+   * O storyboard vai junto para o lixo, e isso é decisão, não descuido: ele foi derivado de um roteiro
+   * que deixou de existir. Manter cenas apontando para narração antiga seria estado mentiroso — o mesmo
+   * motivo pelo qual `proposeThumbnails` limpa a escolha anterior.
+   */
+  async saveRoteiro(channelId: ChannelId, contentId: string, roteiro: Roteiro): Promise<ContentItem> {
+    await delay(180);
+    const blocos = roteiro.blocos.slice(0, 40).map((bloco, index) => ({
+      ordem: safeInt(bloco.ordem, 1, 60, index + 1),
+      tempoInicioSeg: safeInt(bloco.tempoInicioSeg, 0, 1800, 0),
+      tempoFimSeg: safeInt(bloco.tempoFimSeg, 1, 1800, 1),
+      narracao: normalizeMultiline(bloco.narracao, 1200),
+      acao: normalizeMultiline(bloco.acao, 600),
+      emocao: normalizeSingleLine(bloco.emocao).slice(0, 60),
+    }));
+    if (blocos.length === 0) throw new Error('A IA não devolveu nenhum bloco de roteiro para aplicar.');
+
+    return patchArtifact(channelId, contentId, {
+      roteiro: {
+        titulo: normalizeSingleLine(roteiro.titulo).slice(0, 100),
+        logline: normalizeMultiline(roteiro.logline, 400),
+        moral: normalizeSingleLine(roteiro.moral).slice(0, 200),
+        blocos,
+        geradoEm: roteiro.geradoEm,
+        promptId: normalizeSingleLine(roteiro.promptId).slice(0, 80),
+        simulated: roteiro.simulated,
+      },
+      storyboard: undefined,
+    });
+  },
+
+  /**
+   * Grava o storyboard (`criar-cena`), derivado do roteiro que já está no conteúdo.
+   *
+   * Cena é a **entrada do pipeline de mídia**: `promptImagem` e `seed` são o que a etapa de imagem precisa
+   * para ser determinística. Sem isto gravado, a Fase 1 não tem de onde partir — era a peça que faltava
+   * para "gerar o vídeo" significar alguma coisa.
+   *
+   * Recusa storyboard sem roteiro: cenas sem narração de origem afirmariam uma linhagem que ninguém
+   * declarou, que é a mesma regra que impede a tela de ligar conteúdo e episódio por semelhança de nome.
+   */
+  async saveStoryboard(channelId: ChannelId, contentId: string, storyboard: Storyboard): Promise<ContentItem> {
+    await delay(180);
+    const atual = findContent(channelId, contentId);
+    if (atual.roteiro === undefined) {
+      throw new Error('Gere o roteiro antes do storyboard: as cenas precisam da narração de origem.');
+    }
+
+    const cenas: Cena[] = storyboard.cenas.slice(0, 60).map((cena, index) => ({
+      numero: safeInt(cena.numero, 1, 60, index + 1),
+      duracaoSeg: safeInt(cena.duracaoSeg, 1, 120, 1),
+      descricao: normalizeMultiline(cena.descricao, 500),
+      enquadramento: normalizeSingleLine(cena.enquadramento).slice(0, 80),
+      paleta: cena.paleta.slice(0, 6).map((cor) => normalizeSingleLine(cor).slice(0, 40)),
+      promptImagem: normalizeMultiline(cena.promptImagem, 1200),
+      negativePrompt: normalizeMultiline(cena.negativePrompt, 600),
+      seed: safeInt(cena.seed, 0, 2_147_483_647, index + 1),
+    }));
+    if (cenas.length === 0) throw new Error('A IA não devolveu nenhuma cena para aplicar.');
+
+    return patchArtifact(channelId, contentId, {
+      storyboard: {
+        cenas,
+        geradoEm: storyboard.geradoEm,
+        promptId: normalizeSingleLine(storyboard.promptId).slice(0, 80),
+        simulated: storyboard.simulated,
+      },
     });
   },
 

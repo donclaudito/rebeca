@@ -1,0 +1,89 @@
+# 502 em `/api/ai/generate` — causa raiz medida
+
+Data: 2026-10-02 · Sintoma relatado: `:5173/api/ai/generate:1  Failed to load resource: the server
+responded with a status of 502 (Bad Gateway)`
+
+## Reprodução e captura do `detail` (que a tela esconde)
+
+```
+POST /api/ai/generate   functionId=criar-cena   contentId=luna-borboletas
+→ __HTTP=502   tempo=119.973142s
+  code   : schema-invalido
+  detail : $: esperado objeto, veio undefined
+  message: A resposta não passou na validação do contrato e a correção automática não resolveu.
+           Nada foi aproveitado.
+```
+
+Controle, mesma sessão: `criar-roteiro` → `__HTTP=200  tempo=29.504267s`.
+
+## O livro de custos entrega o número que fecha a conta
+
+```
+data       etapa modelo      tokens_in tokens_out custo_usd prompt_id
+2026-10-02 criar gpt-6.1-sol 2748      1388       0.019376  criar-cena@v1            ← passou
+2026-10-02 criar gpt-6.1-sol 5414      6000       0.070828  criar-cena@v1 (falhou)
+2026-10-02 criar gpt-6.1-sol 5414      6000       0.070828  criar-cena@v1 (falhou)
+2026-10-02 criar gpt-6.1-sol 5546      6000       0.071092  criar-cena@v1 (falhou)
+```
+
+**`tokens_out: 6000` em todas as falhas.** Número redondo não é coincidência: é teto batendo.
+`6000 = 2 × 3000`, e a linha do livro **soma as tentativas** (o handler grava a tentativa que falhou
+junto com a de reparo).
+
+## A causa raiz
+
+| Peça | Onde |
+|---|---|
+| Teto pedido pela função: `criar-cena` **3000**, `criar-roteiro` **4000** | `src/ai/contract.ts:171` e `:156` |
+| O prompt também declara o seu teto | `server/ai/prompts.generated.ts` |
+| O orçamento é o **menor** dos dois, limitado pelo modelo | `server/ai/handler.ts:520` → `outputTokenBudget` (`server/ai/catalog.ts:459-462`) |
+| O que o schema **exige** da resposta | `src/ai/schemas.ts:316-348`: até **60 cenas**, cada uma com `descricao` de até **500** e `promptImagem` de até **1200** caracteres |
+
+Um storyboard de 24 blocos, no formato que o próprio schema manda produzir, não cabe em 3000 tokens —
+nem em 4000. O que acontece, medido:
+
+1. o modelo começa a escrever o storyboard inteiro;
+2. **trunca no teto** (3000);
+3. o JSON truncado não fecha → `$: esperado objeto, veio undefined`;
+4. o handler tenta **reparar** (segunda chamada);
+5. trunca de novo no mesmo teto;
+6. → **HTTP 502 `schema-invalido`**, depois de **~120 s** (as duas tentativas somadas).
+
+## As duas consequências, e a segunda é pior
+
+1. **502 e dinheiro queimado.** As três falhas custaram **US$ 0,2127** — **21% do teto diário de
+   US$ 1,00** (`spentTodayUsd` subiu de 0,3794 para 0,4752 durante a reprodução). Zero aproveitado.
+2. **Quando "passa", passa errado.** A execução bem-sucedida emitiu **1 cena** em 1388 tokens — o modelo
+   "cabe" no teto emitindo quase nada. **Um storyboard de uma cena para um vídeo de 492 s é inútil**, e a
+   etapa de imagem não tem o que gerar a partir dele. O mesmo teto produz o erro e o resultado vazio.
+
+## Por que não é o mesmo caso do `criar-roteiro`
+
+`criar-roteiro` também era vítima do teto — só que o sintoma dele foi **tempo**, não schema: com
+`gpt-6.1-sol` ele precisava das duas tentativas longas e estourava os 90 s antes de chegar ao 502. Ao
+trocar para `gpt-6-luna`, as duas tentativas couberam em 60 s — **e o 200 veio com 7305 tokens de saída
+somados**, ou seja, ele **também truncou e reparou**, e desta vez a segunda tentativa fechou o JSON.
+Trocar o modelo foi paliativo para o sintoma de tempo; o teto continua errado nas duas funções.
+
+## O que conserta de verdade
+
+Aumentar só o teto não resolve: para caber 24 cenas no formato do schema seriam dezenas de milhares de
+tokens — custo por chamada acima do teto de US$ 0,05 (`AI_LIMITS.perCallUsd`) e latência muito além dos
+90 s. **O desenho é que está errado:** uma função que recebe N blocos e devolve N cenas não escala.
+
+O conserto é **gerar por lotes**: `criar-cena` recebe poucos blocos e devolve poucas cenas, e a tela faz
+N chamadas com progresso. Cada resposta cabe no teto, cada chamada fica longe dos 90 s, e o teto por
+chamada volta a ser respeitado. Isso muda:
+
+- o **contrato** (`src/ai/contract.ts`: `maxOutputTokens` e a entrada por lote);
+- o **prompt** `criar-cena@v1` → `@v2` (versionado, com hash — passa pelo gerador `.tools/build_prompts.mjs`);
+- o **schema** (`blocos` e `cenas` com teto de lote, não de episódio);
+- a **tela**, que passa a orquestrar os lotes e mostrar progresso — que é a `rebeca-react` e,
+   na prática, o mesmo problema de job longo da D1.
+
+## Não verificado
+
+- Se o modelo devolve JSON válido quando **cabe** no teto: a evidência é uma passagem (1 cena, 1388
+  tokens) e uma falha (truncado em 3000), com a **mesma entrada** — logo a função é **não determinística**
+  hoje, e isso está medido, não suposto.
+- O teto real do modelo (`gpt-6.1-sol` declara 64 000 no catálogo); o limitante aqui é o da função.

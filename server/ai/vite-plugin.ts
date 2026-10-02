@@ -27,7 +27,8 @@ interface AiHttpModule {
   routeAiRequest: (
     method: string,
     pathname: string,
-    body: unknown,
+    lerCorpo: () => Promise<unknown>,
+    options: { authorization?: string | null },
   ) => Promise<{ status: number; body: unknown }>;
   sendJson: (res: import('node:http').ServerResponse, status: number, body: unknown) => void;
   /** Reexportado por `http.ts` para o plugin higienizar erro sem importar o grafo inteiro. */
@@ -55,8 +56,18 @@ export function aiDevServer(): Plugin {
             // servidor e a tela receber "formato inesperado" — o defeito era do encanamento, não da
             // validação, e é o tipo de erro que só aparece quando se testa a rota de verdade.
             const hasBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
-            const body = hasBody ? await module.readJsonBody(req) : undefined;
-            const result = await module.routeAiRequest(method, pathname, body);
+            // O header vai junto: sem ele, o desenvolvimento aceitaria o que a produção recusa, e o
+            // defeito apareceria só depois do deploy — o padrão de falha que esta entrega elimina.
+            //
+            // O corpo entra como **função**: assim ele só é lido depois da guarda de identidade, igual
+            // à função serverless (defeito 1 do `QA-014`). O servidor de desenvolvimento tem de ter a
+            // mesma ordem de checagens da produção, senão ele mente sobre o comportamento.
+            const result = await module.routeAiRequest(
+              method,
+              pathname,
+              async () => (hasBody ? await module.readJsonBody(req) : undefined),
+              { authorization: req.headers.authorization ?? null },
+            );
             module.sendJson(res, result.status, result.body);
           } catch (error) {
             // Qualquer falha vira JSON de erro: devolver HTML aqui faria o cliente exibir

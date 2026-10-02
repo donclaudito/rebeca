@@ -45,7 +45,7 @@ python "E:\pojeto rebeca\.tools\validar_skills.py"   # 18 skills: frontmatter, n
 
 ```powershell
 pnpm install
-Copy-Item .env.example .env   # opcional: sem chave, o app roda com provedor simulado
+Copy-Item .env.example .env   # preencha GOOGLE_CLIENT_ID e REBECA_ALLOWED_SUBS (ver "Entrar no app")
 pnpm dev        # http://127.0.0.1:5173
 pnpm typecheck  # tsc --noEmit  (cobre src/, server/ e api/)
 pnpm test       # vitest
@@ -54,6 +54,28 @@ pnpm prompts:check   # o prompt versionado e o que executa estão iguais?
 ```
 
 Precisa de **Node >= 22.12** (piso imposto por `vitest@5` e `vite@8`; declarado em `engines`).
+
+## Entrar no app (autenticação)
+
+Desde o `ADR-014` o app **não abre** para quem não entrou, e as rotas de `api/ai/*` e `api/media/*`
+exigem um **ID token do Google** verificado no servidor. É isso que permite a chave paga existir no
+servidor publicado sem que qualquer visitante a consuma (`ADR-011`, camada 3).
+
+Duas variáveis, e só a segunda é segredo:
+
+| Variável | O que é |
+|---|---|
+| `GOOGLE_CLIENT_ID` | Client ID do OAuth criado no Google Cloud (*Web application*). **Público** por definição: vai no bundle do navegador e é o `aud` que o servidor confere |
+| `REBECA_ALLOWED_SUBS` | **O controle de acesso.** Lista de `sub`s autorizados, separados por vírgula — fica **só no servidor** |
+
+O `sub` é o identificador numérico da conta Google, **não o e-mail** (a própria documentação do Google
+avisa que uma conta pode trocar de endereço; o `sub` nunca muda). Para descobrir o seu: rode o app,
+clique em entrar — a **tela de entrada mostra o `sub`** quando a conta ainda não está autorizada, e a
+tela de Configurações mostra o mesmo valor depois. Passo a passo completo, incluindo o que fazer no
+Google Cloud e na Vercel: [`docs/passo-a-passo-autenticacao-google.md`](docs/passo-a-passo-autenticacao-google.md).
+
+**Sem `GOOGLE_CLIENT_ID` o app responde 503 em tudo** — falha fechada de propósito: erro de
+configuração não pode virar porta aberta para a chave paga.
 
 ## Camada de IA
 
@@ -88,11 +110,11 @@ Quatro garantias que valem conhecer antes de mexer:
    voltado a menores. Quando nenhum se qualifica, o canal cai em simulação — e a tela explica.
 4. **A IA nunca aprova, agenda ou publica.** Ela propõe; o clique é humano.
 
-**Sobre a tela de configuração:** em ambiente **publicado** (Vercel) ela é somente leitura, porque não
-existe autenticação nesta fase e uma rota pública que aceita chave de API de qualquer visitante seria
-uma vulnerabilidade. Ali, o lugar do segredo é o gerenciador de segredos do host. Localmente, as
-chaves ficam em `.rebeca/segredos/llm.json` — arquivo ignorado pelo git, **não um cofre**, e a própria
-tela diz isso.
+**Sobre a tela de configuração:** em ambiente **publicado** (Vercel) ela continua **somente leitura**,
+mesmo com autenticação ligada. A razão mudou de "não existe login" para uma decisão de desenho
+(`ADR-014`): quem entra passa a **usar** a chave, não a **ver** nem a **trocar** — o lugar do segredo é
+o gerenciador do host. Localmente, as chaves ficam em `.rebeca/segredos/llm.json` — arquivo ignorado
+pelo git, **não um cofre**, e a própria tela diz isso.
 
 ## Onde roda (nuvem)
 
@@ -105,22 +127,34 @@ tela diz isso.
 > O nome `ai-media-studio` **não** é deste projeto: `ai-media-studio.vercel.app` é de terceiro (o
 > `QA-003` já tinha registrado isso). O endereço do dono é `rebeca-odda.vercel.app`.
 
-**O deploy precisa ser privado — e a camada que fecha a porta ainda NÃO está ligada** (`ADR-011`).
-Sem enfeite: **hoje o app publicado responde a qualquer visitante** — medido em 2026-10-01,
-`GET /api/ai/status` → **HTTP 200 sem credencial nenhuma**.
+**O deploy precisa ser privado, e a camada que fecha a porta da API já está no código** (camadas do
+`ADR-011`; a autenticação é o `ADR-014`).
 
 - **Camada 1 — ⏳ pendente, é ação do dono no painel da Vercel** (não há como fazer por código):
   *Deployment Protection → Vercel Authentication*, escopo **_All Deployments_**. É gratuita no plano
   Hobby e cobre **todas** as requisições, inclusive `/api/*`. Vale **por projeto**: ligue em todos os
   que recebem este repositório. **Verificação:** com a camada ligada, `/api/ai/status` **sem sessão**
   deve deixar de devolver 200 — enquanto continuar 200, ela está desligada.
+  **Medição honesta:** em 2026-10-01 o dono relatou ter ligado a proteção e a URL de produção
+  **continuou respondendo 200 sem credencial** (a hipótese registrada é erro de escopo: *Standard
+  Protection* protege só os previews). Com a camada 3 no ar, o que essa camada 1 ainda protege é a
+  **casca estática** do app — não a chave.
 - **Camada 2 — ✅ no código** (`X-Robots-Tag`, `public/robots.txt` e a meta tag do documento): só
-  descoberta. Impede indexação e arquivamento, **não** é controle de acesso — quem souber a URL ainda
-  chega se a camada 1 estiver desligada.
-- **Camada 3 — ⏳ aberta**: autenticação das rotas de IA com identidade, papéis e trilha é da F1
-  (`D3`). Até lá, **gerar pela API publicada é recusado de propósito**: sem livro de custo durável no
-  serverless o teto diário não teria efeito, e ligar `REBECA_ALLOW_NO_LEDGER=1` para destravar
-  significaria gastar **sem teto**. Para usar as APIs com teto valendo, rode local (`pnpm dev`).
+  descoberta. Impede indexação e arquivamento, **não** é controle de acesso.
+- **Camada 3 — ✅ no código (`ADR-014`)**: toda rota de `api/ai/*` e `api/media/*` exige **ID token do
+  Google** verificado no servidor, com lista de acesso por `sub`; sem credencial → **401**, conta fora
+  da lista → **403** (e nada é cobrado em nenhum dos dois), sem `GOOGLE_CLIENT_ID` → **503**. O
+  navegador guarda o token **só em memória**. O que segue público é a casca estática (HTML/JS) — que
+  mostra a tela de entrada e nenhum dado.
+  **Ainda aberto (é a F1, `D3`):** papéis por usuário (editor/revisor) e trilha de auditoria em banco.
+  Hoje o acesso é do dono (e de quem ele autorizar por `sub`), e o gasto fica atribuído na coluna
+  `identidade_sub` do livro de custos.
+- **O que a camada 3 ainda NÃO liga, e é importante saber:** autenticar não faz o app publicado
+  **gerar**. O teto diário de gasto depende de um livro de custos durável, e em serverless ele não
+  existe (achado `QA-006 #1`) — por isso a **geração paga continua sendo recusada com 403** em
+  produção, até existir banco (decisão `D1`) ou até o aceite explícito de `REBECA_ALLOW_NO_LEDGER=1`,
+  que significa gastar sem teto diário efetivo. Para usar as APIs com o teto valendo, rode local
+  (`pnpm dev`).
 
 - **Deploy:** `push` em `main` publica produção; abrir PR gera preview. O deploy é da integração Git
   da Vercel — **o CI não publica**.
