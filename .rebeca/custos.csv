@@ -240,3 +240,11 @@ data,canal,conteudo,etapa,provedor,modelo,unidade,quantidade,custo_usd,tempo_min
 2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,11546,0.071092,0.000,humano:teto-aprovado,5546,6000,criar-cena@v1 (falhou),
 2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,4180,0.001679,0.000,humano:teto-aprovado,1028,3152,criar-roteiro@v1,
 2026-10-02,Luna e o Jardim das Cores,—,criar,openai,gpt-6.1-sol,tokens,2394,0.012388,0.000,humano:teto-aprovado,1444,950,criar-cena@v2,
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000014,0.000,humano:teto-aprovado,46,12,teste-de-conexao,112512026912445173411
+2026-10-02,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,112512026912445173411
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000014,0.000,humano:teto-aprovado,46,12,teste-de-conexao,112512026912445173411
+2026-10-02,(teste de conexão),—,configurar,openai,gpt-6-luna,tokens,32,0.000005,0.000,humano:teto-aprovado,28,4,teste-de-conexao,112512026912445173411
+2026-10-02,(teste de conexão),—,configurar,deepseek,deepseek-flash,tokens,58,0.000014,0.000,humano:teto-aprovado,46,12,teste-de-conexao,112512026912445173411
+2026-10-02,(teste de conexão),—,configurar,google,gemini-3.8-flash,tokens,20,0.000018,0.000,humano:teto-aprovado,19,1,teste-de-conexao,112512026912445173411
+2026-10-02,Luna e o Jardim das Cores,—,pesquisar,openai,gpt-6.1-sol,tokens,1686,0.009532,0.000,humano:teto-aprovado,916,770,pesquisar-tendencia@v1,112512026912445173411
+2026-10-02,Luna e o Jardim das Cores,luna-frutas,criar,openai,gpt-6-luna,tokens,4904,0.002041,0.000,humano:teto-aprovado,1028,3876,criar-roteiro@v1,112512026912445173411

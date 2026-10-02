@@ -151,6 +151,30 @@ describe('cabeçalhos de segurança do deploy', () => {
     const style = cspDirectives.get('style-src') ?? [];
     expect(style).toContain('https://accounts.google.com/gsi/style');
 
+    /*
+     * E `'unsafe-inline'` — que a doc do Google **não** lista, e sem o qual o botão quebra.
+     *
+     * `https://accounts.google.com/gsi/style` autoriza carregar uma folha **externa** daquela origem.
+     * Não autoriza os `<style>` que o `gsi/client` injeta **em tempo de execução**. Medido no console
+     * do navegador em 2026-10-02, com esta política já no ar:
+     *
+     *   "Applying inline style violates the following Content Security Policy directive 'style-src
+     *    'self' https://accounts.google.com/gsi/style'. Either the 'unsafe-inline' keyword, a hash
+     *    ('sha256-RU4sU0AaS8IBGZx8XrGt/pa9A5SLA3dQszGeqT5L3Kw='), or a nonce is required… The action has
+     *    been blocked."
+     *
+     * As quatro diretivas da doc são **necessárias e não suficientes** — foi essa a lacuna.
+     *
+     * `'unsafe-inline'` em vez dos hashes, e isso é decisão: o `gsi/client` é script de terceiro que o
+     * Google atualiza quando quer, e cada versão nova mudaria o hash — o login quebraria em produção,
+     * sem aviso, num arquivo que ninguém abre. Hash aqui seria bomba-relógio.
+     *
+     * O custo, sem enfeite: estilo inline passa a ser permitido na página. **Script não** — o
+     * `script-src` continua com allow-list e com o hash do script de tema do `ADR-008`. Quem for
+     * apertar esta diretiva de novo precisa saber que ela é o que mantém a entrada do app funcionando.
+     */
+    expect(style).toContain("'unsafe-inline'");
+
     // O botão do Google é um iframe de `accounts.google.com` — sem `frame-src`, ele não existe.
     expect(cspDirectives.get('frame-src')).toContain('https://accounts.google.com/gsi/');
 

@@ -441,7 +441,21 @@ export function RevisaoPage() {
               [brandKit?.tone, ...(brandKit?.fonts ?? []).map((fonte) => fonte.family)]
                 .filter((parte) => Boolean(parte))
                 .join(' · ') || 'estilo visual ainda não definido no Brand Kit',
-            blocos: lote,
+            /*
+             * **Só os três campos do contrato.**
+             *
+             * `obj()` em `src/ai/schemas.ts` emite `additionalProperties: false`, então o bloco do roteiro
+             * **inteiro** (`tempoInicioSeg`, `tempoFimSeg`, `emocao`) faz a chamada ser recusada com
+             * *"A entrada da função não está no formato esperado"* — antes de sair do servidor. A versão
+             * anterior mapeava os três campos; ao trocar para o laço de lotes eu passei o objeto cru, e o
+             * defeito só apareceu na tela. O teste da tela não pegou porque ele conferia *quantas* chamadas
+             * saíram, não *o que* saiu — agora ele valida o corpo contra o schema real.
+             */
+            blocos: lote.map((bloco) => ({
+              ordem: bloco.ordem,
+              narracao: bloco.narracao,
+              acao: bloco.acao,
+            })),
           },
         });
 

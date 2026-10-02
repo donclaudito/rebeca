@@ -67,6 +67,42 @@ describe('criar-cena trabalha por lote', () => {
     expect(validateSchema(schema!.input, entrada(1))).toEqual([]);
   });
 
+  /*
+   * O defeito que chegou à tela do dono como **"A entrada da função não está no formato esperado."**
+   *
+   * O bloco do roteiro (`RoteiroBloco`) tem seis campos: `ordem`, `tempoInicioSeg`, `tempoFimSeg`,
+   * `narracao`, `acao`, `emocao`. O bloco de `criar-cena` tem **três**. Como `obj()` emite
+   * `additionalProperties: false`, mandar o bloco inteiro é recusado **antes** de qualquer chamada ao
+   * provedor — a mensagem que aparece na tela é a da validação de entrada.
+   *
+   * Estes dois casos prendem os dois lados: o cru é recusado, o reduzido é aceito. Se alguém "facilitar"
+   * o schema para aceitar o cru, o primeiro fica vermelho; se alguém voltar a mandar o cru, o teste da
+   * tela (`revisao.test.tsx`) valida o corpo contra este mesmo schema e fica vermelho também.
+   */
+  it('**recusa** bloco com campo a mais — o defeito "não está no formato esperado"', () => {
+    const cru = {
+      tema: 'Borboletas e cores',
+      formato: 'video',
+      personagens: ['Luna'],
+      estiloVisual: 'flat 2D children illustration',
+      blocos: [
+        { ordem: 1, tempoInicioSeg: 0, tempoFimSeg: 10, narracao: 'n', acao: 'a', emocao: 'alegria' },
+      ],
+    };
+    expect(validateSchema(schema!.input, cru).length).toBeGreaterThan(0);
+  });
+
+  it('aceita o mesmo bloco reduzido a ordem, narracao e acao', () => {
+    const reduzido = {
+      tema: 'Borboletas e cores',
+      formato: 'video',
+      personagens: ['Luna'],
+      estiloVisual: 'flat 2D children illustration',
+      blocos: [{ ordem: 1, narracao: 'n', acao: 'a' }],
+    };
+    expect(validateSchema(schema!.input, reduzido)).toEqual([]);
+  });
+
   it('recusa lote vazio — chamada sem bloco nenhum não tem o que virar cena', () => {
     expect(validateSchema(schema!.input, entrada(0)).length).toBeGreaterThan(0);
   });

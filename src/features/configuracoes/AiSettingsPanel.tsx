@@ -262,9 +262,12 @@ export function AiSettingsPanel() {
               <code className="ams-num">localhost:5173</code>: o mesmo painel é editável lá. Em
               produção, o segredo entra pelo <strong>gerenciador de segredos</strong> do servidor
               (variáveis de ambiente:{' '}
-              <span className="ams-num">{data.providers.map((p) => p.envVar).join(', ')}</span>) — e só
-              depois que as rotas de IA tiverem autenticação, porque hoje quem alcançar o endereço
-              consome a chave.
+              <span className="ams-num">{data.providers.map((p) => p.envVar).join(', ')}</span>). A
+              autenticação das rotas <strong>já existe</strong> — sem credencial elas respondem 401 —,
+              então esse portão está aberto. O que <strong>ainda falta</strong> não é a chave: o teto de
+              gasto depende de um livro de custos <strong>durável</strong>, e o sistema de arquivos da
+              função serverless é somente-leitura. Sem ele, a geração paga em produção é recusada de
+              propósito, com o motivo na tela — em vez de gastar sem teto.
             </p>
           </div>
         )}

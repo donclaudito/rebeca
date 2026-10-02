@@ -13,6 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppRoutes } from '@/app/routes';
+import { getFunctionSchema, validateSchema } from '@/ai/schemas';
 import { api, resetStore } from '@/data/client';
 import { contents } from '@/data/mock/db';
 
@@ -604,10 +605,29 @@ describe('tela de revisão', () => {
 
     // 7 blocos ÷ 3 por lote = 3 chamadas. Nenhuma leva mais que o teto do schema de entrada.
     await waitFor(() => expect(corposDaIA).toHaveLength(3));
+
+    /*
+     * **A conferência que faltava, e o defeito que ela teria pegado.**
+     *
+     * O teste antigo só contava as chamadas — e passou verde enquanto o servidor recusava **todas** com
+     * *"A entrada da função não está no formato esperado"*, porque o bloco do roteiro ia inteiro (com
+     * `tempoInicioSeg`, `tempoFimSeg` e `emocao`) e `obj()` emite `additionalProperties: false`.
+     * Contar chamadas mede o disparo; validar o corpo contra o **schema real** mede o conteúdo. Sem isto,
+     * a tela pode chamar a função errada com o argumento errado e a suíte continua verde.
+     */
+    const schemaDaCena = getFunctionSchema('criar-cena');
+    expect(schemaDaCena, 'criar-cena não está no registro de schemas').not.toBeNull();
+
     for (const corpo of corposDaIA) {
-      const blocos = (corpo['input'] as Record<string, unknown>)['blocos'] as unknown[];
+      const erros = validateSchema(schemaDaCena!.input, corpo['input']);
+      expect(erros, `o corpo enviado não passa no schema de criar-cena: ${erros.join('; ')}`).toEqual([]);
+      const blocos = (corpo['input'] as Record<string, unknown>)['blocos'] as Array<Record<string, unknown>>;
       expect(blocos.length).toBeGreaterThan(0);
       expect(blocos.length, 'um lote passou do teto de 3 blocos do schema').toBeLessThanOrEqual(3);
+      // O bloco vai **reduzido** ao contrato: campo a mais derruba a chamada antes de sair do servidor.
+      for (const bloco of blocos) {
+        expect(Object.keys(bloco).sort()).toEqual(['acao', 'narracao', 'ordem']);
+      }
     }
 
     // O storyboard acumulado chega inteiro ao conteúdo: 7 blocos → 7 cenas.
