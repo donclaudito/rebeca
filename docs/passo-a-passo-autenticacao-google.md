@@ -60,6 +60,24 @@ Fontes oficiais usadas (lidas em 2026-10-02):
 
 ---
 
+### 1.3 A tela mostra DUAS credenciais — só uma serve
+
+Ao criar o cliente, o console abre um diálogo com dois valores. Eles não são a mesma coisa:
+
+| O que aparece | Serve para este desenho? |
+|---|---|
+| **ID do cliente** (`…apps.googleusercontent.com`) | ✅ **Sim.** É público, vai no bundle do navegador e é o `aud` que o servidor verifica. |
+| **Chave secreta do cliente** (`GOCSPX-…`) | ❌ **Não, para nada.** Existe para trocar *authorization code* no servidor. O fluxo do Google Identity Services com ID token **não a usa**. |
+
+**Não copie, não cole e não fotografe a chave secreta.** O diálogo some quando você fecha, e a chave
+secretada só é pedida em fluxo confidencial de servidor — que não é o nosso.
+
+**Se ela vazar** (print, chat, issue, log): na página de clientes, abra o cliente e use
+**Redefinir chave secreta** (*Reset secret*). A que vazou deixa de valer. Não é preciso guardar a nova,
+porque este projeto não a consome.
+
+---
+
 ## Parte 2 — No código (eu faço)
 
 Tudo isto é implementação minha, listada aqui para você ver o caminho completo:
