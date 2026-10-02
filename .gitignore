@@ -44,6 +44,11 @@ out/
 # lugar de asset é o Storage (mesma regra da linha acima).
 .rebeca/assets/
 
+# --- Rascunho de ferramenta da orquestra ---
+# `.dsh/tmp/` guarda script de sondagem escrito na hora (baixar spec, extrair texto, testar um
+# endpoint). É rascunho descartável, não é fonte do produto, e entrava no Git por não ter regra.
+.dsh/tmp/
+
 .DS_Store
 Thumbs.db
 desktop.ini
