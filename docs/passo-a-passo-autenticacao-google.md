@@ -43,6 +43,22 @@ Fontes oficiais usadas (lidas em 2026-10-02):
 > **Pegadinha real:** `Authorized JavaScript origins` **não aceita caminho nem barra no fim**.
 > `https://rebeca-odda.vercel.app/` (com barra) é recusado ou não casa. Use sem barra.
 
+> **O erro literal quando a origem falta — `Erro 400: origin_mismatch`.** O navegador abre uma página
+> do Google dizendo *"Acesso bloqueado: erro de autorização … Não é possível fazer login no app porque
+> ele não obedece à política do OAuth 2.0 do Google … Erro 400: origin_mismatch"*, com o e-mail da
+> conta escolhida. Isso significa **exatamente** que o endereço de onde o app está sendo servido não
+> está na lista de origens daquele cliente.
+>
+> Aconteceu de verdade em 2026-10-02, **depois** de o primeiro deploy levar a tela de login para
+> produção: `http://localhost:5173` estava registrado (e o login local funcionava), e
+> `https://rebeca-odda.vercel.app` **não** estava. O erro é bom: ele diz o nome do problema, ao
+> contrário de uma tela que simplesmente não avança.
+>
+> Origem é **endereço exato**, sem caminho e sem barra no fim. E é **por projeto do Google Cloud**: se
+> você tiver mais de um cliente (ou mais de um projeto), registre no cliente cujo Client ID o app está
+> usando — o valor está visível em Configurações → Inteligência artificial, ou em
+> `https://SEU-APP/api/auth/config`.
+
 ### 1.2 Tela de consentimento (OAuth consent screen)
 
 1. Abra a página de branding: <https://console.developers.google.com/auth/branding>

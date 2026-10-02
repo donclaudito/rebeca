@@ -381,3 +381,28 @@ Settings -> Environment Variables e clicar em Redeploy (variavel nova so vale em
 Confirmar tambem que https://rebeca-odda.vercel.app esta nas Authorized JavaScript origins.
 LEMBRETE: mesmo autenticado, a GERACAO PAGA continua recusada em producao (403) porque o livro de
 custos nao e duravel em serverless — ver secao 9 do adendo do ADR-014.
+
+================================================================================
+15. PRODUCAO: VARIAVEIS CONFIGURADAS E O BLOQUEIO FINAL (origin_mismatch)
+================================================================================
+Medido depois de o dono configurar as variaveis na Vercel e refazer o deploy:
+
+  GET https://rebeca-odda.vercel.app/api/auth/config
+    -> HTTP 200 {"clientId":"973836082003-nii6vsqfq9hcg91gcdroji16621fcut4.apps.googleusercontent.com",
+                 "googleScriptUrl":"https://accounts.google.com/gsi/client"}
+
+  `clientId` deixou de ser null: GOOGLE_CLIENT_ID esta configurada na Vercel e o deploy a pegou.
+
+BLOQUEIO FINAL, com erro literal do Google (tela "Acesso bloqueado: erro de autorizacao"):
+    Erro 400: origin_mismatch
+    "Nao e possivel fazer login no app porque ele nao obedece a politica do OAuth 2.0 do Google.
+     Se voce e o desenvolvedor do app, registre a origem JavaScript no Console do Google Cloud."
+
+Diagnostico: a origem `https://rebeca-odda.vercel.app` NAO esta em *Authorized JavaScript origins*
+do cliente OAuth. `http://localhost:5173` esta (o login local funciona) — a origem faltante apareceu
+agora porque foi o primeiro deploy que levou a tela de login para producao; antes, aquele endereco
+servia o app antigo, sem fluxo de login.
+
+ACAO (dono, no Console): adicionar `https://rebeca-odda.vercel.app` a *Authorized JavaScript origins*
+do cliente `973836082003-...`, SEM barra no fim e SEM caminho; salvar; aguardar ~1 minuto e recarregar.
+Registrado tambem no runbook, com o texto literal do erro.
