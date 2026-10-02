@@ -60,6 +60,18 @@ publicado continua sendo uma demonstração inerte.
 7. **Defesa em profundidade**, exigida pela skill `rebeca-seguranca` (autenticação não é a única
    camada): (a) conferência de `Origin`/`Referer` contra a origem do app; (b) **rate limit por
    `sub`**, além do teto de gasto; (c) registro de auditoria de quem disparou cada geração paga.
+8. **O CSP e o COOP do `vercel.json` têm de mudar — hoje a integração quebraria.** A doc oficial de
+   setup é explícita, e cada item abaixo é bloqueante:
+   - `script-src` precisa incluir `https://accounts.google.com/gsi/client`, senão o navegador
+     **bloqueia a biblioteca do Google** (o CSP atual só permite `'self'` e o hash do script inline);
+   - `style-src` precisa incluir `https://accounts.google.com/gsi/style`;
+   - `frame-src` precisa incluir `https://accounts.google.com/gsi/` — o botão é servido em iframe;
+   - `connect-src` precisa incluir `https://accounts.google.com/gsi/`;
+   - `Cross-Origin-Opener-Policy` precisa virar **`same-origin-allow-popups`**: a doc avisa que
+     `same-origin` puro quebra a comunicação entre janelas e produz pop-up em branco. O valor atual
+     (`same-origin`, herdado do `ADR-008`) é o caso de falha descrito.
+   A mesma doc proíbe hospedar a biblioteca por conta própria — ela vem de
+   `https://accounts.google.com/gsi/client`.
 
 ## Alternativas descartadas
 | Alternativa | Por que foi descartada |
