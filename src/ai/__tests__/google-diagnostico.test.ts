@@ -83,8 +83,7 @@ describe('diagnóstico do teste de conexão do Google', () => {
     expect(resultado.message).toMatch(/MAX_TOKENS/);
   });
 
-  it('tempo esgotado diz o limite e o que fazer, em vez de só "tempo esgotado"', async () => {
-    /*
+  it('tempo esgotado diz o limite e o que fazer, em vez de só "tempo esgotado"', async () => {    /*
      * Segundo relato do dono, depois da correção anterior: a tela passou a dizer "tempo esgotado na
      * chamada ao provedor" — melhor que "resposta sem parts", mas ainda sem dizer de quanto tempo se
      * trata nem o que fazer. O limite do teste é lido de `AI_LIMITS.testTimeoutMs` (60 s): modelo que
@@ -105,5 +104,41 @@ describe('diagnóstico do teste de conexão do Google', () => {
     expect(resultado.message).toMatch(/tempo esgotado/i);
     expect(resultado.message).toMatch(/60 s/);
     expect(resultado.message).toMatch(/rede, endereço ou disponibilidade/i);
+  });
+
+  it('a GERAÇÃO também explica o tempo esgotado — e que nada foi cobrado', async () => {
+    /*
+     * O mesmo limite vale no caminho de geração, e foi ali que o dono do produto viu **HTTP 504** no
+     * console do navegador. Antes a mensagem era genérica ("O provedor de IA não respondeu como
+     * esperado") e não dizia nem o limite nem se houve gasto. Este teste chama o adaptador real da
+     * OpenAI com um `fetch` que estoura por tempo.
+     */
+    const abortado = new Error('aborted');
+    abortado.name = 'AbortError';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw abortado;
+      }),
+    );
+
+    const { PROVIDERS } = await import('../../../server/ai/providers');
+    const erro: unknown = await PROVIDERS.openai
+      .complete({
+        model: 'gpt-6-luna',
+        system: 'sistema',
+        user: 'usuário',
+        maxOutputTokens: 16,
+        jsonSchema: null,
+        apiKey: 'chave-de-teste-000000',
+        baseUrl: 'https://exemplo.invalido/v1/chat/completions',
+        signal: new AbortController().signal,
+      })
+      .catch((capturado: unknown) => capturado);
+
+    const mensagem = String((erro as { message?: string }).message ?? '');
+    expect(mensagem).toMatch(/90 s/);
+    expect(mensagem).toMatch(/nada foi cobrado/i);
+    expect((erro as { status?: number }).status).toBe(504);
   });
 });

@@ -12,6 +12,7 @@
  */
 
 import { AiError } from '../../src/ai/contract.js';
+import { AI_LIMITS } from '../../src/ai/limits.js';
 import type { JsonSchema } from '../../src/ai/schemas.js';
 import type { ProviderAdapter, ProviderResponse } from './providers.js';
 
@@ -42,8 +43,20 @@ async function postWithKey(
       signal,
     });
   } catch (error) {
-    const aborted = error instanceof Error && error.name === 'AbortError';
-    throw providerError(aborted ? 'tempo esgotado na chamada ao provedor' : 'falha de rede', 504, true);
+    // Mesmo tratamento do adaptador OpenAI: tempo esgotado tem mensagem própria, com o limite e o
+    // aviso de que nada foi cobrado. Ver `providers.ts`.
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new AiError(
+        {
+          code: 'provedor',
+          message: `O provedor demorou mais de ${Math.round(AI_LIMITS.requestTimeoutMs / 1000)} s e a chamada foi cancelada. Nada foi gerado e nada foi cobrado — tente de novo ou escolha um modelo mais rápido para esta função (Configurações → Inteligência artificial → Modelo por função).`,
+          detail: 'tempo esgotado na chamada ao provedor',
+          retryable: true,
+        },
+        504,
+      );
+    }
+    throw providerError('falha de rede', 504, true);
   }
 
   let body: unknown = null;
