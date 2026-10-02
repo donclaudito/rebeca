@@ -1207,7 +1207,7 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
           : PROVIDERS[typed];
 
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30_000);
+    const timer = setTimeout(() => controller.abort(), AI_LIMITS.testTimeoutMs);
     let response;
     try {
       response = await adapter.complete({
@@ -1258,10 +1258,24 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
     // Mensagem em pt-BR para a tela; o detalhe técnico já vem higienizado pelos adaptadores.
     const detail =
       error instanceof AiError && error.detail ? redact(error.detail) : redact(error instanceof Error ? error.message : '');
+
+    /*
+     * Tempo esgotado merece explicação própria.
+     *
+     * Antes a tela dizia só "tempo esgotado na chamada ao provedor": sem o limite, sem a causa provável
+     * e sem o que fazer. O dono do produto bateu nisso com o Google e a mensagem não o ajudava em nada.
+     * Modelo que "pensa" gasta orçamento de saída em raciocínio e estoura um limite curto; se estourar
+     * mesmo com folga, o problema é outro (rede, endereço ou modelo) — e aí vale dizer isso também.
+     */
+    const segundos = Math.round(AI_LIMITS.testTimeoutMs / 1000);
+    const explicacao = /tempo esgotado/i.test(detail)
+      ? ` O limite desta chamada de teste é de ${segundos} s. Modelo que "pensa" pode gastar esse tempo em raciocínio — tente de novo; se repetir, o problema é de rede, endereço ou disponibilidade do modelo, não da chave.`
+      : '';
+
     return {
       provider: typed,
       ok: false,
-      message: `O provedor não aceitou a chamada de teste. ${detail}`.trim().slice(0, 400),
+      message: `O provedor não aceitou a chamada de teste. ${detail}${explicacao}`.trim().slice(0, 400),
       model,
       latencyMs: Math.max(0, Math.round(performance.now() - startedAt)),
       costUsd: 0,

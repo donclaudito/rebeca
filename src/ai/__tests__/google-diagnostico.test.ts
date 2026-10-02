@@ -82,4 +82,28 @@ describe('diagnóstico do teste de conexão do Google', () => {
     expect(resultado.message).toMatch(/vazio/i);
     expect(resultado.message).toMatch(/MAX_TOKENS/);
   });
+
+  it('tempo esgotado diz o limite e o que fazer, em vez de só "tempo esgotado"', async () => {
+    /*
+     * Segundo relato do dono, depois da correção anterior: a tela passou a dizer "tempo esgotado na
+     * chamada ao provedor" — melhor que "resposta sem parts", mas ainda sem dizer de quanto tempo se
+     * trata nem o que fazer. O limite do teste é lido de `AI_LIMITS.testTimeoutMs` (60 s): modelo que
+     * "pensa" pode consumi-lo em raciocínio, e isso é diferente de rede ou chave errada.
+     */
+    const abortado = new Error('aborted');
+    abortado.name = 'AbortError';
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw abortado;
+      }),
+    );
+
+    const resultado = await handleTestProvider({ provider: 'google', apiKey: CHAVE });
+
+    expect(resultado.ok).toBe(false);
+    expect(resultado.message).toMatch(/tempo esgotado/i);
+    expect(resultado.message).toMatch(/60 s/);
+    expect(resultado.message).toMatch(/rede, endereço ou disponibilidade/i);
+  });
 });

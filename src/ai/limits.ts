@@ -33,6 +33,17 @@ export const AI_LIMITS = {
   requestTimeoutMs: 90_000,
 
   /**
+   * Tempo máximo do **teste de conexão** — menor que o da geração, mas não apertado.
+   *
+   * Estava em 30 s fixos no código, e o dono do produto bateu nesse limite com o Google: a mensagem
+   * dizia só "tempo esgotado", sem dizer de quanto tempo se tratava nem o que fazer. Modelo que
+   * "pensa" consome orçamento de saída em raciocínio e pode passar de 30 s numa chamada de uma palavra.
+   * 60 s dá folga para isso e mantém o teste como teste — se estourar de novo, o problema é outro
+   * (rede, endereço ou modelo indisponível) e a mensagem diz isso.
+   */
+  testTimeoutMs: 60_000,
+
+  /**
    * Tamanho máximo da entrada serializada. Entrada gigante é custo escondido e também vetor de
    * abuso: alguém colando 5 MB no campo de recado.
    */
