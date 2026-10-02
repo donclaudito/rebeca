@@ -58,6 +58,29 @@ Fontes oficiais usadas (lidas em 2026-10-02):
 > *(Este ponto sobre teste/produção não veio da doc que consultei; é prática corrente do console.
 > Confirme os rótulos na tela.)*
 
+#### Duas armadilhas desta tela, encontradas na prática (2026-10-02)
+
+**a) `Domínios autorizados` NÃO é o mesmo campo que `Authorized JavaScript origins`.** São telas
+diferentes e ambos são obrigatórios:
+
+| Campo | Onde fica | Formato | Valor aqui |
+|---|---|---|---|
+| **Authorized JavaScript origins** | página de **Clientes** | esquema + host, sem caminho e **sem barra no fim** | `http://localhost:5173`, `https://rebeca-odda.vercel.app` |
+| **Domínios autorizados** | página de **Branding** | **só o host**, sem esquema e sem caminho | `rebeca-odda.vercel.app` |
+
+Preencher só um dos dois dá erro em momento diferente: sem o primeiro, o login é recusado por origem;
+sem o segundo, a própria tela de consentimento acusa `Domínio ausente: <domínio>` e **não salva**.
+
+**b) `Dados de contato do desenvolvedor` recusa e-mail repetido.** A tela acusa
+`E-mails duplicados não são permitidos`. Costuma acontecer quando o campo autocompleta e a mesma
+conta é escolhida duas vezes: apague uma das entradas antes de salvar.
+
+**c) Página inicial, Política de Privacidade e Termos.** A página inicial deve ficar no domínio
+autorizado (ex.: `https://rebeca-odda.vercel.app/portfolio`). Os outros dois links o console marca
+como exigidos para app **público**; em **Status de teste**, tente salvar sem eles. Se o formulário
+recusar, é preciso publicar essas páginas no domínio autorizado — e, pela regra do projeto
+(`rebeca-lgpd`), texto de política de privacidade **passa por revisão jurídica antes de ir ao ar**.
+
 ---
 
 ### 1.3 A tela mostra DUAS credenciais — só uma serve
