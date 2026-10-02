@@ -231,8 +231,7 @@ zera o contador do abusador; google-auth-library fora do bundle do navegador; ha
 endereços + COOP conferidos contra a doc oficial.
 
 ================================================================================
-10. RE-MEDIÇÃO FINAL (árvore parada, DEPOIS das correções do QA-014)
-================================================================================
+10. RE-MEDIÇÃO FINAL (árvore parada, DEPOIS das correções do QA-014)================================================================================
 Tudo abaixo foi medido de novo depois de corrigir os 2 defeitos e as 4 observações do `rebeca-qa`.
 Os números das seções 2 e 4 acima são de ANTES das correções e ficam como registro do que foi medido
 naquele instante (a suíte cresceu com os casos novos do QA e com os meus).
@@ -291,8 +290,56 @@ exit 0
 Árvore: nenhum `.js` compilado deixado ao lado do TS (o diretório temporário foi removido e conferido).
 
 ================================================================================
-11. O QUE ESTA EVIDÊNCIA **NÃO** COBRE (declarado, sem maquiagem)
+12. DESFECHO — A CAUSA ERA MINHA: `sub` TRANSCRITO A OLHO DA CAPTURA DE TELA
 ================================================================================
+Depois de o dono relatar três vezes "conta ainda não autorizada" com o `sub` visível na tela, um
+instrumento no plugin de desenvolvimento imprimiu, no console do servidor, o `sub` que o Google
+mandou com os códigos de cada caractere e a lista comparada. Em uma linha:
+
+    sub recebido : "107886939461400534744"
+    lista        : "197886939461400534744"
+
+Diferença no SEGUNDO dígito: `0` contra `9`. O mesmo aconteceu com a outra conta
+(`112512026912445173411` recebido contra `112541202691244517341` na lista). Eu havia transcrito os
+identificadores à mão, de capturas de tela pequenas, e gravado números válidos porém de outras contas.
+O servidor estava certo o tempo todo; a lista é que estava errada.
+
+CORREÇÃO: `.env` regravado com os valores lidos DA MÁQUINA (log do servidor):
+    REBECA_ALLOWED_SUBS=107886939461400534744,112512026912445173411,109811113892776741141
+O dono confirmou o login funcionando ("agora abriu, por fim").
+
+DEFESAS QUE FICARAM NO CÓDIGO:
+1. `server/auth/vite-plugin.ts` (só no desenvolvimento, só quando a conta é RECUSADA) imprime no
+   terminal: `[auth] CONTA RECUSADA … sub recebido : "…"` + a lista em vigor — pronto para copiar.
+   Autorizar uma conta nova deixou de depender de alguém ler dígitos de imagem.
+2. `limparIdentificador` em `server/auth/access.ts`: a comparação ignora caracteres invisíveis
+   (largura zero, espaço não separável, BOM) dos DOIS lados — o caso irmão do erro de digitação, que
+   acontece ao colar um `sub` de log/PDF. Teste próprio em `guard.test.ts`, com o contrapeso de que um
+   `sub` desconhecido continua recusado.
+3. O runbook passou a dizer, em letras grandes: identificador NUNCA se transcreve à mão.
+
+REGRA QUE ENTRA NO PROJETO: `sub`, id, hash ou token nunca se digitam a partir de imagem, print ou
+PDF — copiam-se da fonte. Vinte e um dígitos em fonte pequena é o tipo de dado que a vista completa
+sem perceber, e o custo foi uma tarde inteira do dono e várias idas e voltas.
+
+================================================================================
+13. PUBLICAÇÃO (2026-10-02)
+================================================================================
+Commit `4400b8a` — 127 arquivos, com o trabalho de autenticação e o da frente de mídia/roteiro que
+ainda não estava commitado (o app importa esses arquivos, então o build depende deles; decisão do dono,
+tomada com essa informação). Antes do commit:
+  - `dist/`, `node_modules/`, `.env` e `.rebeca/segredos/` conferidos como IGNORADOS (`git check-ignore`);
+  - varredura de segredo limpa em 659 blobs (árvore + histórico);
+  - um lixo de compilação meu (pasta `--noEmit/` com 44 arquivos .js emitidos) removido antes do stage —
+    é a mesma armadilha de "JS compilado ao lado do TS" que já quase foi publicada uma vez;
+  - build de deploy: exit 0 · suíte: 402 testes / 36 arquivos, exit 0.
+
+**O push NÃO foi feito daqui: o ambiente bloqueia o gerenciador de credenciais do Windows.** Medido:
+`git push` → `schannel: AcquireCredentialsHandle failed: SEC_E_NO_CREDENTIALS`; com
+`-c http.sslBackend=openssl` → `sh.exe: couldn't create signal pipe, Win32 error 5` (o sandbox não
+permite pipes nomeados, e o helper de credencial roda por shell). O CLI da Vercel falha pelo mesmo
+motivo (`spawn EPERM`). **O push é a única etapa que ficou com o dono** — um comando:
+`git push origin main`.
 1. Login de verdade: nenhum ID token real foi aceito. O caminho positivo da assinatura está
    delegado à biblioteca oficial e só o navegador do dono o exercita.
 2. Pop-up / One Tap no navegador real: CSP e COOP seguem a documentação oficial (relida em
