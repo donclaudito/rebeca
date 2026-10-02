@@ -77,6 +77,27 @@ function readString(record: Record<string, unknown>, key: string): string | null
   return typeof value === 'string' ? value : null;
 }
 
+/**
+ * Por que o provedor respondeu sem conteúdo útil.
+ *
+ * Junta o que o Google publica para explicar a ausência de texto: o `finishReason` do candidato
+ * (`SAFETY`, `RECITATION`, `MAX_TOKENS`, `OTHER`) e o `blockReason` do pedido inteiro. Uma resposta
+ * sem conteúdo **com motivo** é diagnosticável; sem motivo, ela só diz "não funcionou".
+ */
+function motivoDaResposta(
+  candidate: Record<string, unknown> | undefined,
+  record: Record<string, unknown>,
+): string {
+  const feedback = (record['promptFeedback'] ?? {}) as Record<string, unknown>;
+  const finish = candidate ? readString(candidate, 'finishReason') : null;
+  const bloqueio = readString(feedback, 'blockReason');
+  const partes = [
+    finish ? `finishReason: ${finish}` : null,
+    bloqueio ? `blockReason: ${bloqueio}` : null,
+  ].filter((parte): parte is string => parte !== null);
+  return partes.length > 0 ? partes.join(' · ') : 'o provedor não informou o motivo';
+}
+
 /* =============================================================================
    Anthropic
    ============================================================================= */
@@ -246,7 +267,20 @@ export const GOOGLE_PROVIDER: ProviderAdapter = {
     const first = candidates[0] as Record<string, unknown> | undefined;
     const content = (first?.['content'] ?? {}) as Record<string, unknown>;
     const parts = content['parts'];
-    if (!Array.isArray(parts)) throw providerError('resposta sem "parts"');
+    if (!Array.isArray(parts)) {
+      /*
+       * Diagnóstico, não desculpa.
+       *
+       * O Google devolve **HTTP 200 sem `parts`** em casos legítimos: candidato cortado por segurança
+       * (`finishReason: SAFETY`), recitação, ou — o mais comum em modelo que "pensa" — o orçamento de
+       * saída consumido pelo raciocínio interno (`finishReason: MAX_TOKENS`), que deixa o conteúdo
+       * visível vazio. Antes a tela dizia só "resposta sem parts": o dono do produto clicava em
+       * "Testar conexão", via isso e não tinha o que fazer com a informação.
+       *
+       * Agora o motivo do provedor vai junto — sem ele, este erro é indistinguível de defeito nosso.
+       */
+      throw providerError(`o provedor respondeu sem conteúdo (${motivoDaResposta(first, record)})`, 502, false);
+    }
     const raw = parts
       .map((part) =>
         typeof part === 'object' && part !== null ? readString(part as Record<string, unknown>, 'text') : null,
@@ -254,7 +288,9 @@ export const GOOGLE_PROVIDER: ProviderAdapter = {
       .filter((text): text is string => typeof text === 'string')
       .join('');
 
-    if (raw.length === 0) throw providerError('resposta sem texto');
+    if (raw.length === 0) {
+      throw providerError(`o provedor respondeu com conteúdo vazio (${motivoDaResposta(first, record)})`, 502, false);
+    }
 
     const usage = (record['usageMetadata'] ?? {}) as Record<string, unknown>;
     const tokensIn = Number(usage['promptTokenCount'] ?? 0);

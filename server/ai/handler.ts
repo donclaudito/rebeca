@@ -1185,7 +1185,15 @@ export async function handleTestProvider(body: unknown, now: Date = new Date()):
   }
 
   const model = entry?.model ?? '';
-  const maxOutputTokens = 64;
+  /*
+   * 256 tokens, e não 64.
+   *
+   * O teste responde uma palavra, mas modelos que "pensam" gastam orçamento de saída no raciocínio
+   * interno: com 64 tokens o candidato volta com `finishReason: MAX_TOKENS` e **sem conteúdo**, e o
+   * teste falha por falta de espaço, não por credencial — que é justamente o que ele existe para
+   * verificar. O custo continua irrisório (256 tokens de saída de um modelo rápido ≈ US$ 0,0001).
+   */
+  const maxOutputTokens = 256;
   const system = 'Responda apenas com a palavra ok.';
   const user = 'Responda apenas com a palavra ok.';
 
