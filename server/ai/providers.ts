@@ -115,7 +115,7 @@ interface CompletionFields {
 }
 
 /** Extrai texto e `usage` do formato de resposta estilo OpenAI/DeepSeek/OpenRouter. */
-function readOpenAiStyle(body: unknown): CompletionFields {
+function readOpenAiStyle(body: unknown, maxOutputTokens: number): CompletionFields {
   if (typeof body !== 'object' || body === null) throw providerError('resposta não é objeto');
   const record = body as Record<string, unknown>;
 
@@ -124,6 +124,29 @@ function readOpenAiStyle(body: unknown): CompletionFields {
     throw providerError('resposta sem "choices"');
   }
   const first = choices[0] as Record<string, unknown> | undefined;
+
+  /*
+   * `finish_reason: 'length'` = a resposta foi **cortada no teto de tokens** desta função.
+   *
+   * O JSON sai incompleto, a validação de schema recusa e o que chegava à tela era um **502 genérico**
+   * ("não respondeu como esperado") — sem dizer que a causa era o tamanho da saída. O livro de custos
+   * mostrou `criar-cena@v1 (falhou)` e `criar-roteiro@v1 (falhou)` com exatamente 6.000 e 8.000 tokens
+   * de saída: o teto, não um defeito do provedor.
+   *
+   * `retryable: false` de propósito: repetir a mesma requisição corta no mesmo lugar e **paga de novo**.
+   */
+  if (first?.['finish_reason'] === 'length') {
+    throw new AiError(
+      {
+        code: 'provedor',
+        message: `O modelo foi interrompido no limite de ${maxOutputTokens} tokens de saída e a resposta ficou incompleta — por isso ela não foi aceita. Reduza o escopo desta chamada (menos cenas de uma vez) ou aumente o orçamento de saída da função. Nada foi publicado.`,
+        detail: `finish_reason: length (limite de ${maxOutputTokens} tokens de saída)`,
+        retryable: false,
+      },
+      502,
+    );
+  }
+
   const message = first?.['message'] as Record<string, unknown> | undefined;
   const content = message?.['content'];
   if (typeof content !== 'string') {
@@ -263,7 +286,7 @@ function openAiCompatible(options: {
         call.signal,
       );
 
-      return readOpenAiStyle(body);
+      return readOpenAiStyle(body, call.maxOutputTokens);
     },
   };
 }

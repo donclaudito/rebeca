@@ -141,4 +141,46 @@ describe('diagnóstico do teste de conexão do Google', () => {
     expect(mensagem).toMatch(/nada foi cobrado/i);
     expect((erro as { status?: number }).status).toBe(504);
   });
+
+  it('resposta cortada no teto de tokens é explicada, e não vira 502 genérico', async () => {
+    /*
+     * O dono do produto levou um **502** e o livro de custos explicou: `criar-cena@v1 (falhou)` e
+     * `criar-roteiro@v1 (falhou)` com exatamente 6.000 e 8.000 tokens de saída — o teto da função. A
+     * resposta chegou cortada, o JSON não fechou e a tela só dizia "não respondeu como esperado".
+     */
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              choices: [{ finish_reason: 'length', message: { content: '{"titulo": "cort' } }],
+              usage: { prompt_tokens: 2140, completion_tokens: 8000 },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
+      ),
+    );
+
+    const { PROVIDERS } = await import('../../../server/ai/providers');
+    const erro: unknown = await PROVIDERS.openai
+      .complete({
+        model: 'gpt-6-luna',
+        system: 'sistema',
+        user: 'usuário',
+        maxOutputTokens: 8000,
+        jsonSchema: null,
+        apiKey: 'chave-de-teste-000000',
+        baseUrl: 'https://exemplo.invalido/v1/chat/completions',
+        signal: new AbortController().signal,
+      })
+      .catch((capturado: unknown) => capturado);
+
+    const mensagem = String((erro as { message?: string }).message ?? '');
+    expect(mensagem).toMatch(/limite de 8000 tokens/i);
+    expect(mensagem).toMatch(/reduza o escopo/i);
+    expect((erro as { status?: number }).status).toBe(502);
+    // Repetir a mesma chamada cortaria no mesmo lugar e pagaria de novo.
+    expect((erro as { retryable?: boolean }).retryable).toBe(false);
+  });
 });
