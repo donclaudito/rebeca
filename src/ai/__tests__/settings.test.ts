@@ -189,20 +189,60 @@ describe('gravação da configuração', () => {
     expect(() => saveConfig({ models: { raciocinio: 'provedor-inventado:modelo' } })).toThrow(/desconhecido/i);
   });
 
-  it('recusa gravar quando o app está publicado', () => {
+  it('em ambiente publicado, quem NÃO está autorizado não grava', () => {
     process.env['VERCEL'] = '1';
     expect(settingsWritable()).toBe(false);
+    expect(settingsWritable({ authorized: false })).toBe(false);
     expect(() => saveConfig({ providers: { openai: { apiKey: FAKE_KEY } } })).toThrow(/não aceita gravar/i);
-    expect(() => handleSaveSettings({ providers: { openai: { apiKey: FAKE_KEY } } })).toThrow(/não aceita gravar/i);
+    expect(() =>
+      handleSaveSettings({ providers: { openai: { apiKey: FAKE_KEY } } }, new Date(), { authorized: false }),
+    ).toThrow(/não aceita gravar/i);
   });
 
-  it('a leitura informa que não é gravável quando publicado, sem expor chave', () => {
+  it('REGRESSÃO: em ambiente publicado, quem ESTÁ autorizado consegue cadastrar a chave', () => {
+    /*
+     * Era o bloqueio que o dono do produto relatou: no app publicado ele entrava com a conta Google,
+     * era autorizado, e **não conseguia cadastrar a chave** — enquanto no localhost conseguia. A
+     * objeção original ("rota pública aceita chave de qualquer visitante") deixou de valer quando a
+     * autenticação entrou; manter o bloqueio só impedia o app de ser configurado.
+     */
     process.env['VERCEL'] = '1';
-    const view = handleGetSettings();
-    expect(view.writable).toBe(false);
+    process.env['REBECA_SETTINGS_FILE'] = settingsFile;
+    resetConfigCache();
+
+    expect(settingsWritable({ authorized: true })).toBe(true);
+
+    // Em ambiente publicado o arquivo vive em `/tmp` (o resto do sistema é somente-leitura), então o
+    // teste aponta para o temporário dele — o que se prova aqui é a **decisão**, não o caminho.
+    const result = handleSaveSettings(
+      { providers: { openai: { apiKey: FAKE_KEY } } },
+      new Date(),
+      { authorized: true, actor: { sub: 'sub-do-dono', email: 'dono@exemplo.com' } },
+    );
+
+    expect(result.changed.join(' ')).toMatch(/openai: chave definida/i);
+    expect(loadConfig().providers['openai']?.apiKey).toBe(FAKE_KEY);
+    // Trilha de auditoria: quem trocou a chave fica registrado.
+    expect(result.settings.updatedBy).toBe('dono@exemplo.com');
+  });
+
+  it('a leitura nunca expõe a chave, mesmo para quem pode editar', () => {
+    process.env['VERCEL'] = '1';
+    process.env['REBECA_SETTINGS_FILE'] = settingsFile;
+    resetConfigCache();
+
+    saveConfig({ providers: { openai: { apiKey: FAKE_KEY } } }, new Date(), { authorized: true });
+
+    const view = handleGetSettings(true);
+    expect(view.writable).toBe(true);
     expect(view.hosted).toBe(true);
-    // Em ambiente publicado não se devolve nem o caminho do arquivo.
-    expect(view.configPath).toBeNull();
+    // A visão traz onde o arquivo está (útil para entender a durabilidade)...
+    expect(typeof view.configPath).toBe('string');
+    // ...e diz que não é durável, porque em ambiente publicado o destino é `/tmp`.
+    expect(view.durable).toBe(false);
+    // ...mas o valor da chave continua fora da resposta.
+    expect(JSON.stringify(view)).not.toContain(FAKE_KEY);
+    expect(view.providers.find((p) => p.provider === 'openai')?.keyMask).not.toContain(FAKE_KEY);
   });
 });
 

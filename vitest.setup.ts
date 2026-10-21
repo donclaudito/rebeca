@@ -9,10 +9,11 @@ import { setAccessToken } from './src/auth/token';
  * asserção passava numa rodada e falhava na seguinte, sempre com "Unable to find role=…", sem
  * nenhum defeito de produto por trás (evidência: `.rebeca/evidencias/vitest-ciclo.txt`).
  *
- * O limite sobe para 5s — continua sendo um limite. Se uma tela demorar mais que isso para aparecer,
- * o teste falha, e aí a falha é sobre o produto, não sobre a máquina.
+ * Subiu para 5s, e depois para **8s** quando a suíte cresceu para 44 arquivos: com três ambientes de
+ * jsdom disputando os 6 processadores lógicos, um render de ~1,5s passa de 5s. Continua sendo um
+ * limite — uma tela que de fato não responde estoura também o `testTimeout` de 30s, e o teste falha.
  */
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 8000 });
 
 /**
  * Sessão de teste.

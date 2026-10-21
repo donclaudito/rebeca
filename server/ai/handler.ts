@@ -25,7 +25,7 @@
 import { AiError, getAiFunction, AI_FUNCTIONS, AI_FUNCTION_IDS, AI_TIER_LABEL, AI_TIER_PURPOSE, type AiFunctionId, type AiFunctionModelView, type AiRequest, type AiResult, type AiSettingsSaveResult, type AiSettingsView, type AiStatus, type AiTier, type AiTierSettingsView, type AiUsage, type AiCatalogOption, type AiProviderSettingsView, type ProviderTestResult } from '../../src/ai/contract.js';
 import { relative, resolve } from 'node:path';
 import { AI_LIMITS } from '../../src/ai/limits.js';
-import { getFunctionSchema, validateSchema } from '../../src/ai/schemas.js';
+import { getFunctionSchema, normalizeToSchema, validateSchema } from '../../src/ai/schemas.js';
 import {
   allowUnpricedModel,
   allowUnverifiedMinorPolicy,
@@ -54,9 +54,12 @@ import {
   isHosted,
   loadConfig,
   maskSecret,
+  PROVIDER_ENV_HINT,
   resolveProvider,
   saveConfig,
+  settingsDurable,
   settingsWritable,
+  type SaveActor,
 } from './secrets.js';
 import { simulate } from './simulated.js';
 
@@ -637,7 +640,17 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
       raw = response.raw;
 
       const parsed = extractJson(raw);
-      const outputErrors = [...validateSchema(schemas.output, parsed), ...semanticErrors(spec.id, parsed)];
+      /*
+       * O PORTÃO da geração é a validação **estrutural** — tipo, `enum`, campo obrigatório, campo não
+       * previsto. É exatamente o que o modo `strict` do provedor garante. Limites de tamanho, faixa e
+       * quantidade ficam para `normalizeToSchema` mais abaixo, porque o provedor **não** os garante:
+       * exigi-los aqui descartava a geração inteira, já paga, porque um texto saiu alguns caracteres
+       * mais longo. Foi o erro que o dono do produto viu na tela ("a resposta não passou na validação").
+       */
+      const outputErrors = [
+        ...validateSchema(schemas.output, parsed, { mode: 'estrutural' }),
+        ...semanticErrors(spec.id, parsed),
+      ];
       if (outputErrors.length === 0) {
         validationErrors = [];
         break;
@@ -659,6 +672,14 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
     }
 
     const parsed = extractJson(raw);
+    /*
+     * Ajuste aos limites que o provedor não garante, **antes** de entregar.
+     * O resultado que sai daqui respeita o contrato completo; o que foi ajustado é declarado ao
+     * usuário em `adjustments`, para que a tela possa dizer "cortei o texto de 118 para 100
+     * caracteres" em vez de fingir que nada aconteceu — ou, pior, jogar tudo fora.
+     */
+    const { value: adjusted, adjustments } = normalizeToSchema(schemas.output, parsed);
+    const residual = validateSchema(schemas.output, adjusted);
     const usage: AiUsage = { tokensIn: accumulator.tokensIn, tokensOut: accumulator.tokensOut };
     const { costUsd, costSource } = computeCost(choice.entry, usage, now);
 
@@ -695,7 +716,11 @@ export async function handleGenerate(body: unknown, options: HandleOptions = {})
       provider: isSimulated ? 'simulado' : choice.provider,
       model: choice.model,
       simulated: isSimulated,
-      data: parsed,
+      data: adjusted,
+      // O que o app precisou ajustar para o resultado caber no contrato. Lista vazia é o caso normal.
+      // Os resíduos que o ajuste não resolve (ex.: vieram menos blocos que o mínimo) também entram —
+      // declarados, nunca escondidos.
+      adjustments: [...adjustments, ...residual],
       usage,
       costUsd,
       costSource,
@@ -1066,14 +1091,26 @@ function catalogOptions(): AiCatalogOption[] {
   }));
 }
 
-/** Monta a visão completa da tela de Configurações. Nunca inclui valor de chave. */
-export function buildSettingsView(): AiSettingsView {
+/**
+ * Monta a visão completa da tela de Configurações. Nunca inclui valor de chave.
+ *
+ * `authorized` vem da guarda de identidade e decide se a tela é editável. Quem já foi admitido pode
+ * configurar — a objeção original ("rota pública aceita chave de qualquer um") deixou de valer quando
+ * a autenticação entrou.
+ */
+export function buildSettingsView(authorized = false): AiSettingsView {
   const config = loadConfig();
   const path = ledgerPath();
+  const durable = settingsDurable();
   return {
-    writable: settingsWritable(),
+    writable: settingsWritable({ authorized }),
     hosted: isHosted(),
-    configPath: isHosted() ? null : relativePathOf(configPath()),
+    durable,
+    // Onde o arquivo está, para a tela poder dizer. Em ambiente publicado o caminho é `/tmp`, que é
+    // informação útil ("some quando o processo reciclar"), não segredo — mas nunca o caminho absoluto
+    // da máquina de quem desenvolve.
+    configPath: relativePathOf(configPath()),
+    envVars: Object.values(PROVIDER_ENV_HINT),
     providers: providerViews(),
     tiers: tierViews(),
     functions: functionModelViews(),
@@ -1084,6 +1121,7 @@ export function buildSettingsView(): AiSettingsView {
     },
     catalog: catalogOptions(),
     updatedAt: config.updatedAt,
+    updatedBy: config.updatedBy ?? null,
     ledger: path ? 'csv' : 'memoria',
   };
 }
@@ -1092,16 +1130,30 @@ export function buildSettingsView(): AiSettingsView {
 function relativePathOf(absolute: string): string {
   const root = process.env.REBECA_ROOT ? resolve(process.env.REBECA_ROOT) : process.cwd();
   const rel = relative(root, absolute);
-  return (rel.startsWith('..') ? absolute : rel).replaceAll('\\', '/');
+  if (rel.startsWith('..')) {
+    // Fora da raiz (o caso de `/tmp` no ambiente publicado): mostra só o nome do arquivo e a pasta,
+    // em vez do caminho absoluto do sistema.
+    const parts = absolute.split(/[\\/]/).filter(Boolean);
+    return parts.slice(-2).join('/');
+  }
+  return rel.replaceAll('\\', '/');
 }
 
-export function handleGetSettings(): AiSettingsView {
-  return buildSettingsView();
+export function handleGetSettings(authorized = false): AiSettingsView {
+  return buildSettingsView(authorized);
 }
 
-export function handleSaveSettings(body: unknown, now: Date = new Date()): AiSettingsSaveResult {
-  const result = saveConfig(body, now);
-  return { changed: result.changed, updatedAt: result.updatedAt, settings: buildSettingsView() };
+export function handleSaveSettings(
+  body: unknown,
+  now: Date = new Date(),
+  context: { authorized?: boolean; actor?: SaveActor } = {},
+): AiSettingsSaveResult {
+  const result = saveConfig(body, now, context);
+  return {
+    changed: result.changed,
+    updatedAt: result.updatedAt,
+    settings: buildSettingsView(context.authorized === true),
+  };
 }
 
 /**

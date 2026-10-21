@@ -57,6 +57,7 @@ function aiResult(overrides: Partial<AiResult> = {}): AiResult {
       rubrica: { originalidade: 74, gancho: 62, clareza: 80, adequacaoEtaria: 58 },
       achados: [],
     },
+    adjustments: [],
     usage: { tokensIn: 1200, tokensOut: 400 },
     costUsd: 0.0064,
     costSource: 'real',

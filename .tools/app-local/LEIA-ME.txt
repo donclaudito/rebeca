@@ -1,0 +1,73 @@
+REBECA — app local
+==================
+
+O que é isto
+------------
+O Rebeca inteiro nesta pasta: a interface, o servidor, a configuração dos canais e o seu histórico de
+custo. Não precisa de internet para abrir, não precisa de conta em serviço nenhum e não passa por
+nenhuma nuvem. A internet só é usada quando o app chama um provedor de IA (e para entrar com a conta
+Google).
+
+Como abrir
+----------
+Duplo clique em  Rebeca.cmd
+
+Abre uma janela preta — é ela que mantém o app no ar e mostra a URL, os avisos e qualquer erro. O
+navegador abre sozinho em http://127.0.0.1:8787. Para fechar o app, feche essa janela (ou Ctrl+C).
+
+Antes do primeiro uso: entrar com a conta Google
+------------------------------------------------
+O app não abre para quem não entrou — decisão de projeto (ADR-014), porque ele usa a sua chave paga de
+IA. São duas coisas:
+
+  1. Um arquivo  .env  nesta pasta, com duas linhas:
+
+         GOOGLE_CLIENT_ID=<o client id do OAuth>
+         REBECA_ALLOWED_SUBS=<os subs autorizados, separados por vírgula>
+
+     Não existe? Rode:
+
+         powershell -NoProfile -File ferramentas\instalar.ps1
+
+     Ele pergunta os dois valores e cria o arquivo. O passo a passo completo, incluindo o que fazer no
+     Google Cloud, está em docs/passo-a-passo-autenticacao-google.md (no repositório).
+
+     Atenção: a origem http://127.0.0.1:8787 precisa estar cadastrada como origem JavaScript autorizada
+     no cliente OAuth, senão o botão do Google não conclui a entrada.
+
+  2. Na primeira vez, se você não souber o seu "sub": entre com a conta, a tela de entrada mostra o
+     identificador, e ele é o que vai em REBECA_ALLOWED_SUBS.
+
+A chave dos provedores de IA NÃO fica aqui
+------------------------------------------
+Ela é cadastrada dentro do app: Configurações -> Inteligência artificial. Fica só nesta máquina, em
+.rebeca\segredos\, e nunca deve ser copiada para outra pessoa por pasta, zip ou e-mail.
+
+Onde ficam os seus dados
+------------------------
+Tudo em  .rebeca\  nesta mesma pasta:
+
+    .rebeca\assets\      vídeos, imagens, vozes e renders gerados (é o que ocupa espaço)
+    .rebeca\custos.csv   o livro de custo real, uma linha por ativo pago
+    .rebeca\segredos\    as chaves desta máquina
+    .rebeca\canais\      a configuração de cada canal (spec de mídia, fornecedores permitidos)
+
+Fazer backup é copiar a pasta .rebeca\ inteira. Nada vive fora dela.
+
+Se o pipeline de mídia não gerar
+--------------------------------
+O app precisa do ffmpeg para imagem, voz e render. O instalador baixa um ffmpeg portátil para
+runtime\ffmpeg\ — se essa pasta não existe, ele usa o ffmpeg que estiver no PATH. Sem nenhum dos dois,
+a IA de texto continua funcionando e o pipeline de mídia recusa gerar (dizendo isso na tela).
+
+Se você roda o Rebeca como servidor de outra pessoa
+---------------------------------------------------
+Feche a porta: este app carrega a sua chave paga. Por padrão ele só atende em 127.0.0.1 (a própria
+máquina). Não mude REBECA_HOST para 0.0.0.0 a menos que saiba exatamente o que isso significa.
+
+Variáveis que o app entende
+---------------------------
+    REBECA_PORT       porta (padrão 8787)
+    REBECA_HOST       endereço de escuta (padrão 127.0.0.1; não abra sem necessidade)
+    REBECA_FFMPEG     caminho do ffmpeg, se você tem uma build específica
+    REBECA_FFPROBE    idem para o ffprobe

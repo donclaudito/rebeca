@@ -27,6 +27,7 @@
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { AiError, type AiTier } from '../../src/ai/contract.js';
 
@@ -60,6 +61,8 @@ export interface AiUserConfig {
   readonly allowUnpricedModel: boolean;
   readonly allowNoLedger: boolean;
   readonly updatedAt: string | null;
+  /** Quem gravou por último (sub ou e-mail da conta autorizada). Trilha de auditoria, não segredo. */
+  readonly updatedBy?: string;
 }
 
 const EMPTY: AiUserConfig = {
@@ -76,29 +79,68 @@ function rootDir(): string {
   return process.env.REBECA_ROOT ? resolve(process.env.REBECA_ROOT) : process.cwd();
 }
 
-/** Caminho do arquivo de configuração. `REBECA_SETTINGS_FILE` permite redirecionar (usado em teste). */
+/**
+ * Caminho do arquivo de configuração.
+ *
+ * Três casos, e o terceiro é o que destrava o app publicado:
+ *
+ * 1. `REBECA_SETTINGS_FILE` — redirecionamento (usado em teste).
+ * 2. Local: `.rebeca/segredos/llm.json`, fora do controle de versão.
+ * 3. **Publicado: `/tmp`.** O sistema de arquivos de uma função serverless é somente-leitura fora de
+ *    `/tmp` — gravar em `.rebeca/` ali falha com `EROFS`. Sem esta linha, ligar a escrita no app
+ *    publicado não funcionaria: a requisição chegaria, a validação passaria e a gravação estouraria.
+ */
 export function configPath(): string {
   const configured = process.env.REBECA_SETTINGS_FILE;
   if (configured) return resolve(configured);
+  if (isHosted()) return join(tmpdir(), 'rebeca-segredos', 'llm.json');
   return join(rootDir(), '.rebeca', 'segredos', 'llm.json');
 }
 
 /**
  * `true` quando este ambiente aceita gravar segredo pela interface.
  *
- * Fora da Vercel, sim: é a máquina de quem opera. Na Vercel, **não** por padrão — publicar uma rota
- * que aceita chave de API de qualquer visitante seria abrir a conta do dono. Quem quiser ligar assume
- * a decisão com `REBECA_SETTINGS_WRITE=1`, e a interface avisa.
+ * A regra mudou quando a autenticação entrou (`ADR-014`), e a mudança é a correta: a objeção original
+ * era **"não existe autenticação, então uma rota pública que aceita chave de API de qualquer visitante
+ * é uma vulnerabilidade"**. Com identidade verificada por token do Google **e** lista de acesso, a rota
+ * só é alcançável pelo dono. Manter o bloqueio depois disso deixava o app publicado sem como ser
+ * configurado — o dono entrava, e não conseguia cadastrar a chave.
+ *
+ * Quem decide é o roteador, que já sabe se a requisição foi autorizada. `authorized` ausente significa
+ * "não sei quem é" — e nesse caso vale só a regra local.
  */
-export function settingsWritable(): boolean {
+export function settingsWritable(options: { authorized?: boolean } = {}): boolean {
   if (process.env.REBECA_SETTINGS_WRITE === '1') return true;
-  return !process.env.VERCEL;
+  if (!isHosted()) return true;
+  return options.authorized === true;
 }
 
 /** `true` quando o app está publicado (contexto em que o segredo deve vir do gerenciador de segredos). */
 export function isHosted(): boolean {
   return Boolean(process.env.VERCEL);
 }
+
+/**
+ * `true` quando o que for gravado **sobrevive** ao processo.
+ *
+ * No app publicado a configuração vai para `/tmp`, que é por instância e efêmero: a chave vale até a
+ * instância reciclar, e some sem aviso. Isso é bom o bastante para destravar o uso imediato, e
+ * **insuficiente** como armazenamento definitivo — por isso a tela diz isso com todas as letras e
+ * aponta a variável de ambiente como o caminho permanente. Fingir durabilidade aqui seria pior que
+ * bloquear.
+ */
+export function settingsDurable(): boolean {
+  return !isHosted();
+}
+
+/** Nome das variáveis de ambiente equivalentes, para a tela mostrar o caminho permanente. */
+export const PROVIDER_ENV_HINT: Readonly<Record<string, string>> = {
+  openai: 'OPENAI_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
+  deepseek: 'DEEPSEEK_API_KEY',
+  google: 'GEMINI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+};
 
 /* =============================================================================
    Leitura e escrita
@@ -150,6 +192,7 @@ function coerce(raw: unknown): AiUserConfig {
     allowUnpricedModel: record['allowUnpricedModel'] === true,
     allowNoLedger: record['allowNoLedger'] === true,
     updatedAt: typeof record['updatedAt'] === 'string' ? record['updatedAt'] : null,
+    ...(typeof record['updatedBy'] === 'string' ? { updatedBy: record['updatedBy'] } : {}),
   };
 }
 
@@ -184,6 +227,13 @@ export interface SaveResult {
   readonly updatedAt: string;
 }
 
+/** Quem gravou. Fica no arquivo como trilha de auditoria — sem isso, "quem trocou a chave?" não tem resposta. */
+export interface SaveActor {
+  /** Identificador estável da conta autorizada (`sub` do Google). */
+  readonly sub?: string;
+  readonly email?: string;
+}
+
 /**
  * Grava a configuração, fazendo merge com o que já existe.
  *
@@ -191,14 +241,18 @@ export interface SaveResult {
  * salvar o formulário com o campo de chave em branco (porque a tela nunca recebe o valor) apagaria a
  * chave que o usuário acabou de cadastrar.
  */
-export function saveConfig(patch: unknown, now: Date = new Date()): SaveResult {
-  if (!settingsWritable()) {
+export function saveConfig(
+  patch: unknown,
+  now: Date = new Date(),
+  context: { authorized?: boolean; actor?: SaveActor } = {},
+): SaveResult {
+  if (!settingsWritable({ ...(context.authorized === undefined ? {} : { authorized: context.authorized }) })) {
     throw new AiError(
       {
         code: 'nao-autorizado',
         message:
-          'Este ambiente não aceita gravar configuração de IA pela interface. Use o gerenciador de segredos do servidor (variáveis de ambiente).',
-        detail: 'escrita de configuração desabilitada (ambiente publicado sem REBECA_SETTINGS_WRITE=1)',
+          'Este ambiente não aceita gravar configuração de IA pela interface sem identidade verificada. Entre com a conta autorizada — ou configure as chaves nas variáveis de ambiente do servidor.',
+        detail: 'escrita recusada: requisição não autorizada em ambiente publicado',
         retryable: false,
       },
       403,
@@ -312,6 +366,11 @@ export function saveConfig(patch: unknown, now: Date = new Date()): SaveResult {
     allowUnpricedModel: flag('allowUnpricedModel'),
     allowNoLedger: flag('allowNoLedger'),
     updatedAt: now.toISOString(),
+    // Trilha de auditoria: quem trocou a chave. Não é segredo (é `sub`/e-mail de quem já está
+    // autenticado) e responde à pergunta "quem mexeu nisto?" quando algo parar de funcionar.
+    ...(context.actor?.sub === undefined
+      ? {}
+      : { updatedBy: context.actor.email ?? context.actor.sub }),
   };
 
   writeAtomically(next);

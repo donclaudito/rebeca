@@ -28,6 +28,7 @@ import { generate } from '@/ai/client';
 import type { AiResult } from '@/ai/contract';
 import { useChannelId } from '@/app/useChannel';
 import { api, isApprovalValid, qk } from '@/data/client';
+import { durability } from '@/data/persist';
 import { useBrandKit, useChannel, useCharacters, useContent } from '@/data/hooks';
 import { useMediaLibrary, useMediaEpisode, useGenerateThumbnails, useContentCost, mediaKeys } from '@/media/hooks';
 import { mediaFileUrl } from '@/media/client';
@@ -378,6 +379,16 @@ export function RevisaoPage() {
   const custoEtapas = Array.isArray(custo?.byStage) ? custo.byStage : [];
 
   /**
+   * O que a IA gerar aqui sobrevive a recarregar a página?
+   *
+   * O relato *"não permite salvar, tendo que refazer todo de novo, consumindo LLM no mesmo vídeo"* tinha
+   * duas metades: o botão de gravar existia, mas o que ele gravava morria no primeiro F5 e o conteúdo
+   * pago tinha de ser gerado — e pago — outra vez. A gravação agora é durável (`src/data/persist.ts`), e
+   * esta leitura existe para o usuário saber **antes de pagar** se ela está funcionando neste navegador.
+   */
+  const persistencia = durability();
+
+  /**
    * Grava o roteiro que a IA escreveu. A chamada é do `AiAction`; aqui entra só a **gravação** do que o
    * humano aceitou ao clicar em "Usar este roteiro" — a IA nunca escreve no conteúdo sozinha.
    */
@@ -667,6 +678,29 @@ export function RevisaoPage() {
               title="Roteiro e cenas"
               hint="é daqui que o vídeo nasce — sem roteiro e sem cenas, nenhum provedor de vídeo tem o que animar"
             />
+
+            {/*
+              Durabilidade dita na tela, não presumida pelo usuário. Gravar em memória é gravar até o
+              primeiro F5 — e como cada geração é paga, a diferença entre "gravado" e "gravado enquanto a
+              aba estiver aberta" é dinheiro. Quando a gravação não está funcionando, a tela avisa
+              **antes** de a pessoa gastar.
+            */}
+            <p
+              className={cn(
+                'flex items-start gap-1.5 text-[11.5px] mt-2',
+                persistencia.durable ? 'text-ink-3' : 'text-warn',
+              )}
+              role="status"
+            >
+              {persistencia.durable ? (
+                <Save size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              )}
+              {persistencia.durable
+                ? 'O que você usar aqui fica gravado neste navegador e sobrevive a recarregar a página. Gerar de novo custa de novo — só gere quando quiser trocar.'
+                : `Este navegador não está gravando o que a IA gera (${persistencia.reason ?? 'motivo desconhecido'}). Não recarregue a página antes de concluir: o conteúdo se perde e gerar de novo custa de novo.`}
+            </p>
 
             {item.roteiro === undefined ? (
               <p className="text-[12px] text-ink-3">

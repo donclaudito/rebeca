@@ -1,0 +1,92 @@
+EVIDÊNCIA — "não permite salvar, tendo que refazer tudo e gastando LLM de novo"
+Data: 2026-10-02 · Área: camada de dados / tela de Revisão (etapa Criar)
+
+RELATO DO DONO (literal)
+  "nao visualizo neu botton para gerar video apos ter gerado trumbd e roteiros. aleemque depois de
+   gerar as as inteligencia na gesta de roterio e cenas nao permite salvar, tendo que refazer todo de
+   novo, consuminto llm no mesmo video"
+
+DOIS RELATOS, DUAS NATUREZAS DIFERENTES
+  1. botão de vídeo ausente  -> NÃO é defeito de código: a Fase 3 (vídeo) está declaradamente
+     bloqueada por três portões não técnicos (allow-list `animacao`, D1 job longo, autorização de
+     gasto ~US$ 39/episódio). A tela JÁ diz o que falta, derivado do estado:
+     `RevisaoPage.tsx:234` `faltaParaOVideo` -> "falta o roteiro; as cenas do storyboard; um provedor
+     de vídeo real". Nenhum agente pode abrir os três.
+  2. gravação que não permite salvar -> DEFEITO REAL E VERIFICADO. Ver abaixo.
+
+DIAGNÓSTICO (o que foi lido no código, com linha)
+  a) A gravação existe e funciona: `saveRoteiro` (src/data/client.ts:852) e `saveStoryboard`
+     (:889) passam por `patchArtifact` -> `patchContent`.
+  b) Mas TODO o estado vivia em memória: `let store: ContentItem[] = seedStore()`
+     (src/data/client.ts:85, antes do conserto). Não havia um único `fetch` em `src/data/*.ts`:
+       grep "localStorage|sessionStorage|indexedDB|fetch(" em src/**/*.ts
+       -> só src/media/client.ts, src/ai/client.ts, src/auth/client.ts. A camada de conteúdo não
+          aparecia.
+  c) A superfície de API não tinha rota de conteúdo:
+       api/  -> ai/{generate,settings,status,test} · auth/{config,me} · media/{custos,episode,
+                episodes,file,thumbnails}
+       Não existe api/content/**. Nada persistia conteúdo.
+  d) Consequência medida: F5 (ou fechar a aba, ou abrir em outra aba) apagava roteiro, storyboard,
+     aprovação, thumbnail escolhida e ficha de personagem. Como cada geração de `criar-roteiro` /
+     `criar-cena` é PAGA (livro real: US$ 0,0038665 por roteiro; US$ 0,0124 por lote de 3 cenas),
+     refazer significa pagar de novo pelo mesmo vídeo.
+
+CONSERTO
+  Arquivo novo: src/data/persist.ts
+    - chave POR CANAL (`rebeca:v1:conteudos:<channelId>` / `…:personagens:<channelId>`) — o
+      isolamento do invariante nº 2 vira estrutural, não uma checagem que se pode esquecer;
+    - mede a durabilidade de verdade (grava, lê de volta, confere) e devolve motivo em pt-BR quando
+      não funciona — janela privada, cota cheia, ambiente sem armazenamento;
+    - falha de gravação NÃO derruba a operação: marca a durabilidade como falsa e a tela avisa.
+  src/data/client.ts
+    - `hydrateStore()` / `hydrateCharacterStore()`: semente + o que já foi gravado naquele canal;
+    - `saveContents` no funil único `patchContent` (toda mutação de conteúdo passa por ele);
+    - `saveCharacters` em `saveCharacterDraft` e em `approveCharacter`;
+    - `resetStore()` apaga também a gravação (senão o botão "reiniciar exemplo" mentiria).
+  src/features/revisao/RevisaoPage.tsx
+    - aviso de durabilidade na tela, lido de `durability()`, com `role="status"`: diz que o que for
+      usado ali sobrevive a recarregar, ou avisa que NÃO está gravando — antes de a pessoa pagar.
+
+POR QUE localStorage, E NÃO O SERVIDOR (declarado, não escondido)
+  Em produção o disco é somente leitura e efêmero: `GET /api/ai/settings` responde `writable:false`,
+  `hosted:true`. Gravar no disco do servidor funcionaria só em dev e criaria durabilidade FALSA em
+  produção. A resposta correta é banco de dados, e essa é a decisão D1 (stack de backend), que segue
+  aberta. Limite real hoje: durável por navegador e por máquina.
+
+VERIFICAÇÃO (comando + resultado observado)
+  Tipos          node_modules\.bin\tsc.cmd --noEmit                     -> exit 0
+  Teste novo     vitest run src/data/__tests__/persistencia.test.ts    -> 8/8, exit 0, 58,40s
+  Suíte completa vitest run                                           -> 43 arquivos · 529/529, exit 0
+  Prompts        node .tools/build_prompts.mjs --check                 -> "OK: prompts em sincronia", exit 0
+  Build          vite build (com o shim do sandbox)                    -> exit 0, JS 557,68 kB (gzip 163,82)
+
+  NOTA DE MÉTODO sobre o build: a primeira tentativa falhou com `spawn EPERM` em
+  `optimizeSafeRealPathSync` — o Vite chama `net use` e o sandbox bloqueia o spawn. É a restrição de
+  ambiente já registrada no estado (`.rebeca/evidencias/`), NÃO defeito desta entrega: com o shim
+  declarado (`node_modules/.cache/dsh-vitest-sandbox-shim.cjs`, que troca só `net use` por resposta
+  vazia) o build fecha exit 0. Nada versionado do shim mudou.
+
+  O teste novo simula F5 DE VERDADE: `vi.resetModules()` + `import()` dinâmico reexecuta o módulo do
+  zero, que é o único jeito honesto de testar isso (ler no mesmo módulo provaria só que a variável em
+  memória continua lá — que era exatamente o caso antes).
+
+PROVA ADVERSARIAL (o teste morde?)
+  Mutação aplicada: `saveContents(...)` comentado dentro de `patchContent`.
+    vitest run src/data/__tests__/persistencia.test.ts -> 5 FALHARAM | 3 passaram (exit 1)
+      × o roteiro pago continua no conteúdo depois do F5
+      × o storyboard também sobrevive — e continua ligado ao roteiro
+      × o que foi gravado num canal não aparece no outro, nem na chave do outro
+      × o "reiniciar exemplo" apaga também o que estava gravado no navegador
+      × dado corrompido na chave cai na semente em vez de derrubar a tela
+      ✓ (passam por não dependerem daquela linha: ficha de personagem, canal sem gravação,
+         armazenamento bloqueado)
+  Restauração por edição e conferência de hash:
+    sha256 antes : 0B1C6A00106A2C53B15737644248366A7308811F3B329EA6EEA1A5F88998CA1D
+    sha256 depois: 0B1C6A00106A2C53B15737644248366A7308811F3B329EA6EEA1A5F88998CA1D  (idêntico)
+
+NÃO VERIFICADO (declarado)
+  1. Não houve conferência VISUAL no navegador — não há navegador automatizado nesta sessão.
+  2. Não foi testado em outra máquina/navegador: o limite "por navegador" é do desenho, não medido.
+  3. Nada foi gasto nesta entrega: todos os testes usam dado de exemplo e provedor simulado.
+  4. O `docs/04-mapa-funcional.md` não descreve a durabilidade — vale acrescentar quando o mapa for
+     revisado.

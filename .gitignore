@@ -44,6 +44,20 @@ out/
 # lugar de asset é o Storage (mesma regra da linha acima).
 .rebeca/assets/
 
+# --- Servidor compilado do app instalável (`ADR-016`) ---
+# `pnpm build:server` emite aqui o JS de `server/` + o dos módulos de `src/` que ele alcança.
+# É artefato de build, e o lugar dele não é o Git: o `dist/` já é ignorado pela mesma razão.
+build/
+
+# --- Runtime portátil do pacote (Node e ffmpeg baixados na instalação) ---
+# Não é fonte e não pode ser versionado: são ~120 MB de binário de terceiro. Cada máquina baixa o seu.
+runtime/
+
+# --- Pacote montado para instalar em outra máquina (`empacotar.ps1`) ---
+# Contém uma cópia inteira do app construído e pode conter `.env` e `.rebeca/segredos/` da máquina que
+# empacotou. Versionar isto seria subir credencial e duplicar o bundle.
+dist-app/
+
 # --- Rascunho de ferramenta da orquestra ---
 # `.dsh/tmp/` guarda script de sondagem escrito na hora (baixar spec, extrair texto, testar um
 # endpoint). É rascunho descartável, não é fonte do produto, e entrava no Git por não ter regra.
@@ -68,3 +82,22 @@ desktop.ini
 # `.tools/*.py` geram `__pycache__/*.pyc` a cada execução, inclusive de dentro do CI.
 __pycache__/
 *.pyc
+
+# --- Áreas de trabalho fora do produto ---
+# `pruna/` é um clone de terceiro (com `.git` próprio) que foi instalado aqui a pedido do dono para
+# avaliar a ferramenta em CPU; `pruna-teste/` são os scripts de sondagem e `.dsh-pyfix/` o contorno do
+# sandbox da mesma avaliação; `.cache/` é o cache do Hugging Face e os modelos que os testes geraram;
+# `.tmp/` e `.tmp-pip/` são diretórios temporários de instalação.
+# Nada disso é fonte do produto. O motivo de estar aqui é concreto: um clone com `.git` dentro entra no
+# índice como gitlink e o `AGENTS.md` proíbe `git add -A` justamente por acidentes assim.
+pruna/
+pruna-teste/
+.dsh-pyfix/
+.cache/
+.tmp/
+.tmp-pip/
+
+# midia local (nao versionada)
+VIDEOS/
+agentimage/
+trilhas/

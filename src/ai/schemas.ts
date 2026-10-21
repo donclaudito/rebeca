@@ -95,7 +95,39 @@ function typeName(value: unknown): string {
   return typeof value;
 }
 
-function validateNode(schema: JsonSchema, value: unknown, path: string, errors: string[]): void {
+/**
+ * Quais restrições o provedor **consegue** garantir.
+ *
+ * Esta distinção é o conserto de um defeito que custou dinheiro de verdade ao dono do produto: a
+ * validação local era **mais rígida do que o provedor pode cumprir**. No modo `strict`, a OpenAI
+ * garante tipo, `enum`, campos obrigatórios e ausência de campo extra — mas **ignora**
+ * `minLength`, `maxLength`, `minItems`, `maxItems`, `minimum` e `maximum`. Quando o modelo escrevia
+ * um `emocao` de 70 caracteres onde o schema pedia 60, a geração inteira era descartada **depois de
+ * paga**, e o usuário via "a resposta não passou na validação".
+ *
+ * A regra correta: restrição que o provedor não garante é **orientação**, não portão. Portão é o que
+ * o provedor cumpre — e o que sobra é ajustado localmente (`normalizeToSchema`) e **declarado** ao
+ * usuário, em vez de jogar o resultado no lixo.
+ */
+export type ValidationMode = 'estrutural' | 'completa';
+
+export interface ValidateOptions {
+  /**
+   * `estrutural` (usado como portão da geração): só o que o provedor garante.
+   * `completa` (padrão, usado em teste e na conferência final): inclui limites de tamanho e faixa.
+   */
+  readonly mode?: ValidationMode;
+}
+
+function validateNode(
+  schema: JsonSchema,
+  value: unknown,
+  path: string,
+  errors: string[],
+  mode: ValidationMode,
+): void {
+  const structuralOnly = mode === 'estrutural';
+
   switch (schema.type) {
     case 'object': {
       if (typeName(value) !== 'object') {
@@ -112,7 +144,7 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
       }
       for (const [key, child] of Object.entries(schema.properties)) {
         if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
-          validateNode(child, record[key], `${path}.${key}`, errors);
+          validateNode(child, record[key], `${path}.${key}`, errors, mode);
         }
       }
       if (schema.additionalProperties === false) {
@@ -134,13 +166,13 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
         errors.push(`${path}: esperado array, veio ${typeName(value)}`);
         return;
       }
-      if (schema.minItems !== undefined && value.length < schema.minItems) {
+      if (!structuralOnly && schema.minItems !== undefined && value.length < schema.minItems) {
         errors.push(`${path}: precisa de pelo menos ${schema.minItems} item(ns), veio ${value.length}`);
       }
-      if (schema.maxItems !== undefined && value.length > schema.maxItems) {
+      if (!structuralOnly && schema.maxItems !== undefined && value.length > schema.maxItems) {
         errors.push(`${path}: no máximo ${schema.maxItems} item(ns), veio ${value.length}`);
       }
-      value.forEach((item, index) => validateNode(schema.items, item, `${path}[${index}]`, errors));
+      value.forEach((item, index) => validateNode(schema.items, item, `${path}[${index}]`, errors, mode));
       return;
     }
 
@@ -152,10 +184,10 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
       if (schema.enum && !schema.enum.includes(value)) {
         errors.push(`${path}: "${value}" não é um dos valores aceitos (${schema.enum.join(', ')})`);
       }
-      if (schema.minLength !== undefined && value.trim().length < schema.minLength) {
+      if (!structuralOnly && schema.minLength !== undefined && value.trim().length < schema.minLength) {
         errors.push(`${path}: texto curto demais (mínimo ${schema.minLength} caracteres)`);
       }
-      if (schema.maxLength !== undefined && value.length > schema.maxLength) {
+      if (!structuralOnly && schema.maxLength !== undefined && value.length > schema.maxLength) {
         errors.push(`${path}: texto longo demais (máximo ${schema.maxLength} caracteres)`);
       }
       return;
@@ -166,10 +198,10 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
         errors.push(`${path}: esperado número, veio ${typeName(value)}`);
         return;
       }
-      if (schema.minimum !== undefined && value < schema.minimum) {
+      if (!structuralOnly && schema.minimum !== undefined && value < schema.minimum) {
         errors.push(`${path}: ${value} abaixo do mínimo ${schema.minimum}`);
       }
-      if (schema.maximum !== undefined && value > schema.maximum) {
+      if (!structuralOnly && schema.maximum !== undefined && value > schema.maximum) {
         errors.push(`${path}: ${value} acima do máximo ${schema.maximum}`);
       }
       return;
@@ -180,10 +212,10 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
         errors.push(`${path}: esperado inteiro, veio ${typeName(value)}`);
         return;
       }
-      if (schema.minimum !== undefined && value < schema.minimum) {
+      if (!structuralOnly && schema.minimum !== undefined && value < schema.minimum) {
         errors.push(`${path}: ${value} abaixo do mínimo ${schema.minimum}`);
       }
-      if (schema.maximum !== undefined && value > schema.maximum) {
+      if (!structuralOnly && schema.maximum !== undefined && value > schema.maximum) {
         errors.push(`${path}: ${value} acima do máximo ${schema.maximum}`);
       }
       return;
@@ -203,11 +235,115 @@ function validateNode(schema: JsonSchema, value: unknown, path: string, errors: 
  *
  * Devolver a lista (em vez de `boolean`) é deliberado: a mensagem de erro alimenta a tentativa de
  * correção do modelo e o log de diagnóstico. "Inválido" sem dizer por quê não é diagnosticável.
+ *
+ * `mode: 'estrutural'` é o portão da geração — só o que o provedor garante. O padrão (`completa`)
+ * confere também limites de tamanho e faixa, e é usado em teste e na conferência final.
  */
-export function validateSchema(schema: JsonSchema, value: unknown): string[] {
+export function validateSchema(schema: JsonSchema, value: unknown, options: ValidateOptions = {}): string[] {
   const errors: string[] = [];
-  validateNode(schema, value, '$', errors);
+  validateNode(schema, value, '$', errors, options.mode ?? 'completa');
   return errors;
+}
+
+/* =============================================================================
+   Ajuste ao schema
+   ============================================================================= */
+
+/**
+ * Ajusta o valor para caber nos limites que o provedor **não** garante.
+ *
+ * Por que ajustar em vez de recusar: quando o modelo escreve um `emocao` de 70 caracteres onde o
+ * schema pede 60, a informação está lá e é útil — jogar a geração inteira no lixo **depois de paga**
+ * não protege ninguém. O que precisa ser verdade é que o dado que entra no app respeita o contrato, e
+ * que o usuário saiba que houve ajuste. Cortar um adjetivo a mais é melhor que perder o roteiro.
+ *
+ * `maxItems` corta o excesso. `minItems` **não** é inventado: se vierem menos blocos do que o mínimo,
+ * o ajuste não é possível e o motivo entra na lista de ajustes — mas o resultado segue, porque um
+ * roteiro de dois blocos ainda é um roteiro.
+ */
+export function normalizeToSchema(schema: JsonSchema, value: unknown): { value: unknown; adjustments: string[] } {
+  const adjustments: string[] = [];
+
+  const walk = (node: JsonSchema, current: unknown, path: string): unknown => {
+    switch (node.type) {
+      case 'object': {
+        if (typeName(current) !== 'object') return current;
+        const record = current as Record<string, unknown>;
+        const next: Record<string, unknown> = {};
+        for (const [key, child] of Object.entries(node.properties)) {
+          if (Object.prototype.hasOwnProperty.call(record, key) && record[key] !== undefined) {
+            next[key] = walk(child, record[key], `${path}.${key}`);
+          }
+        }
+        // Campo extra é removido: `strict` já garante isso, mas a remoção local mantém o contrato
+        // verdadeiro mesmo quando a resposta vem de um provedor sem suporte a schema.
+        for (const key of Object.keys(record)) {
+          if (!Object.prototype.hasOwnProperty.call(node.properties, key)) {
+            adjustments.push(`${path}.${key}: campo não previsto foi removido`);
+          }
+        }
+        return next;
+      }
+
+      case 'array': {
+        if (!Array.isArray(current)) return current;
+        let items = current.map((item, index) => walk(node.items, item, `${path}[${index}]`));
+        if (node.maxItems !== undefined && items.length > node.maxItems) {
+          adjustments.push(`${path}: ${items.length} itens cortados para ${node.maxItems}`);
+          items = items.slice(0, node.maxItems);
+        }
+        if (node.minItems !== undefined && items.length < node.minItems) {
+          adjustments.push(
+            `${path}: vieram ${items.length} itens, o esperado era pelo menos ${node.minItems} — mantido como está`,
+          );
+        }
+        return items;
+      }
+
+      case 'string': {
+        if (typeof current !== 'string') return current;
+        if (node.maxLength !== undefined && current.length > node.maxLength) {
+          adjustments.push(`${path}: texto cortado de ${current.length} para ${node.maxLength} caracteres`);
+          return current.slice(0, node.maxLength).trimEnd();
+        }
+        if (node.minLength !== undefined && current.trim().length < node.minLength) {
+          adjustments.push(`${path}: texto mais curto que o esperado (${current.trim().length} < ${node.minLength})`);
+        }
+        return current;
+      }
+
+      case 'number': {
+        if (typeof current !== 'number' || !Number.isFinite(current)) return current;
+        if (node.minimum !== undefined && current < node.minimum) {
+          adjustments.push(`${path}: ${current} ajustado para o mínimo ${node.minimum}`);
+          return node.minimum;
+        }
+        if (node.maximum !== undefined && current > node.maximum) {
+          adjustments.push(`${path}: ${current} ajustado para o máximo ${node.maximum}`);
+          return node.maximum;
+        }
+        return current;
+      }
+
+      case 'integer': {
+        if (typeof current !== 'number' || !Number.isInteger(current)) return current;
+        if (node.minimum !== undefined && current < node.minimum) {
+          adjustments.push(`${path}: ${current} ajustado para o mínimo ${node.minimum}`);
+          return node.minimum;
+        }
+        if (node.maximum !== undefined && current > node.maximum) {
+          adjustments.push(`${path}: ${current} ajustado para o máximo ${node.maximum}`);
+          return node.maximum;
+        }
+        return current;
+      }
+
+      default:
+        return current;
+    }
+  };
+
+  return { value: walk(schema, value, '$'), adjustments };
 }
 
 /* =============================================================================

@@ -72,18 +72,31 @@ export default defineConfig(() => {
       // ("trocar de canal limpa o DOM…" 5.327ms numa, "não deixa aprovar sem thumbnail…" 4.509ms na
       // seguinte) sem nenhuma asserção quebrada. Suíte que falha por tempo ensina o time a ignorar o
       // vermelho, então o limite explícito é maior — e continua sendo um limite, não uma espera eterna.
-      testTimeout: 20_000,
-      hookTimeout: 20_000,
+      testTimeout: 30_000,
+      hookTimeout: 30_000,
       // `threads` em vez de `forks`: os testes não precisam de processo separado e o pool de threads
       // dispensa IPC entre processos, que é o que trava em ambiente confinado.
       pool: 'threads',
-      // Teto de workers. Esta máquina tem 6 processadores lógicos e a suíte tem 12 arquivos: sem teto,
-      // o pool sobrecarrega a máquina ~2× e o render de jsdom + React 19 estoura o limite do teste —
-      // a suíte falhava em arquivos DIFERENTES a cada rodada, sempre por tempo. Foi o que aconteceu
-      // três vezes com `revisao.test.tsx` e `channel-scope.test.tsx`, e cada uma passava isolada em
-      // menos de 7 s. Deixar o vermelho aleatório seria pior que não ter teste: ensina o time a
-      // ignorá-lo. O teto troca um pouco de velocidade por determinismo, que é o que a suíte precisa.
-      maxWorkers: 4,
+      /*
+       * Teto de workers e tempo das consultas assíncronas — calibrados por medição, não por palpite.
+       *
+       * Esta máquina tem **6 processadores lógicos**. A suíte cresceu de 13 para **44 arquivos**, e o
+       * que era um teto suficiente passou a não ser: o render de jsdom + React 19 que leva ~1,5 s com a
+       * máquina ociosa passa de 5 s com quatro ambientes pesados disputando CPU, e o `findBy*` estoura.
+       *
+       * Sintoma medido (não conjectura): rodadas seguidas da suíte completa falhavam em **arquivos
+       * diferentes**, sempre por tempo — `Test timed out in 20000ms` e `Unable to find role="button"` —
+       * e **cada arquivo passava isolado** (30/30 em `identidade` + `revisao`, 23/23 em `revisao` +
+       * `components/ai`). É contenção, não defeito de produto.
+       *
+       * Os dois ajustes atacam a causa: menos ambientes simultâneos (3 em vez de 4) e mais folga para a
+       * consulta assíncrona. **Nenhum dos dois afrouxa asserção** — continuam sendo limites, e um produto
+       * que de fato não responde continua falhando. O que sai é a falha aleatória.
+       */
+      maxWorkers: 3,
+      // Padrão do Testing Library é 1s para `findBy*`; 8s tolera a máquina ocupada sem esconder travamento
+      // real (que ficaria evidente pelo `testTimeout` de 30s).
+      // O valor é aplicado em `vitest.setup.ts` (`configure({ asyncUtilTimeout })`).
     },
   };
 });

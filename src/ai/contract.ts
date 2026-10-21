@@ -428,6 +428,18 @@ export interface AiResult<TData = unknown> {
   /** `true` quando não havia chave configurada e o provedor simulado respondeu. A UI precisa dizer isso. */
   readonly simulated: boolean;
   readonly data: TData;
+  /**
+   * O que o app precisou ajustar na resposta para ela caber no contrato.
+   *
+   * Existe porque o provedor **não garante** limites de tamanho, faixa e quantidade — garante tipo,
+   * `enum`, campos obrigatórios e ausência de campo extra. Quando o modelo escreve um texto um pouco
+   * mais longo do que o schema pede, o certo é cortar e **dizer**, não descartar a geração já paga nem
+   * esconder o corte.
+   *
+   * Lista vazia é o caso normal. Quando traz itens, a tela mostra: é informação sobre o conteúdo que
+   * chegou, não erro.
+   */
+  readonly adjustments: readonly string[];
   readonly usage: AiUsage;
   readonly costUsd: number;
   readonly costSource: AiCostSource;
@@ -521,7 +533,17 @@ export interface AiSettingsView {
   readonly writable: boolean;
   /** `true` quando o app está publicado — contexto em que o segredo vem do gerenciador de segredos. */
   readonly hosted: boolean;
+  /**
+   * `true` quando o que for gravado **sobrevive** ao processo.
+   *
+   * No app publicado a configuração vive em `/tmp`, que é por instância e efêmero. A tela precisa
+   * dizer isso: uma chave que funciona hoje e some quando a instância reciclar é pior que um bloqueio
+   * honesto, se o usuário não souber.
+   */
+  readonly durable: boolean;
   readonly configPath: string | null;
+  /** Variáveis de ambiente equivalentes — o caminho permanente, para a tela poder mostrar. */
+  readonly envVars: readonly string[];
   readonly providers: readonly AiProviderSettingsView[];
   readonly tiers: readonly AiTierSettingsView[];
   readonly functions: readonly AiFunctionModelView[];
@@ -532,6 +554,8 @@ export interface AiSettingsView {
   };
   readonly catalog: readonly AiCatalogOption[];
   readonly updatedAt: string | null;
+  /** Quem gravou por último. Trilha de auditoria — o segredo nunca é exposto, o autor é. */
+  readonly updatedBy: string | null;
   /** Onde o custo está sendo registrado agora. */
   readonly ledger: 'csv' | 'memoria';
 }

@@ -212,18 +212,36 @@ export function AiSettingsPanel() {
         {readOnly ? (
           <>
             As chaves ficam no servidor; o navegador recebe apenas a máscara, nunca o valor. Neste
-            ambiente a tela é <strong>somente leitura</strong> — o motivo e o caminho que funciona
-            estão logo abaixo, junto dos campos.
+            ambiente a tela é <strong>somente leitura</strong> — entre com a conta autorizada para
+            configurar, ou use as variáveis de ambiente do servidor.
           </>
-        ) : (
+        ) : data.durable ? (
           <>
             As chaves ficam <strong>no servidor</strong>, em <code className="ams-num">{data.configPath}</code>{' '}
             — arquivo fora do controle de versão e nunca enviado ao navegador. O navegador recebe
-            apenas a máscara. Isto é um arquivo local, <strong>não um cofre</strong>: em produção, o
-            lugar do segredo é o gerenciador de segredos.
+            apenas a máscara. Isto é um arquivo local, <strong>não um cofre</strong>.
+          </>
+        ) : (
+          <>
+            As chaves ficam <strong>no servidor</strong> e o navegador recebe apenas a máscara — nunca o
+            valor. <strong>Atenção:</strong> neste ambiente o servidor não tem disco permanente, então o
+            que você salvar aqui vale <strong>até o processo reciclar</strong> e depois some. Para
+            valer sempre, cadastre o mesmo valor nas variáveis de ambiente do servidor:{' '}
+            <code className="ams-num">{data.envVars.join(', ')}</code>.
           </>
         )}
       </p>
+
+      {!readOnly && !data.durable && (
+        <p className="text-[11px] text-warn mt-2 flex items-start gap-1.5" role="status">
+          <TriangleAlert size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span>
+            Salvar aqui destrava o uso <strong>agora</strong>, sem esperar deploy. Mas é temporário: se
+            a IA parar de responder do nada, é sinal de que a instância reciclou — cadastre a variável
+            de ambiente para não depender disso.
+          </span>
+        </p>
+      )}
 
       {data.ledger === 'memoria' && (
         <p className="text-[11px] text-warn mt-2 flex items-start gap-1.5">
@@ -590,6 +608,9 @@ export function AiSettingsPanel() {
       {data.updatedAt && (
         <p className="text-[10px] text-ink-3 mt-2 ams-num">
           Última alteração: {new Date(data.updatedAt).toLocaleString('pt-BR')}
+          {/* Quem mexeu: a pergunta que aparece quando algo para de funcionar depois de alguém
+              trocar uma chave. O autor é registrado; o valor da chave, nunca. */}
+          {data.updatedBy ? ` por ${data.updatedBy}` : ''}
         </p>
       )}
     </Card>

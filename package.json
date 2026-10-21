@@ -11,6 +11,9 @@
   "scripts": {
     "dev": "vite",
     "build": "node .tools/build_prompts.mjs --check && tsc --noEmit && vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:app": "pnpm build && pnpm build:server",
+    "start:local": "node build/server/local/cli.js",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

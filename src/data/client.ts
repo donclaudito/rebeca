@@ -41,6 +41,13 @@ import {
   modulesFor,
   recommendationsFor,
 } from './mock/db';
+import {
+  clearPersistence,
+  loadCharacters,
+  loadContents,
+  saveCharacters,
+  saveContents,
+} from './persist';
 import { toIsoDate } from '@/lib/date';
 
 /* =============================================================================
@@ -82,7 +89,36 @@ function seedStore(): ContentItem[] {
   }));
 }
 
-let store: ContentItem[] = seedStore();
+/**
+ * Semente **+ o que já foi gravado neste navegador**.
+ *
+ * Sem esta função, tudo o que a IA gerou (roteiro, cenas, aprovação, thumbnail escolhida) morria no
+ * primeiro F5 — e gerar de novo custa de novo. Ver `src/data/persist.ts`, que explica por que a
+ * durabilidade hoje é do navegador e não do servidor (a decisão de backend, D1, segue aberta).
+ *
+ * O canal é a unidade de leitura: para cada canal da semente, vale o que estiver gravado **daquele**
+ * canal; sem gravação, vale a semente. Nunca se mistura canal com canal.
+ */
+function hydrateStore(): ContentItem[] {
+  const seeded = seedStore();
+  const channelIds: ChannelId[] = [];
+  for (const item of seeded) {
+    if (!channelIds.includes(item.channelId)) channelIds.push(item.channelId);
+  }
+
+  const hydrated: ContentItem[] = [];
+  for (const channelId of channelIds) {
+    const stored = loadContents(channelId);
+    hydrated.push(
+      ...(stored !== null && stored.length > 0
+        ? stored
+        : seeded.filter((item) => item.channelId === channelId)),
+    );
+  }
+  return hydrated;
+}
+
+let store: ContentItem[] = hydrateStore();
 
 /* -----------------------------------------------------------------------------
    Personagens: a cópia mutável do ciclo do personagem
@@ -101,10 +137,36 @@ function seedCharacterStore(): Character[] {
   }));
 }
 
-let characterStore: Character[] = seedCharacterStore();
+/** Mesma ideia do `hydrateStore`, para o ciclo do personagem. */
+function hydrateCharacterStore(): Character[] {
+  const seeded = seedCharacterStore();
+  const channelIds: ChannelId[] = [];
+  for (const item of seeded) {
+    if (!channelIds.includes(item.channelId)) channelIds.push(item.channelId);
+  }
 
-/** Restaura o estado de exemplo (usado por testes e pelo botão "reiniciar exemplo"). */
+  const hydrated: Character[] = [];
+  for (const channelId of channelIds) {
+    const stored = loadCharacters(channelId);
+    hydrated.push(
+      ...(stored !== null && stored.length > 0
+        ? stored
+        : seeded.filter((item) => item.channelId === channelId)),
+    );
+  }
+  return hydrated;
+}
+
+let characterStore: Character[] = hydrateCharacterStore();
+
+/**
+ * Restaura o estado de exemplo (usado por testes e pelo botão "reiniciar exemplo").
+ *
+ * Apaga também o que está gravado no navegador: "reiniciar" que deixasse a gravação antiga no disco
+ * traria o estado de volta no próximo carregamento — o botão mentiria.
+ */
 export function resetStore(): void {
+  clearPersistence();
   store = seedStore();
   characterStore = seedCharacterStore();
 }
@@ -126,6 +188,13 @@ function patchContent(channelId: ChannelId, contentId: string, patch: Partial<Co
   const current = findContent(channelId, contentId);
   const next: ContentItem = { ...current, ...patch };
   store = store.map((item) => (item === current ? next : item));
+  // Grava **aqui**, no funil por onde passa toda mutação de conteúdo: um caminho novo de gravação que
+  // esquecesse esta linha perderia trabalho pago ao recarregar, e é exatamente esse o defeito que o
+  // `persist.ts` fecha. Só o canal afetado é reescrito.
+  saveContents(
+    channelId,
+    store.filter((item) => item.channelId === channelId),
+  );
   return { ...next };
 }
 
@@ -993,6 +1062,10 @@ export const api = {
     };
 
     characterStore = [...characterStore, criado];
+    saveCharacters(
+      channelId,
+      characterStore.filter((item) => item.channelId === channelId),
+    );
     return cloneCharacter(criado);
   },
 
@@ -1055,6 +1128,10 @@ export const api = {
     };
     characterStore = characterStore.map((item) =>
       item.id === aprovado.id && item.channelId === channelId ? aprovado : item,
+    );
+    saveCharacters(
+      channelId,
+      characterStore.filter((item) => item.channelId === channelId),
     );
 
     return { character: cloneCharacter(aprovado), superseded: substituidos };

@@ -1,8 +1,50 @@
 # ADR-007 — Configuração de IA pela interface: segredos, endereços e escolha de modelo
 
+## Atualização — a escrita foi liberada para quem está autorizado (2026-10-03)
+
+**O que mudou:** o dono do produto relatou que, **no app publicado**, não conseguia cadastrar a chave
+das LLM apesar de ter entrado com a conta Google — enquanto no localhost conseguia. O bloqueio era
+decisão deste ADR, e a decisão ficou obsoleta.
+
+A objeção original era: *"não existe autenticação nesta fase, então uma rota pública que aceita chave
+de API de qualquer visitante é uma vulnerabilidade."* Com o `ADR-014`, existe identidade verificada por
+token do Google **e** lista de acesso (`REBECA_ALLOWED_SUBS`) **e** limite de uso. A rota deixou de ser
+pública: só o dono a alcança. Manter o bloqueio depois disso não protegia nada — só impedia o app de
+ser configurado, e criava uma diferença de comportamento entre localhost e produção sem justificativa
+para o usuário.
+
+**Regra nova:**
+
+| Contexto | Escrita |
+|---|---|
+| Local, sem identidade | permitida (máquina de quem opera) |
+| Publicado, requisição **autorizada** pela guarda | **permitida** |
+| Publicado, sem identidade ou fora da lista | recusada — 401/403, antes de tocar no corpo |
+| Qualquer contexto com `REBECA_SETTINGS_WRITE=1` | permitida |
+
+**O que a mudança arrasta, e que não podia ser escondido:**
+
+1. **O sistema de arquivos de uma função serverless é somente-leitura fora de `/tmp`.** Ligar a escrita
+   sem tratar isso teria produzido o pior resultado possível: a requisição passaria na validação e a
+   gravação estouraria com `EROFS`. Em ambiente publicado a configuração passa a viver em
+   `/tmp/rebeca-segredos/llm.json`.
+2. **`/tmp` é por instância e efêmero.** A chave cadastrada vale **até o processo reciclar** — e depois
+   some, sem aviso. Isso destrava o uso imediato e é insuficiente como armazenamento definitivo. Por
+   isso a visão da tela ganhou `durable`, e a interface **diz com todas as letras** que o que foi salvo
+   ali é temporário, apontando a variável de ambiente como o caminho permanente. Fingir durabilidade
+   seria pior que bloquear.
+3. **Trilha de auditoria.** Toda gravação registra `updatedBy` (e-mail ou `sub` de quem gravou) — é o
+   que responde "quem trocou a chave?" quando algo parar de funcionar. O autor é registrado; o valor da
+   chave continua nunca saindo do servidor.
+
+**O que continua pendente:** armazenamento durável em produção. `/tmp` não é resposta definitiva —
+depende de banco (D1) ou de um armazenamento de chave-valor. Enquanto não existir, a variável de
+ambiente segue sendo o caminho permanente, e a tela diz isso.
+
 ## Status
 **proposto** — implementado e verificado; aguarda aprovação humana dos pontos em "Decisões que
-continuam sendo do dono do produto" e a revisão adversarial do `rebeca-qa`.
+continuam sendo do dono do produto" e a revisão adversarial do `rebeca-qa`. A atualização de
+2026-10-03 altera a decisão nº 4 (escrita em ambiente publicado) e a nº 1 de "continua sendo do dono".
 
 ## Data
 2026-10-01

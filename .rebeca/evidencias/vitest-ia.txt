@@ -7,77 +7,376 @@ No C:\Users\clauo\AppData\Roaming\npm\pnpm.ps1:24 caractere:5
     + FullyQualifiedErrorId : NativeCommandError
  
   - import "./server/ai/vite-plugin" without a file extension (vite.config.ts:6:29). Add the file extension
+  - import "./server/media/vite-plugin" without a file extension (vite.config.ts:7:32). Add the file extension
+  - import "./server/auth/vite-plugin" without a file extension (vite.config.ts:8:31). Add the file extension
 Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.
 
  RUN  v5.0.2 E:/pojeto rebeca
 
- ✓ src/features/configuracoes/__tests__/AiSettingsPanel.test.tsx (7 tests) 10098ms
-   ✓ painel de configuração de IA (7)
-     ✓ monta e mostra os provedores com o estado da chave 1641ms
-     ✓ OS MODELOS APARECEM nos seletores de nível 2242ms
-     ✓ o seletor mostra o endereço padrão de TODOS os provedores, inclusive Anthropic e Google 746ms
-     ✓ lista as funções com o modelo que atende cada uma 1016ms
-     ✓ quando o servidor devolve HTML, explica o que fazer em vez de carregar para sempre 1166ms
-     ✓ em ambiente publicado, avisa que não dá para gravar e não oferece os campos 609ms
-     ✓ salvar envia apenas o que mudou, e não apaga a chave quando o campo fica vazio 2642ms
- ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 14886ms
-   ✓ isolamento entre canais (4)
-     ✓ a camada de dados recusa conteúdo que pertence a outro canal 495ms
-     ✓ a fila de revisão nunca devolve conteúdo de outro canal 462ms
-     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 13691ms
- ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 15528ms
-   ✓ barras laterais abrem e fecham (4)
-     ✓ as duas nascem abertas, com os dois controles no masthead 4296ms
-     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 6850ms
-     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 1901ms
-     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 2391ms
- ✓ src/features/revisao/__tests__/revisao.test.tsx (4 tests) 25130ms
-   ✓ tela de revisão (4)
-     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 8638ms
-     ✓ aprova uma única vez mesmo com dois cliques seguidos 4901ms
-     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 11179ms
-     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 336ms
- ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7099ms
+ ✓ src/media/__tests__/qa-fase2-adversarial.test.ts (24 tests) 144889ms
+   ✓ QA Fase 2 — resolução: o que é pedido, o que é enviado e o que é medido (3)
+     ✓ o pedido 1920x1080 vira `aspect_ratio: 16:9` — e `width`/`height` NÃO vão no corpo 735ms
+     ✓ CONFIRMADO: a resolução publicada é MEDIDA do arquivo, não repetida do pedido 490ms
+   ✓ QA Fase 2 — idempotência e integridade do arquivo (3)
+     ✓ idempotência normal: duas chamadas, uma única requisição, custo zero na segunda 1035ms
+     ✓ CORRIGIDO (QA-015, achados 1 e 8, 2026-10-02): arquivo truncado por outro processo é regerado, não reusado 700ms
+   ✓ QA Fase 2 — idempotência do episódio quando o manifesto se perde (1)
+     ✓ CORRIGIDO (QA-015, achado 6, 2026-10-02): sem o `meta.json`, a reexecução NÃO relança linhas no livro 58437ms
+   ✓ QA Fase 2 — o caminho imageProvider: 'auto' (3)
+     ✓ um `providers` informado pelo chamador tem PRECEDÊNCIA sobre `auto` 48800ms
+   ✓ QA-016 — o que a correção da Fase 2 ainda não cobre (5)
+     ✓ CORRIGIDO (QA-016, achado ALTA, 2026-10-02): arquivo apagado entre execuções — a segunda cobrança ENTRA no livro 28935ms
+   ✓ QA-016 — o adapter da OpenAI (thumbnail), que ESTÁ EM USO (2)
+     ✓ CORRIGIDO (QA-016, achado ALTA, 2026-10-02): a OpenAI grava só depois de validar — nada sobra no disco 3896ms
+     ✓ CORRIGIDO (QA-016, achado ALTA, 2026-10-02): arquivo de zero byte não é ativo — é regerado 837ms
+ ✓ src/media/__tests__/media-render.test.ts (6 tests) 260179ms
+   ✓ render de verdade com ffmpeg local (3)
+     ✓ recusa gerar com provedor PAGO e sem estimativa — antes de escrever qualquer arquivo 753ms
+     ✓ gera longo 16:9, Short 9:16, legenda e manifesto — e a segunda execução não cria nada 85720ms
+     ✓ registra o custo por ativo gerado e nada quando tudo é reusado 97873ms
+   ✓ portão de fornecedor no caminho de vídeo (allow-list do canal) (3)
+     ✓ recusa fornecedor PROIBIDO antes de escrever qualquer arquivo — o caso do vídeo do Google 316ms
+     ✓ o portão roda mesmo com o cache quente — reexecução não é passe livre 75223ms
+ ✓ src/data/__tests__/qa-fase1-adversarial.test.ts (19 tests) 24646ms
+   ✓ QA Fase 1 — oficialidade única (6)
+     ✓ tenta deixar DOIS oficiais com o mesmo nome pela via direta (criação do zero) 1278ms
+     ✓ tenta deixar dois oficiais com o mesmo nome por variação de caixa/espaço 2204ms
+     ✓ CORRIGIDO: espaço INTERNO não cria uma segunda identidade canônica 1306ms
+     ✓ CORRIGIDO: acento não separa identidades que o humano lê como o mesmo nome 1346ms
+     ✓ a aprovação substitui DE FATO: nenhum consumidor que filtra `oficial` vê a versão antiga 1095ms
+     ✓ tenta ressuscitar a versão substituída (aprovar de novo / refinar por cima) 1566ms
+   ✓ QA Fase 1 — o refino não edita a ficha existente (4)
+     ✓ refinar cria versão nova e deixa a ficha de origem intacta 604ms
+     ✓ CORRIGIDO: o número da revisão é único — refinar uma versão substituída sobe do TOPO da identidade 1719ms
+     ✓ CORRIGIDO: duas ramificações do mesmo refino recebem números diferentes 747ms
+     ✓ tenta provar que aprovar a reemissão deixa dois oficiais para trás 1434ms
+   ✓ QA Fase 1 — isolamento por canal na camada de dados (3)
+     ✓ tenta vazar personagem de um canal para outro por cada porta da API 1316ms
+     ✓ tenta fazer a aprovação de um canal derrubar a ficha oficial de outro canal com o mesmo nome 982ms
+     ✓ tenta forjar o canal/versão/status pela proposta (resposta de IA é dado externo) 702ms
+   ✓ QA Fase 1 — a IA nunca grava nem aprova (2)
+     ✓ nenhum método exportado da camada de dados leva uma ficha a `oficial` sem `approveCharacter` 512ms
+   ✓ QA Fase 1 — a nova redação do ADR-015 bate com o código? (4)
+     ✓ CONFIRMADO: dentro de um MESMO nome, a revisão nunca se repete (varredura de 12 fichas) 5623ms
+     ✓ CONFIRMADO: entre identidades DIFERENTES o número coincide — o limite que o ADR declara 502ms
+     ✓ REFUTADO (novo): a identidade do cálculo NÃO é fechada — renomear cria duas fichas no mesmo número 706ms
+     ✓ CONFIRMADO: dentro da LINHAGEM o número sobe mesmo com renomeação (o caso que eu esperava derrubar) 696ms
+ ✓ src/media/__tests__/media-imagens.test.ts (45 tests) 324382ms
+   ✓ adapter real da MiniMax para imagem de cena (image-01) (8)
+     ✓ grava o PNG na pasta do canal, cobra o preço publicado e envia o contrato documentado 522ms
+     ✓ idempotência antes do gasto: a segunda chamada não chama a rede e devolve custo zero 1270ms
+   ✓ imagem de cena no pipeline — allow-list, idempotência e custo real (4)
+     ✓ a cena vira PNG no disco com custo real no livro — e rodar de novo não gasta nem cria arquivo 68382ms
+     ✓ sem chave, o episódio cai no simulado e a resposta diz que a imagem é prova de máquina 74445ms
+     ✓ o padrão do pipeline continua sendo o simulado — provedor pago não entra por acidente de ambiente 71001ms
+   ✓ QA-015 achado 1 e 8 — integridade do ativo: falha não vira sucesso silencioso (5)
+     ✓ achado 8: PNG truncado que passa pela assinatura é recusado e substituído por imagem inteira 1076ms
+     ✓ o arquivo de passagem não sobrevive a uma falha de validação 559ms
+     ✓ a thumbnail real da MiniMax também grava só depois de validar (mesmo helper, outra finalidade) 1855ms
+   ✓ QA-016 achados novos — cabeçalho, pixels e o ambiente sem ffmpeg (13)
+     ✓ o controle: o PNG inteiro continua passando nas duas camadas, com e sem ffmpeg 1210ms
+   ✓ QA-016 achado ALTA — o livro registra a segunda cobrança (1)
+     ✓ arquivo apagado entre execuções: o provedor cobra de novo e a cobrança ENTRA no livro 51526ms
+   ✓ QA-016 achado ALTA — o adapter da OpenAI (o caminho pago em uso) (3)
+     ✓ a OpenAI não trata arquivo de zero byte como ativo: regera e cobra 942ms
+   ✓ QA-015 achado 6 — o livro não depende do manifesto (1)
+     ✓ apagado o `meta.json`, a reexecução NÃO relança linha no livro e conta o ativo como reusado 47763ms
+stderr | src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > gera o storyboard POR LOTES: uma chamada 
+por 3 blocos, gravando cada lote
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+stderr | src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > gera o storyboard POR LOTES: uma chamada 
+por 3 blocos, gravando cada lote
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+stderr | src/features/revisao/__tests__/revisao.test.tsx > tela de revisão > gera o storyboard POR LOTES: uma chamada 
+por 3 blocos, gravando cada lote
+An update to RevisaoPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/features/revisao/__tests__/revisao.test.tsx (16 tests) 103242ms
+   ✓ tela de revisão (16)
+     ✓ não deixa aprovar sem thumbnail escolhida, e nenhuma opção vem pré-marcada 15251ms
+     ✓ aprova uma única vez mesmo com dois cliques seguidos 17299ms
+     ✓ rejeitar exige motivo, e o motivo vira o registro de aprendizado 25393ms
+     ✓ a camada de dados recusa aprovar sem thumbnail mesmo que a tela falhe 382ms
+     ✓ a tela diz o que EXISTE, e não afirma mídia que nunca foi gerada 5007ms
+     ✓ não nega a mídia que existe: nomeia o episódio do canal e diz que ele NÃO está ligado ao conteúdo 3207ms
+     ✓ mostra os números reais quando o conteúdo TEM episódio ligado 2330ms
+     ✓ quando a leitura da mídia falha, diz que NÃO SABE — nunca que não existe 9092ms
+     ✓ diz quando o episódio declarado não tem manifesto neste ambiente 2638ms
+     ✓ o espaço do player diz o que FALTA — derivado do estado, não string fixa 4648ms
+     ✓ dá para PEDIR opções de thumbnail à IA e aplicar as propostas 4689ms
+     ✓ o "Custo real" vem do LIVRO, não do dado de exemplo 1477ms
+     ✓ sem livro durável, o custo diz "não verificável aqui" — nunca zero 4035ms
+     ✓ a etapa Criar tem botão de roteiro — e diz que ele falta 2257ms
+     ✓ com roteiro gravado, a tela mostra os blocos e libera as cenas 1837ms
+     ✓ gera o storyboard POR LOTES: uma chamada por 3 blocos, gravando cada lote 3543ms
+ ✓ src/data/__tests__/personagem-ciclo.test.ts (14 tests) 12265ms
+   ✓ ciclo do personagem (9)
+     ✓ percorre opções → escolha → refino → aprovação, subindo a revisão da ficha 1201ms
+     ✓ personagem novo nasce rascunho e nem um status forçado vindo de fora o torna oficial 531ms
+     ✓ refino de ficha oficial não deixa oficial para trás 916ms
+     ✓ recusa personagem de outro canal com a mesma mensagem de "não existe" 767ms
+     ✓ personagem de um canal nunca aparece na lista de outro 632ms
+     ✓ nem a segunda aprovação nem a volta de um substituído passam 1671ms
+     ✓ recusa ficha incompleta em vez de gravar um "canônico" que não descreve nada 1446ms
+     ✓ exige procedência: ficha sem origem registrada não entra no canal 450ms
+     ✓ corta o que passa do teto e recusa o que o schema não permitiria 466ms
+   ✓ revisão da ficha (sheetVersion) (5)
+     ✓ a revisão sobe do TOPO da identidade — refinar versão substituída não reemite número vivo 1825ms
+     ✓ a vizinhança de identidade é de um passo, não o fecho — o limite declarado no ADR-015 700ms
+     ✓ acento, caixa e separador não criam duas identidades canônicas 1636ms
+ ✓ src/features/configuracoes/__tests__/AiSettingsPanel.test.tsx (10 tests) 9955ms
+   ✓ painel de configuração de IA (10)
+     ✓ monta e mostra os provedores com o estado da chave 1084ms
+     ✓ OS MODELOS APARECEM nos seletores de nível 1017ms
+     ✓ lista as funções com o modelo que atende cada uma 458ms
+     ✓ quando o servidor devolve HTML, explica o que fazer em vez de carregar para sempre 1100ms
+     ✓ em ambiente publicado, avisa que não dá para gravar e não oferece os campos 371ms
+     ✓ em app publicado, o campo explica por que está desativado em vez de convidar a colar 372ms
+     ✓ salvar envia apenas o que mudou, e não apaga a chave quando o campo fica vazio 898ms
+     ✓ testar conexão envia a chave DIGITADA, e não só a que já está salva 4152ms
+ ✓ src/features/identidade/__tests__/identidade-personagem.test.tsx (8 tests) 25408ms
+   ✓ ciclo do personagem na tela de Identidade (8)
+     ✓ descrever devolve opções e nada é gravado sem clique humano 4006ms
+     ✓ escolher uma opção grava o rascunho do canal, e ele não nasce oficial 4205ms
+     ✓ refinar a ficha escolhida cria a versão seguinte, derivada e ainda não oficial 3007ms
+     ✓ aprovar é o que torna oficial — e nada antes disso chega lá 1674ms
+     ✓ refinar uma ficha oficial e aprovar substitui a anterior, e a tela diz qual caiu 4055ms
+     ✓ a tela diz que o canal tem ficha canônica — ou diz que não tem 860ms
+     ✓ trocar de canal limpa o ciclo: nada do canal anterior fica na tela 6996ms
+     ✓ resposta sem opções legíveis não vira tela quebrada nem gravação 592ms
+ ✓ src/media/__tests__/media-thumbnails.test.ts (24 tests) 5178ms
+   ✓ geração das opções de thumbnail (9)
+     ✓ gera quatro opções com hipóteses diferentes e registra no manifesto 1516ms
+     ✓ é idempotente: a segunda execução reusa tudo e não lança custo novo 1426ms
+   ✓ rota HTTP da mídia (4)
+     ✓ serve a imagem gerada quando ela está no manifesto 1378ms
+ ✓ src/features/conteudo/__tests__/conteudo-aberto.test.tsx (5 tests) 7236ms
+   ✓ conteúdo aberto na biblioteca (5)
+     ✓ abre o conteúdo apontado por ?aberto= em vez de ignorar o parâmetro 3219ms
+     ✓ marca o cartão do conteúdo aberto na grade 800ms
+     ✓ id de OUTRO canal não vaza nada: avisa e não mostra o conteúdo alheio 742ms
+     ✓ fechar tira o conteúdo da tela 1186ms
+     ✓ o cartão da biblioteca aponta para o conteúdo aberto (o contrato que estava quebrado) 1268ms
+ ✓ src/data/__tests__/aprovacao.test.ts (15 tests) 7016ms
    ✓ gate de aprovação humana (15)
-     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 372ms
-     ✓ não deixa aprovar o que não está em revisão (já publicado) 327ms
+     ✓ não deixa aprovar conteúdo sem thumbnail escolhida pelo humano 350ms
+     ✓ não deixa aprovar o que não está em revisão (já publicado) 335ms
      ✓ não deixa aprovar conteúdo de outro canal 332ms
-     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 549ms
-     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 556ms
-     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 581ms
-     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 518ms
-     ✓ o portão de publicação recusa o que não tem aprovação vigente 565ms
+     ✓ editar o título DEPOIS de aprovado invalida a aprovação e volta o conteúdo para revisão 551ms
+     ✓ trocar a thumbnail DEPOIS de aprovado invalida a aprovação 566ms
+     ✓ reagendar NÃO invalida a aprovação: o conteúdo aprovado não mudou, só a data 580ms
+     ✓ a aprovação fica presa à versão aprovada: mexer no conteúdo é detectável 507ms
+     ✓ o portão de publicação recusa o que não tem aprovação vigente 545ms
      ✓ o portão de publicação não atravessa canal 332ms
-     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 629ms
-     ✓ recusa título fora do limite antes de gravar 416ms
-     ✓ recusa motivo de rejeição fora do limite do schema de IA 573ms
-     ✓ recusa data de agendamento que não é data 846ms
- ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 3790ms
+     ✓ existe registro da aprovação, com data e canal — e ele some quando invalidado 617ms
+     ✓ recusa título fora do limite antes de gravar 421ms
+     ✓ recusa motivo de rejeição fora do limite do schema de IA 565ms
+     ✓ recusa data de agendamento que não é data 833ms
+ ✓ src/data/__tests__/channel-scope.test.tsx (4 tests) 5672ms
+   ✓ isolamento entre canais (4)
+     ✓ a camada de dados recusa conteúdo que pertence a outro canal 346ms
+     ✓ a fila de revisão nunca devolve conteúdo de outro canal 433ms
+     ✓ trocar de canal limpa o DOM, o cache e a URL do canal anterior 4829ms
+ ✓ src/app/__tests__/barras-laterais.test.tsx (4 tests) 4830ms
+   ✓ barras laterais abrem e fecham (4)
+     ✓ as duas nascem abertas, com os dois controles no masthead 1564ms
+     ✓ o botão da esquerda fecha e reabre, e o X de dentro da barra também fecha 1382ms
+     ✓ o botão da direita fecha e reabre, e publica o contrato que o CSS lê 924ms
+     ✓ a escolha sobrevive à remontagem da casca (preferência do usuário, não do canal) 945ms
+ ✓ src/data/__tests__/persistencia.test.ts (8 tests) 3947ms
+   ✓ o que a IA gerou sobrevive a recarregar a página (3)
+     ✓ o roteiro pago continua no conteúdo depois do F5 457ms
+     ✓ o storyboard também sobrevive — e continua ligado ao roteiro 569ms
+     ✓ a ficha de personagem aprovada sobrevive 668ms
+   ✓ isolamento entre canais na gravação (2)
+     ✓ o que foi gravado num canal não aparece no outro, nem na chave do outro 733ms
+     ✓ um canal sem gravação continua com o dado de exemplo 381ms
+   ✓ o "reiniciar exemplo" não mente (1)
+     ✓ apaga também o que estava gravado no navegador 368ms
+   ✓ quando a gravação não funciona, o app não quebra nem esconde (2)
+     ✓ declara a durabilidade como falsa, com motivo, e segue funcionando em memória 365ms
+     ✓ dado corrompido na chave cai na semente em vez de derrubar a tela 385ms
+ ✓ src/data/__tests__/roteiro-cenas.test.ts (8 tests) 3586ms
+   ✓ roteiro e storyboard do conteúdo (8)
+     ✓ grava o roteiro com os blocos e a procedência 367ms
+     ✓ grava o storyboard depois do roteiro 374ms
+     ✓ gerar roteiro novo descarta o storyboard antigo 732ms
+     ✓ gravar roteiro num conteúdo aprovado derruba a aprovação 752ms
+     ✓ recusa gravar em conteúdo de outro canal 380ms
+     ✓ recusa roteiro sem blocos e storyboard sem cenas 569ms
+ ✓ src/features/midia/__tests__/midia.test.tsx (6 tests) 3476ms
+   ✓ tela "Mídia gerada" (6)
+     ✓ mostra os ativos que o pipeline gerou — o defeito "gerou e não apareceu" 632ms
+     ✓ avisa que ativo de provedor simulado é prova de máquina, não arte publicável 432ms
+     ✓ marca o ativo quando o manifesto aponta para arquivo que não está mais no disco 474ms
+     ✓ mostra a mensagem do servidor quando a leitura falha, em vez de uma frase genérica 1736ms
+ ✓ src/components/ai/__tests__/AiAction.test.tsx (7 tests) 2502ms
    ✓ AiAction (7)
-     ✓ não chama a IA sozinho: só depois do clique 1806ms
-     ✓ mostra o resultado e a procedência quando a geração é real 397ms
-     ✓ NÃO mostra nome de fornecedor nem de modelo na interface comum 318ms
-     ✓ AVISA quando a resposta é simulação — não deixa passar por geração real 319ms
-     ✓ não aplica nada na tela sem clique no botão de aplicar 394ms
- ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 4805ms
+     ✓ não chama a IA sozinho: só depois do clique 1130ms
+ ✓ src/auth/__tests__/qa-refutacao.test.tsx (12 tests) 2069ms
+   ✓ REFUTA (defeito 1): sem Authorization, a resposta tem de ser 401 — não 400 (6)
+     ✓ api/ai/generate.ts: corpo inválido e NENHUMA credencial → 401 688ms
+   ✓ REFUTA (defeito 2): 200 com HTML não pode virar prévia de imagem (1)
+     ✓ resposta 200 com text/html cai no aviso de falha, não num <img> de HTML 1037ms
+ ✓ src/data/__tests__/propor-thumbnails.test.ts (5 tests) 1776ms
+   ✓ opções de thumbnail propostas pela IA (5)
+     ✓ substitui as opções e limpa a escolha anterior 377ms
+     ✓ trocar a thumbnail de um conteúdo aprovado derruba a aprovação 782ms
+stderr | src/auth/__tests__/cliente.test.tsx > a sessão entra em memória e em nenhum outro lugar > entrar guarda a 
+identidade, marca autorizado e não escreve em storage
+An update to AuthProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+stderr | src/auth/__tests__/cliente.test.tsx > a sessão entra em memória e em nenhum outro lugar > conta autenticada 
+fora da lista vira estado próprio, e não erro
+An update to AuthProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+stderr | src/auth/__tests__/cliente.test.tsx > a sessão entra em memória e em nenhum outro lugar > a credencial 
+recusada pelo servidor não deixa sessão pendurada
+An update to AuthProvider inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at 
+https://react.dev/link/wrap-tests-with-act
+
+ ✓ src/auth/__tests__/cliente.test.tsx (13 tests) 2196ms
+   ✓ o portão de entrada (3)
+     ✓ sem sessão mostra a entrada e NÃO chama nenhuma rota de IA ou de mídia 1269ms
+ ✓ src/features/como-funciona/__tests__/como-funciona.test.tsx (3 tests) 3680ms
    ✓ tela "Como funciona" (3)
-     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2820ms
-     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 1102ms
-     ✓ continua dizendo que o passo da aprovação é humano 854ms
- ✓ src/ai/__tests__/handler.test.ts (35 tests) 934ms
- ✓ src/ai/__tests__/settings.test.ts (27 tests) 720ms
- ✓ src/ai/__tests__/registry.test.ts (16 tests) 527ms
- ✓ src/data/__tests__/cycle.test.ts (8 tests) 223ms
- ✓ src/__tests__/headers.test.ts (8 tests) 52ms
- ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 2785ms
-   ✓ vazamento de credencial do provedor (2)
-     ✓ caminho REAL (adaptador OpenAI): resposta 401 que ecoa o Authorization não chega ao navegador 2371ms
+     ✓ mostra as 10 etapas do ciclo, numeradas na ordem canônica 2170ms
+     ✓ não funde Agendar com Publicar e não fala mais em "Ajustar" 855ms
+     ✓ continua dizendo que o passo da aprovação é humano 633ms
+ ✓ src/ai/__tests__/handler.test.ts (35 tests) 765ms
+ ✓ src/auth/__tests__/google.test.ts (5 tests) 702ms
+ ✓ src/auth/__tests__/rotas.test.ts (32 tests) 704ms
+ ✓ src/media/__tests__/media-library.test.ts (19 tests) 533ms
+ ✓ src/ai/__tests__/settings.test.ts (31 tests) 408ms
+ ✓ src/media/__tests__/media-custo.test.ts (17 tests) 475ms
+ ✓ src/media/__tests__/media-custos.test.ts (9 tests) 195ms
+ ✓ src/auth/__tests__/guard.test.ts (21 tests) 208ms
+ ✓ src/ai/__tests__/registry.test.ts (16 tests) 243ms
+ ✓ src/__tests__/serverless-imports.test.ts (4 tests) 208ms
+ ✓ src/__tests__/headers.test.ts (13 tests) 470ms
+ ✓ src/features/identidade/__tests__/personagem-opcoes-simuladas.test.ts (6 tests) 88ms
+ ✓ src/ai/__tests__/google-diagnostico.test.ts (8 tests) 342ms
+ ✓ src/media/__tests__/media-timeline.test.ts (9 tests) 77ms
+ ✓ src/data/__tests__/cycle.test.ts (8 tests) 106ms
+ ✓ src/media/__tests__/media-ffmpeg-parse.test.ts (6 tests) 47ms
+ ✓ src/media/__tests__/media-paths.test.ts (7 tests) 89ms
+ ✓ src/media/__tests__/media-hash.test.ts (7 tests) 58ms
+ ✓ src/ai/__tests__/lote-de-cenas.test.ts (9 tests) 35ms
+ ✓ src/media/__tests__/thumbnail-art.test.ts (5 tests) 36ms
+ ✓ src/ai/__tests__/vazamento-provedor.test.ts (2 tests) 70ms
+ ✓ src/__tests__/dev-env.test.ts (6 tests) 45ms
+ ↓ src/ai/__tests__/provedor-real.test.ts (3 tests | 3 skipped)
 
- Test Files  13 passed (13)
-      Tests  140 passed (140)
-   Start at  21:16:26
-   Duration  105.38s (environment 55%, tests 24%, setup 10%, import 6%, transform 4%, worker 1%)
+ Test Files  43 passed | 1 skipped (44)
+      Tests  531 passed | 3 skipped (534)
+   Start at  08:14:32
+   Duration  499.01s (tests 66%, environment 23%, setup 7%, import 2%, transform 2%)
 
-    Isolate  13 workers spawned · ~17.29s startup each (spawn + environment, per file)
-             at least ~38.91s faster with isolate: false — reuses workers across files instead of one per file
+    Isolate  44 workers spawned · ~8.39s startup each (spawn + environment, per file)
+             at least ~114.66s faster with isolate: false — reuses workers across files instead of one per file
 

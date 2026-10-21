@@ -238,6 +238,16 @@ export function AiAction({
   // Notifica a tela quando um resultado novo chega. `useEffect` (e não `onSuccess` do mutation) para
   // funcionar igual em qualquer chamador e não depender da versão da biblioteca de consulta.
   const result = mutation.data;
+  /*
+   * `Array.isArray` e não `result.adjustments.length` direto.
+   *
+   * O tipo diz que o campo é obrigatório, mas o **runtime** não obedece ao tipo: uma resposta de um
+   * servidor mais antigo que o cliente (defasagem entre deploy e bundle carregado) não traz o campo, e
+   * um mock de teste também não. Sem a guarda, o componente inteiro quebra — e a tela de Revisão cai
+   * junto. Foi o que aconteceu: `Cannot read properties of undefined (reading 'length')` dentro do
+   * `<AiAction>`. Tipo obrigatório não substitui checagem de runtime em fronteira de rede.
+   */
+  const adjustments = Array.isArray(result?.adjustments) ? result.adjustments : [];
   useEffect(() => {
     if (result && onResult) onResult(result);
     // `onResult` de propósito fora das dependências: a tela costuma passar uma função nova a cada
@@ -299,13 +309,19 @@ export function AiAction({
 
       {mutation.isError && (
         <div className="mt-3">
-          <ErrorState
-            title="A IA não conseguiu responder"
-            message={mutation.error.message}
-            {...(mutation.error.name === 'AiError' ? {} : {})}
-          />
-          {/* O erro já traz mensagem em pt-BR pronta para a tela; o detalhe técnico fica em
-              `detail` e não é exibido — evita poluir a interface com jargão de provedor. */}
+          <ErrorState title="A IA não conseguiu responder" message={mutation.error.message} />
+          {/*
+            O detalhe técnico fica **recolhido**, mas existe.
+            Antes ele era escondido por completo, e o resultado foi o dono do produto ver "não passou
+            na validação" sem ter como saber o que falhou — nem ele, nem quem fosse ajudar. Esconder
+            diagnóstico não protege o usuário de jargão; só o deixa sem saída.
+          */}
+          {errorDetail(mutation.error) && (
+            <details className="mt-2">
+              <summary className="text-[11px] text-ink-3 cursor-pointer">Detalhes técnicos</summary>
+              <p className="text-[10.5px] text-ink-3 mt-1.5 break-words ams-num">{errorDetail(mutation.error)}</p>
+            </details>
+          )}
         </div>
       )}
 
@@ -326,6 +342,23 @@ export function AiAction({
             </p>
           )}
 
+          {/* O que o app precisou ajustar para caber no contrato. Declarado, não escondido. */}
+          {adjustments.length > 0 && (
+            <details className="mb-2.5 p-2.5 rounded-md border border-line bg-[color:var(--ams-glass-sunken)]">
+              <summary className="text-[11px] text-ink-2 cursor-pointer" role="status">
+                A resposta foi ajustada em {adjustments.length}{' '}
+                {adjustments.length === 1 ? 'ponto' : 'pontos'} para caber no formato
+              </summary>
+              <ul className="mt-1.5 flex flex-col gap-1">
+                {adjustments.map((item) => (
+                  <li key={item} className="text-[10.5px] text-ink-3 ams-num">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
           <div className="rounded-[12px] bg-sunken border border-line p-3 max-h-[420px] overflow-y-auto">
             <ResultValue value={result.data} fieldKey={result.functionId} />
           </div>
@@ -335,6 +368,12 @@ export function AiAction({
       )}
     </Card>
   );
+}
+
+/** Detalhe técnico do erro, quando houver. `AiError` carrega `detail`; outros erros, não. */
+function errorDetail(error: Error): string | null {
+  const detail = (error as { detail?: unknown }).detail;
+  return typeof detail === 'string' && detail.length > 0 ? detail : null;
 }
 
 /* =============================================================================

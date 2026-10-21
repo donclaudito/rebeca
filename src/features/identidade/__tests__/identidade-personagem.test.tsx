@@ -89,6 +89,7 @@ function respostaComOpcoes(opcoes: CharacterProposal[]): AiResult {
     model: 'simulado',
     simulated: true,
     data: { opcoes },
+    adjustments: [],
     usage: { tokensIn: 0, tokensOut: 0 },
     costUsd: 0,
     costSource: 'nao-verificado',

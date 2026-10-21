@@ -166,16 +166,29 @@ export async function routeAiRequest(
      * Configuração de IA: segredos, endereços e escolha de modelo.
      *
      * A LEITURA nunca devolve valor de chave — só máscara e indicador de presença (ver
-     * `buildSettingsView`). A ESCRITA continua recusada quando o app está publicado
-     * (`settingsWritable()`), mesmo com autenticação ligada: quem entra passa a **usar** a chave, não
-     * a **ver** nem a **trocar**. O lugar do segredo é o gerenciador do servidor.
+     * `buildSettingsView`).
+     *
+     * A ESCRITA é permitida para quem passou pela guarda. Isso mudou quando a autenticação entrou
+     * (`ADR-014`): a objeção original era não existir identidade, e com token verificado **mais** lista
+     * de acesso a rota só é alcançável pelo dono. Manter o bloqueio deixava o app publicado sem como
+     * ser configurado — o dono entrava e não conseguia cadastrar a chave, enquanto no localhost
+     * conseguia. `auth.identity` chega aqui já verificado; `sub`/e-mail vão para a trilha de auditoria.
      */
     if (pathname === '/api/ai/settings') {
       if (method === 'GET') {
-        return { status: 200, body: handleGetSettings() };
+        return { status: 200, body: handleGetSettings(true) };
       }
       if (method === 'PUT' || method === 'POST') {
-        return { status: 200, body: handleSaveSettings(await lerCorpo(), options.now ?? new Date()) };
+        return {
+          status: 200,
+          body: handleSaveSettings(await lerCorpo(), options.now ?? new Date(), {
+            authorized: true,
+            actor: {
+              sub: auth.identity.sub,
+              ...(auth.identity.email === undefined ? {} : { email: auth.identity.email }),
+            },
+          }),
+        };
       }
       throw new AiError(
         { code: 'entrada-invalida', message: 'Este endereço responde a GET e PUT.', retryable: false },

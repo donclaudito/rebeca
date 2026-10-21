@@ -29,7 +29,10 @@ function settingsView(overrides: Partial<AiSettingsView> = {}): AiSettingsView {
   return {
     writable: true,
     hosted: false,
+    durable: true,
     configPath: '.rebeca/segredos/llm.json',
+    envVars: ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'],
+    updatedBy: null,
     providers: [
       { provider: 'openai', envVar: 'OPENAI_API_KEY', configured: true, keyMask: '••••I9QA', keySource: 'configuracao', baseUrl: 'https://api.openai.com/v1/chat/completions', defaultBaseUrl: 'https://api.openai.com/v1/chat/completions', baseUrlCustomized: false, minorPolicy: 'permitido', allowedForChildDirected: true },
       { provider: 'anthropic', envVar: 'ANTHROPIC_API_KEY', configured: false, keyMask: '', keySource: 'ausente', baseUrl: 'https://api.anthropic.com/v1/messages', defaultBaseUrl: 'https://api.anthropic.com/v1/messages', baseUrlCustomized: false, minorPolicy: 'permitido', allowedForChildDirected: true },

@@ -67,6 +67,16 @@
 > `vercel.json` foram corrigidos conforme a documentação oficial (a integração **quebraria** com os
 > valores antigos). Ver a seção "Autenticação das rotas de IA e mídia — Parte 2 implementada" e o
 > adendo do `ADR-014`.
+>
+> **Atualização desta sessão — a gravação passou a sobreviver ao F5 (2026-10-02):** o dono relatou
+> *"não permite salvar, tendo que refazer todo de novo, consumindo llm no mesmo video"*. Estava certo: o
+> botão de gravar existia, mas todo o estado vivia em memória (`let store = seedStore()`) e o primeiro F5
+> apagava roteiro, cenas, aprovação e ficha — exigindo **pagar de novo** pela mesma geração. Corrigido com
+> `src/data/persist.ts` (chave por canal, durabilidade medida, falha declarada na tela) + hidratação e
+> gravação em `client.ts`. 43 arquivos · **529/529** verdes, build exit 0, prova por mutação (5 de 8
+> vermelhos). Ver "Não permite salvar…". O outro relato da mesma mensagem — *"não visualizo nenhum botão
+> para gerar vídeo"* — **não é defeito**: é a Fase 3 bloqueada pelos três portões, e o pedido de decisão
+> está nessa seção.
 
 ## Fase atual
 
@@ -518,6 +528,39 @@ nenhuma, responde por simulação" passou a falhar. Pior: um teste futuro poderi
 
 **Continua não verificado:** os outros quatro provedores (só a OpenAI foi exercitada de verdade) e a
 função serverless em deploy real.
+
+## Correção — chave de LLM não podia ser cadastrada no app publicado (2026-10-03)
+
+Relato do dono do produto: *"no aplicativo publicado, o usuário não consegue adicionar chaves às LLM,
+apesar de ter entrado com autenticação via Google, o que impede o funcionamento, que o modelo do
+localhost consegue."*
+
+**Causa:** era decisão minha, no `ADR-007` — a escrita de configuração era bloqueada em ambiente
+publicado. A justificativa original era *"não existe autenticação, então rota pública que aceita chave
+de API de qualquer visitante é vulnerabilidade"*. Com o `ADR-014` (identidade verificada por token do
+Google + lista de acesso + limite de uso), **a justificativa deixou de existir**, e o bloqueio passou a
+ser só um impedimento: diferença de comportamento entre localhost e produção sem razão para o usuário.
+
+| O que mudou | Detalhe |
+|---|---|
+| Escrita liberada para quem passou pela guarda | Local: permitida. Publicado **autorizado**: permitida. Publicado sem identidade: 401/403, antes de ler o corpo |
+| Destino do arquivo em ambiente publicado | **`/tmp/rebeca-segredos/llm.json`** — o sistema de arquivos de função serverless é somente-leitura fora de `/tmp`; sem isso a gravação estouraria com `EROFS` |
+| Durabilidade declarada na tela | `/tmp` é por instância e **efêmero**: a chave vale até o processo reciclar. A interface diz isso e aponta a variável de ambiente como o caminho permanente |
+| Trilha de auditoria | toda gravação registra `updatedBy` (e-mail ou `sub`) — responde "quem trocou a chave?" |
+
+**Defeito que eu introduzi e o teste pegou:** ao acrescentar `adjustments` ao resultado, o
+`<AiAction>` passou a fazer `result.adjustments.length` — e uma resposta de servidor mais antigo (ou um
+mock de teste) sem o campo **derrubava o componente inteiro**, levando a tela de Revisão junto. É o
+mesmo erro que eu já tinha cometido com `save.changed` e não generalizei. Corrigido com guarda de
+runtime: tipo obrigatório não substitui checagem em fronteira de rede.
+
+**Verificação:** `settings.test.ts` → **31/31**, incluindo a regressão "em ambiente publicado, quem
+ESTÁ autorizado consegue cadastrar" e a prova de que a chave nunca aparece na resposta mesmo para quem
+pode editar. `AiSettingsPanel.test.tsx` → 7/7. Suíte completa e build rodados.
+
+**Continua pendente:** armazenamento **durável** em produção. `/tmp` destrava agora e não é resposta
+definitiva — depende de banco (D1) ou de um armazenamento de chave-valor. Enquanto não existir, a
+variável de ambiente é o caminho permanente.
 
 ## Correção — "testei e não funcionou, e não aparecem os modelos" (2026-10-01)
 
@@ -2131,4 +2174,51 @@ Três portões, nenhum técnico: (1) a entrada `animacao` da allow-list; (2) a *
 longo, aberta desde o 504; (3) autorização de gasto — **~US$ 39 por episódio** contra teto de
 **US$ 60/mês**, ou seja **um episódio por mês**. Nenhum agente pode abrir os três. Ver
 `.rebeca/planos/fase-3-video.md`.
+
+## "Não permite salvar, tendo que refazer tudo e gastando LLM de novo" — o defeito era durabilidade (2026-10-02)
+
+Relato do dono, literal: *"nao visualizo neu botton para gerar video apos ter gerado trumbd e roteiros.
+aleemque depois de gerar as as inteligencia na gesta de roterio e cenas nao permite salvar, tendo que
+refazer todo de novo, consuminto llm no mesmo video"*. **Dois relatos com naturezas diferentes — e só
+um era defeito.**
+
+**Relato 1 — o botão de vídeo: não é defeito, é a Fase 3 bloqueada.** A tela já declara o que falta,
+derivado do estado e não de frase fixa (`RevisaoPage.tsx:234`, `faltaParaOVideo`): *"nenhum vídeo foi
+gerado — falta o roteiro; as cenas do storyboard; um provedor de vídeo real"*. O que falta de verdade
+são os três portões acima, e nenhum deles é código. **Nada foi construído aqui**, de propósito: botão
+que gasta ~US$ 39 sem fila e sem autorização trocaria um erro por outro pior.
+
+**Relato 2 — "não permite salvar": defeito real, verificado, corrigido.** A gravação existia
+(`saveRoteiro` → `patchArtifact` → `patchContent`) e funcionava. O que não existia era **durabilidade**:
+todo o estado vivia em `let store: ContentItem[] = seedStore()` — memória do navegador. Um F5 (ou fechar
+a aba) apagava roteiro, storyboard, aprovação, thumbnail escolhida e ficha de personagem. E como
+`criar-roteiro` e `criar-cena` são **pagos** (livro real: US$ 0,0038665 por roteiro, US$ 0,0124 por lote
+de 3 cenas), refazer significa **pagar duas vezes pelo mesmo vídeo**. Confirmado por três leituras
+independentes: nenhum `fetch`/`localStorage` em `src/data/*.ts`; nenhuma rota de conteúdo em `api/`
+(só `ai`, `auth`, `media`); e nenhuma outra cópia do estado.
+
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Tipos | `tsc --noEmit` | ✅ exit 0 |
+| Teste novo (simula F5 com `vi.resetModules` + `import()`) | `vitest run src/data/__tests__/persistencia.test.ts` | ✅ **8/8**, exit 0 |
+| Suíte completa | `vitest run` | ✅ **43 arquivos · 529/529**, exit 0 |
+| Prompts | `node .tools/build_prompts.mjs --check` | ✅ em sincronia |
+| Build | `vite build` (com o shim do sandbox) | ✅ exit 0 · JS 557,68 kB (gzip 163,82) |
+| **Prova adversarial (mordida)** | `saveContents(...)` comentado dentro de `patchContent` | ✅ **5 dos 8 ficam vermelhos**; restaurado com **sha256 idêntico** (`0B1C6A00…CA1D`) |
+
+**O que ficou:** `src/data/persist.ts` (chave **por canal** — o isolamento do invariante nº 2 vira
+estrutural; durabilidade **medida de verdade**, gravando e lendo de volta, com motivo em pt-BR quando
+falha), hidratação e gravação em `client.ts` (no funil único `patchContent` e nas duas portas do
+personagem), e um aviso de durabilidade com `role="status"` na tela de Revisão — para a pessoa saber
+**antes de pagar** se o que ela vai gerar sobrevive a recarregar.
+
+**Por que `localStorage` e não o servidor (declarado, não escondido):** em produção o disco é somente
+leitura e efêmero (`GET /api/ai/settings` → `writable:false`) — gravar no servidor funcionaria só em dev
+e criaria **durabilidade falsa**. A resposta certa é banco de dados, e essa é a **D1**, que segue aberta.
+Limite real de hoje: durável **por navegador e por máquina**.
+
+**Não verificado:** nenhuma conferência **visual** no navegador (não há navegador automatizado nesta
+sessão); o limite "por navegador" é de desenho, não medido em outra máquina; o `docs/04` não descreve a
+durabilidade; e a revisão adversarial do `rebeca-qa` sobre esta correção **não foi executada** — a prova
+por mutação foi feita pelo próprio autor. Evidência: `.rebeca/evidencias/persistencia-do-conteudo.txt`.
 

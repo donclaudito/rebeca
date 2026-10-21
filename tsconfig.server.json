@@ -1,0 +1,14 @@
+{
+  "//": "Compilação do SERVIDOR para o app instalável (ADR-016). Separa o JS do servidor do bundle do navegador: `dist/` é do Vite, `build/` é do tsc, e nada é emitido ao lado dos `.ts`.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "build",
+    "types": ["node"],
+    "declaration": false,
+    "sourceMap": false
+  },
+  "//include": "Só `server/`. Os arquivos de `src/` que o servidor importa (contratos, limites, schemas) entram no programa sozinhos, por serem alcançáveis — e são emitidos no mesmo layout (`build/src/...`), que é o que faz os specifiers `../../src/...` continuarem válidos depois de compilados.",
+  "include": ["server"]
+}

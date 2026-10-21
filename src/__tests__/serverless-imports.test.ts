@@ -59,6 +59,25 @@ const ENTRYPOINTS: ReadonlyArray<{ readonly path: string; readonly shared: strin
 ];
 
 /**
+ * Os entrypoints do **app instalável** (`ADR-016`), pelo mesmo motivo e com a mesma regra.
+ *
+ * Aqui não há builder: o `tsc` emite `build/` e quem executa é o Node puro. A regra do loader ESM é
+ * idêntica — import relativo exige extensão —, então um `import { createLocalServer } from './server'`
+ * (sem `.js`) derrubaria o app instalado com `ERR_MODULE_NOT_FOUND` **na subida**, antes de responder
+ * uma única requisição. E, como no caso da Vercel, nem `tsc` nem o Vite nem o `pnpm dev` pegariam:
+ * `moduleResolution: "bundler"` aceita os dois formatos.
+ *
+ * O `shared` de cada um registra a paridade que importa: o servidor local **não tem rota própria** —
+ * ele alcança exatamente os roteadores que a Vercel executa.
+ */
+const ENTRYPOINTS_LOCAL: ReadonlyArray<{ readonly path: string; readonly shared: string }> = [
+  { path: 'server/local/cli.ts', shared: './server.js' },
+  { path: 'server/local/server.ts', shared: '../ai/http.js' },
+  { path: 'server/local/server.ts', shared: '../media/http.js' },
+  { path: 'server/local/server.ts', shared: '../auth/http.js' },
+];
+
+/**
  * Specifiers relativos, nas quatro formas que o JavaScript/TypeScript aceita.
  *
  * Grupo 1: o prefixo (`from '`, `import('`, `export ... from '`).
@@ -98,11 +117,13 @@ function resolveTarget(file: string, specifier: string): string | null {
   return candidates.find((candidate) => existsSync(candidate)) ?? null;
 }
 
-/** Percorre o grafo a partir dos entrypoints, seguindo só imports relativos. */
-function walkGraph(): { files: string[]; imports: ImportFound[] } {
+/** Percorre o grafo a partir dos entrypoints dados, seguindo só imports relativos. */
+function walkGraph(
+  entrypoints: ReadonlyArray<{ readonly path: string }> = ENTRYPOINTS,
+): { files: string[]; imports: ImportFound[] } {
   const visited = new Set<string>();
   const imports: ImportFound[] = [];
-  const queue = ENTRYPOINTS.map((entry) => join(ROOT, entry.path));
+  const queue = entrypoints.map((entry) => join(ROOT, entry.path));
 
   while (queue.length > 0) {
     const file = queue.pop();
@@ -161,6 +182,69 @@ describe('grafo executado pela Vercel (api/** e server/**)', () => {
       expect(imports.map((found) => found.specifier), `${entry.path} não alcança ${entry.shared}`).toContain(
         entry.shared,
       );
+    }
+  });
+});
+
+/**
+ * O mesmo grafo, agora a partir do servidor do app instalável (`ADR-016`).
+ *
+ * Duas coisas se verificam aqui, e a segunda é a que protege o desenho:
+ *
+ * 1. **Extensão nos imports** — o `tsc` preserva os specifiers que o código escreve; um deles sem `.js`
+ *    vira `ERR_MODULE_NOT_FOUND` quando o Node executa `build/server/local/cli.js`. Nada mais na
+ *    toolchain pega isso.
+ * 2. **Paridade com a Vercel** — o servidor local tem de alcançar **os mesmos** roteadores
+ *    (`server/ai/http.ts`, `server/media/http.ts`, `server/auth/http.ts`). Se algum dia alguém
+ *    "resolver rápido" escrevendo uma rota só para o local, este teste fica vermelho — e é o defeito
+ *    que o projeto já pagou caro para aprender (`pnpm dev` aceitando o que a produção recusa).
+ */
+describe('grafo do servidor do app instalável (ADR-016)', () => {
+  const { files, imports } = walkGraph(ENTRYPOINTS_LOCAL);
+
+  it('alcança o grafo real a partir dos entrypoints do app local', () => {
+    for (const entry of ENTRYPOINTS_LOCAL) {
+      expect(existsSync(join(ROOT, entry.path)), `${entry.path} não existe`).toBe(true);
+    }
+    expect(files.length).toBeGreaterThanOrEqual(14);
+    expect(imports.length).toBeGreaterThanOrEqual(25);
+  });
+
+  it('todo import relativo do grafo local tem extensão explícita .js', () => {
+    const semExtensao = imports.filter((found) => !found.specifier.endsWith('.js'));
+    expect(
+      semExtensao.map((found) => `${found.from}:${found.line} → '${found.specifier}'`),
+      'Import relativo sem extensão quebra o app instalado com ERR_MODULE_NOT_FOUND na subida.',
+    ).toEqual([]);
+  });
+
+  it('todo import relativo do grafo local aponta para arquivo que existe', () => {
+    const quebrados: string[] = [];
+    for (const file of files) {
+      for (const found of findRelativeImports(file)) {
+        if (resolveTarget(file, found.specifier) === null) {
+          quebrados.push(`${found.from}:${found.line} → '${found.specifier}'`);
+        }
+      }
+    }
+    expect(quebrados).toEqual([]);
+  });
+
+  it('o servidor local monta os mesmos roteadores que a Vercel executa', () => {
+    const alcancados = new Set(
+      files.map((file) => relative(ROOT, file).replace(/\\/g, '/')),
+    );
+
+    const roteadores = ['server/ai/http.ts', 'server/media/http.ts', 'server/auth/http.ts'];
+    for (const roteador of roteadores) {
+      expect(alcancados.has(roteador), `o servidor local não alcança ${roteador}`).toBe(true);
+    }
+
+    // E os mesmos roteadores são alcançados pelo grafo da Vercel — é isso que faz "mesma função nos
+    // três plugues" ser fato verificado, e não promessa no comentário.
+    const alcancadosPelaVercel = new Set(walkGraph(ENTRYPOINTS).files.map((file) => relative(ROOT, file).replace(/\\/g, '/')));
+    for (const roteador of roteadores) {
+      expect(alcancadosPelaVercel.has(roteador), `a Vercel não executa ${roteador}`).toBe(true);
     }
   });
 });
